@@ -1,0 +1,97 @@
+.page { width: 100%; }
+
+.hero {
+  background: linear-gradient(135deg, #0D1B2A 0%, #1B3A4B 100%);
+  padding: 3.75rem 3rem; position: relative; overflow: hidden;
+}
+.hero::before {
+  content:''; position:absolute; top:-80px; right:-60px;
+  width:350px; height:350px;
+  background:radial-gradient(circle,rgba(27,153,139,.3) 0%,transparent 70%);
+  border-radius:50%;
+}
+.heroTitle { font-family:'Playfair Display',serif; font-size:2.5rem; color:#fff; margin-bottom:.625rem; position:relative; }
+.heroSub { font-size:1rem; color:rgba(255,255,255,.65); position:relative; }
+
+.main { max-width:800px; margin:0 auto; padding:3rem; }
+
+.formCard { background:#fff; border-radius:20px; padding:2.5rem; box-shadow:0 2px 20px rgba(13,27,42,.08); }
+.cardTitle { font-family:'Playfair Display',serif; font-size:1.5rem; margin-bottom:.375rem; }
+.cardSub { font-size:.875rem; color:#5A706B; margin-bottom:2rem; line-height:1.5; }
+
+.acceptsBox { background:#F0F4F3; border-radius:12px; padding:1.25rem 1.5rem; margin-bottom:2rem; }
+.acceptsTitle { font-size:.875rem; font-weight:600; margin-bottom:.625rem; }
+.acceptsTags { display:flex; flex-wrap:wrap; gap:.5rem; }
+.tag { background:#fff; border:1px solid #E0E8E6; border-radius:6px; padding:4px .75rem; font-size:.8rem; color:#5A706B; }
+
+.section { margin-bottom:1.75rem; }
+.sectionLabel {
+  font-size:.7rem; font-weight:600; color:#1B998B;
+  letter-spacing:.6px; text-transform:uppercase;
+  margin-bottom:.875rem; padding-bottom:.5rem;
+  border-bottom:1.5px solid rgba(27,153,139,.15);
+}
+
+.formRow { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem; }
+.phoneInput { max-width:300px; }
+
+.divider { border:none; border-top:1.5px solid #F0F4F3; margin:1.75rem 0; }
+
+.itemsHeader { display:grid; grid-template-columns:1fr 120px 44px; gap:.75rem; margin-bottom:.625rem; padding:0 4px; }
+.itemsHeader span { font-size:.7rem; font-weight:600; color:#5A706B; text-transform:uppercase; letter-spacing:.4px; }
+
+.itemRow { display:grid; grid-template-columns:1fr 120px 44px; gap:.75rem; margin-bottom:.625rem; align-items:center; }
+
+.itemInput, .qtyInput {
+  height:44px; padding:0 .875rem;
+  border:1.5px solid #E0E8E6; border-radius:9px;
+  font-size:.875rem; font-family:'DM Sans',sans-serif;
+  outline:none; transition:border-color .2s; background:#fff;
+}
+.itemInput:focus, .qtyInput:focus { border-color:#1B998B; }
+.inputError { border-color:#E63946 !important; }
+.qtyInput { text-align:left; }
+
+.removeBtn {
+  width:44px; height:44px; background:none;
+  border:1.5px solid #FFCDD2; border-radius:9px;
+  color:#E63946; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .2s; flex-shrink:0;
+}
+.removeBtn:hover:not(:disabled) { background:#FFEBEE; border-color:#E63946; }
+.removeBtn:disabled { opacity:.3; cursor:not-allowed; }
+
+.itemsError { font-size:.75rem; color:#E63946; margin-top:.375rem; }
+
+.addBtn {
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.5625rem 1.125rem; background:none;
+  border:1.5px dashed rgba(27,153,139,.4); border-radius:9px;
+  color:#1B998B; font-size:.875rem; font-weight:600;
+  cursor:pointer; font-family:'DM Sans',sans-serif;
+  transition:all .2s; margin-top:.25rem;
+}
+.addBtn:hover { background:rgba(27,153,139,.05); border-color:#1B998B; }
+
+.textarea {
+  width:100%; height:90px; padding:.75rem .875rem;
+  border:1.5px solid #E0E8E6; border-radius:9px;
+  font-size:.875rem; font-family:'DM Sans',sans-serif;
+  outline:none; resize:none; transition:border-color .2s;
+  line-height:1.5;
+}
+.textarea:focus { border-color:#1B998B; }
+
+.successContent { text-align:center; }
+.successIcon { font-size:3rem; display:block; margin-bottom:1rem; }
+.successTitle { font-family:'Playfair Display',serif; font-size:1.375rem; margin-bottom:.625rem; }
+.successDesc { font-size:.875rem; color:#5A706B; line-height:1.7; }
+
+@media (max-width:768px) {
+  .hero { padding:3rem 1.5rem; }
+  .main { padding:1.5rem; }
+  .formCard { padding:1.5rem; }
+  .formRow { grid-template-columns:1fr; }
+  .phoneInput { max-width:100%; }
+}

@@ -1,0 +1,43 @@
+# 版本控制
+.git/
+.gitignore        # 可以保留，但忽略也无妨；如果想让 Claude 了解你的忽略规则，可注释掉
+
+# IDE 配置
+.vscode/
+.idea/
+*.sublime-*
+
+# 操作系统元文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 依赖目录
+node_modules/
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+
+# 构建输出
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 环境变量文件（可能包含敏感信息）
+.env
+.env.local
+.env.*.local
+
+# 包管理器锁文件（可选，有时需要让 AI 了解版本）
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml

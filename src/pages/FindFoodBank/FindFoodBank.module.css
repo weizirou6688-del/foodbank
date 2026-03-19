@@ -1,0 +1,168 @@
+.page { width: 100%; }
+
+.hero {
+  background: linear-gradient(135deg, #0D1B2A 0%, #1B3A4B 100%);
+  padding: 3.75rem 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -80px; right: -60px;
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(27,153,139,.3) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.heroTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.5rem;
+  color: #fff;
+  margin-bottom: 0.625rem;
+  position: relative;
+}
+
+.heroSub {
+  font-size: 1rem;
+  color: rgba(255,255,255,.65);
+  position: relative;
+}
+
+.main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 3rem;
+}
+
+.searchCard {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 2px 16px rgba(13,27,42,.06);
+  margin-bottom: 2.5rem;
+}
+
+.searchTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.375rem;
+  margin-bottom: 1.25rem;
+}
+
+.searchRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.postcodeInput {
+  flex: 1;
+  max-width: 380px;
+  height: 50px;
+  padding: 0 1rem;
+  border: 2px solid #E0E8E6;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.postcodeInput:focus { border-color: #1B998B; }
+
+.resultsCount {
+  font-size: 0.875rem;
+  color: #5A706B;
+  margin-bottom: 1.25rem;
+}
+
+.fbGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.fbCard {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 2px 16px rgba(13,27,42,.06);
+  border: 1.5px solid transparent;
+  transition: all 0.25s;
+}
+
+.fbCard:hover {
+  border-color: rgba(27,153,139,.25);
+  box-shadow: 0 8px 30px rgba(27,153,139,.12);
+  transform: translateY(-2px);
+}
+
+.fbName {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.fbAddr {
+  font-size: 0.875rem;
+  color: #5A706B;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.fbHours {
+  border-top: 1px solid #F0F4F3;
+  padding-top: 0.875rem;
+  margin: 0.875rem 0;
+}
+
+.fbHours strong {
+  font-size: 0.8rem;
+  display: block;
+  margin-bottom: 0.375rem;
+  color: #0D1B2A;
+}
+
+.fbHours p {
+  font-size: 0.8rem;
+  color: #5A706B;
+  margin-bottom: 2px;
+}
+
+.fbActions {
+  display: flex;
+  gap: 0.875rem;
+  align-items: center;
+}
+
+.mapLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.875rem;
+  color: #1B998B;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.mapLink:hover { text-decoration: underline; }
+
+.emptyState {
+  text-align: center;
+  padding: 3.75rem 0;
+  color: #9BADA9;
+}
+
+.emptyIcon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .hero { padding: 3rem 1.5rem; }
+  .main { padding: 1.5rem; }
+  .searchRow { flex-direction: column; align-items: stretch; }
+  .postcodeInput { max-width: 100%; }
+}
