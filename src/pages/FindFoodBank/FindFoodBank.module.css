@@ -1,0 +1,111 @@
+.page { width: 100%; background: #F5F5F5; min-height: calc(100vh - 72px); }
+
+/* Page header - white, clean */
+.pageHeader {
+  background: #fff;
+  border-bottom: 1.5px solid #E8E8E8;
+  padding: 2.5rem 2rem 2rem;
+}
+.pageTitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2rem);
+  font-weight: 800;
+  color: #1A1A1A;
+  margin-bottom: 0.375rem;
+}
+.pageSub { font-size: 0.95rem; color: #6b7280; }
+
+.main { max-width: 1280px; margin: 0 auto; padding: 2rem; }
+
+/* Search card */
+.searchCard {
+  background: #fff;
+  border: 1.5px solid #E8E8E8;
+  border-radius: 12px;
+  padding: 1.75rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.searchTitle { font-size: 1rem; font-weight: 700; color: #1A1A1A; margin-bottom: 1rem; }
+.searchRow { display: flex; gap: 0.75rem; align-items: center; }
+
+.postcodeInput {
+  flex: 1; max-width: 380px;
+  height: 48px; padding: 0 1rem;
+  border: 1.5px solid #E8E8E8; border-radius: 8px;
+  font-size: 0.875rem; font-family: 'DM Sans', sans-serif;
+  outline: none; background: #fff; color: #1A1A1A;
+  transition: border-color 0.2s;
+}
+.postcodeInput:focus { border-color: #F7DC6F; }
+.postcodeInput::placeholder { color: #9CA3AF; }
+
+.searchBtn {
+  height: 48px; padding: 0 1.5rem;
+  background: #F7DC6F; color: #1A1A1A;
+  border: none; border-radius: 8px;
+  font-size: 0.875rem; font-weight: 700;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s; white-space: nowrap;
+}
+.searchBtn:hover { background: #F0C419; }
+.searchBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Results */
+.resultsCount { font-size: 0.875rem; color: #6b7280; margin-bottom: 1.25rem; }
+
+.fbGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem; }
+
+.fbCard {
+  background: #fff;
+  border: 1.5px solid #E8E8E8; border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.fbCard:hover { border-color: #F7DC6F; box-shadow: 0 4px 16px rgba(247,220,111,.2); }
+
+.fbName { font-size: 1rem; font-weight: 700; color: #1A1A1A; margin-bottom: 0.375rem; }
+.fbAddr { font-size: 0.8rem; color: #6b7280; margin-bottom: 0.75rem; line-height: 1.5; }
+
+.distanceBadge {
+  display: inline-block;
+  background: #FEF9C3; color: #78350F;
+  border: 1px solid #F7DC6F;
+  border-radius: 9999px; padding: 3px 10px;
+  font-size: 0.75rem; font-weight: 600;
+  margin-bottom: 0.875rem;
+}
+
+.fbHours { border-top: 1px solid #F0F0F0; padding-top: 0.75rem; margin: 0.75rem 0; }
+.fbHours strong { font-size: 0.75rem; display: block; margin-bottom: 0.375rem; color: #1A1A1A; }
+.fbHours p { font-size: 0.75rem; color: #6b7280; margin-bottom: 2px; }
+
+.fbActions { display: flex; gap: 0.75rem; align-items: center; margin-top: 0.875rem; }
+
+.viewBtn {
+  background: #F7DC6F; color: #1A1A1A;
+  border: none; border-radius: 8px;
+  padding: 0.5rem 1rem; font-size: 0.8rem; font-weight: 700;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s;
+}
+.viewBtn:hover { background: #F0C419; }
+
+.mapLink {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.8rem; color: #6b7280; font-weight: 500; text-decoration: none;
+  transition: color 0.2s;
+}
+.mapLink:hover { color: #1A1A1A; }
+
+/* Empty state */
+.emptyState { text-align: center; padding: 4rem 0; color: #9CA3AF; }
+.emptyIcon { font-size: 2.5rem; display: block; margin-bottom: 0.875rem; }
+
+@media (max-width: 768px) {
+  .pageHeader { padding: 2rem 1.5rem 1.5rem; }
+  .main { padding: 1.5rem; }
+  .searchRow { flex-direction: column; align-items: stretch; }
+  .postcodeInput { max-width: 100%; }
+}
