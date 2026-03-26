@@ -29,8 +29,29 @@ npm run build
 | Role        | Email                    | Password   |
 |-------------|--------------------------|------------|
 | Admin       | admin@foodbank.com       | admin123   |
-| Supermarket | market@foodbank.com      | market123  |
+| Supermarket | supermarket@foodbank.com | supermarket123 |
 | Public User | user@example.com         | user123    |
+
+## Password Prompts And Where Passwords Are Stored
+
+When the terminal asks for a password, use this mapping:
+
+- If terminal shows `[sudo] password for codespace:`
+- If terminal shows `[sudo] codespace 密码：`
+- Input: `codespace`
+
+- If terminal asks for PostgreSQL user `foodbank` password:
+- Input: `foodbank`
+
+- Frontend demo login passwords:
+- See `src/data/mockData.ts` (line 5 and below)
+
+Password and key locations in this project:
+
+- System sudo password: not stored in project files (system account credential)
+- PostgreSQL connection username/password: `.env` -> `DATABASE_URL`
+- JWT signing key: `.env` -> `SECRET_KEY`
+- Frontend demo account passwords: `src/data/mockData.ts`
 
 ## Project Structure
 
