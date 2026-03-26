@@ -16,9 +16,6 @@
 ✅ 添加 packPackage(id, quantity) - 打包 API
    └─ POST /api/v1/packages/{id}/pack
 
-✅ 添加 adjustInventoryLot(lotId, data) - 库存批次调整 API
-   └─ PATCH /api/v1/inventory/lots/{lotId}
-
 ✅ 添加 getLowStockItems(threshold) - 低库存警报 API
    └─ GET /api/v1/inventory/low-stock?threshold={threshold}
 
