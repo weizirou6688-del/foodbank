@@ -177,3 +177,39 @@ def _init_models() -> None:
 
 
 _init_models()
+
+
+# ==================== PACK PACKAGE SCHEMAS ====================
+# Used for admin packing operation: POST /packages/{id}/pack
+
+class PackRequest(BaseModel):
+    """Request for packing packages from inventory lots."""
+    quantity: int = Field(
+        gt=0,
+        description="Number of packages to pack (deduct ingredients from inventory lots)"
+    )
+
+
+class ConsumedLotDetail(BaseModel):
+    """Details of an inventory lot consumed during packing."""
+    item_id: int = Field(description="Inventory item ID")
+    lot_id: int = Field(description="Inventory lot ID")
+    quantity_used: int = Field(description="Quantity deducted from this lot")
+    remaining_in_lot: int = Field(description="Remaining quantity in lot after deduction")
+    expiry_date: str = Field(description="Expiry date of the lot")
+    batch_reference: str | None = Field(default=None, description="Batch reference code")
+
+
+class PackResponse(BaseModel):
+    """Response after successful packing operation."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    package_id: int = Field(description="Package ID")
+    package_name: str = Field(description="Package name")
+    quantity: int = Field(description="Number of packages packed")
+    new_stock: int = Field(description="Updated stock after packing")
+    consumed_lots: list[ConsumedLotDetail] = Field(
+        description="Details of inventory lots consumed during packing"
+    )
+    timestamp: str = Field(description="Operation timestamp (ISO format)")
+
