@@ -23,7 +23,10 @@ from app.schemas.food_package import (
     FoodPackageOut,
     PackageContentOut,
     FoodPackageUpdate,
+    PackRequest,
+    PackResponse,
 )
+from app.services.pack_service import pack_package_transaction
 
 
 router = APIRouter(tags=["Food Packages"])
@@ -208,3 +211,63 @@ async def delete_package(
     await db.flush()
     
     return None
+
+
+@router.post("/packages/{package_id}/pack", response_model=PackResponse, status_code=status.HTTP_200_OK)
+async def pack_package(
+    package_id: int,
+    pack_in: PackRequest,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Pack food packages by deducting ingredients from inventory lots (admin only).
+    
+    Spec § 2.3: POST /packages/:id/pack (admin only, atomic operation)
+    
+    This endpoint converts inventory lot items into pre-assembled food packages
+    following the FEFO (First Expiry First Out) principle. Admin provides the
+    number of packages to pack, and the service automatically deducts required
+    ingredients from inventory lots and increases package stock.
+    
+    Transaction flow:
+    1. Fetch package and verify it's active
+    2. For each ingredient in package recipe:
+       - Calculate required quantity (recipe_qty × packages_to_pack)
+       - Get inventory lots sorted by expiry_date (FEFO)
+       - Verify sufficient inventory
+       - Deduct from lots in order, soft-delete empty lots
+    3. Increase package stock
+    4. Return updated package
+    
+    If any ingredient lacks sufficient inventory, entire transaction
+    is rolled back and a 400 error is returned.
+    
+    Args:
+        package_id: ID of the package to pack
+        pack_in: PackRequest with quantity (number of packages to pack)
+        admin_user: Current authenticated admin user
+        db: Database session
+        
+    Returns:
+        PackResponse with updated package details and consumed lots
+        
+    Raises:
+        404: Package not found
+        400: Insufficient inventory for an ingredient
+    """
+    _ = admin_user
+    
+    try:
+        result = await pack_package_transaction(package_id, pack_in.quantity, db)
+        return PackResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )

@@ -11,7 +11,7 @@ from datetime import date, datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,8 @@ from app.core.security import get_current_user, require_admin
 from app.models.application import Application
 from app.models.application_item import ApplicationItem
 from app.models.food_package import FoodPackage
+from app.models.inventory_lot import InventoryLot
+from app.models.package_item import PackageItem
 from app.schemas.application import ApplicationCreate, ApplicationOut, ApplicationUpdate
 
 
@@ -65,6 +67,82 @@ def _extract_user_id(current_user: dict | object) -> uuid.UUID:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid user identifier in token",
         ) from exc
+
+
+async def _deduct_inventory_lots_by_fefo(
+    db: AsyncSession,
+    package_id: int,
+    quantity: int,
+) -> None:
+    """
+    Deduct inventory lots for a package following FEFO (First Expiry First Out) principle.
+    
+    Strategy:
+    1. Get the package's recipe (package_items)
+    2. For each ingredient, calculate required quantity
+    3. Get inventory lots for that ingredient, ordered by expiry_date (FEFO)
+    4. Deduct from lots in order until quantity is satisfied
+    
+    Args:
+        db: AsyncSession database connection
+        package_id: The food package ID
+        quantity: Number of packages to fulfill
+        
+    Raises:
+        HTTPException if insufficient inventory to fulfill the request
+    """
+    # Get package recipe: all ingredients and their quantities
+    recipe_result = await db.execute(
+        select(PackageItem).where(PackageItem.package_id == package_id)
+    )
+    recipe_items = recipe_result.scalars().all()
+    
+    if not recipe_items:
+        # Package has no ingredients - no inventory needed
+        return
+    
+    # For each ingredient in the recipe
+    for recipe_item in recipe_items:
+        # Calculate total quantity needed for all packages
+        required_qty = recipe_item.quantity * quantity
+        
+        # Get available lots for this ingredient, ordered by expiry_date (FEFO)
+        # Exclude deleted lots (soft delete)
+        lots_result = await db.execute(
+            select(InventoryLot)
+            .where(
+                and_(
+                    InventoryLot.inventory_item_id == recipe_item.inventory_item_id,
+                    InventoryLot.deleted_at.is_(None),
+                )
+            )
+            .order_by(InventoryLot.expiry_date)
+            .with_for_update()
+        )
+        available_lots = lots_result.scalars().all()
+        
+        # Check if total available inventory is sufficient
+        total_available = sum(lot.quantity for lot in available_lots)
+        if total_available < required_qty:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient inventory for ingredient {recipe_item.inventory_item_id} "
+                       f"(need {required_qty}, available {total_available})",
+            )
+        
+        # Deduct from lots in FEFO order
+        remaining_to_deduct = required_qty
+        for lot in available_lots:
+            if remaining_to_deduct <= 0:
+                break
+            
+            deduct_amount = min(lot.quantity, remaining_to_deduct)
+            lot.quantity -= deduct_amount
+            remaining_to_deduct -= deduct_amount
+            
+            # If lot is now empty, mark as deleted (soft delete)
+            if lot.quantity == 0:
+                lot.deleted_at = datetime.now().astimezone()
 
 
 @router.post("", response_model=ApplicationOut, status_code=status.HTTP_201_CREATED)
@@ -165,6 +243,7 @@ async def submit_application(
                     detail="Provided food_bank_id does not match selected packages",
                 )
 
+            # Check package stock and deduct inventory lots (batches) following FEFO
             for package_id, requested_qty in requested_by_package.items():
                 package = packages[package_id]
 
@@ -173,6 +252,9 @@ async def submit_application(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Insufficient stock for package {package_id}",
                     )
+                
+                # Deduct inventory lots following FEFO principle
+                await _deduct_inventory_lots_by_fefo(db, package_id, requested_qty)
 
             redemption_code = await _generate_unique_redemption_code(db)
 
@@ -187,6 +269,7 @@ async def submit_application(
             db.add(application)
             await db.flush()
 
+            # Deduct package stock and create application items
             for package_id, requested_qty in requested_by_package.items():
                 package = packages[package_id]
                 package.stock -= requested_qty
