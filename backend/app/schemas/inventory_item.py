@@ -107,3 +107,35 @@ class StockAdjustment(BaseModel):
     
     # Reason/notes for the adjustment
     reason: str = Field(min_length=1, max_length=500, description="Reason for stock adjustment")
+
+
+# Schema for low-stock alert response.
+class LowStockItem(BaseModel):
+    """
+    Response schema for low-stock items in GET /inventory/low-stock.
+    
+    Represents an inventory item with current total stock that is below
+    the specified threshold.
+    """
+    model_config = ConfigDict(from_attributes=True)
+    
+    # Inventory item ID
+    id: int
+    
+    # Item name
+    name: str
+    
+    # Item category
+    category: InventoryCategory
+    
+    # Unit of measure
+    unit: str
+    
+    # Current total stock (sum of active lots)
+    current_stock: int = Field(description="Total quantity from active lots")
+    
+    # Stock threshold level
+    threshold: int = Field(description="Stock level threshold")
+    
+    # Difference: how much below threshold
+    stock_deficit: int = Field(description="Amount below threshold")

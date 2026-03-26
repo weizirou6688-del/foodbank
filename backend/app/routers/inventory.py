@@ -4,21 +4,24 @@ Inventory management routes.
 Spec § 2.6: GET (list items), POST, PATCH, POST /:id/in, POST /:id/out, DELETE
 """
 
+from datetime import date
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import require_admin
 from app.models.inventory_item import InventoryItem
+from app.models.inventory_lot import InventoryLot
 from app.models.package_item import PackageItem
 from app.schemas.inventory_item import (
     InventoryItemCreateRequest,
     InventoryItemOut,
     InventoryItemUpdate,
+    LowStockItem,
     StockAdjustment,
 )
 
@@ -300,4 +303,103 @@ async def delete_inventory_item(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete inventory item",
+        ) from exc
+
+
+@router.get("/low-stock", response_model=List[LowStockItem])
+async def get_low_stock_items(
+    threshold: int | None = Query(None, ge=0, description="Override default threshold"),
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List inventory items with stock below threshold (admin only).
+    
+    Spec § 2.6: GET /inventory/low-stock (requires admin).
+    
+    Returns items where total active stock (non-expired lots) is below threshold.
+    Supports optional threshold parameter to override per-item thresholds.
+    
+    Query logic:
+    - Calculate SUM(quantity) for each item where:
+      * status='active' (deleted_at IS NULL)
+      * expiry_date >= CURRENT_DATE (not expired)
+    - Filter items with total_stock < item.threshold (or override threshold if provided)
+    - Return sorted by stock_deficit DESC (most critical first)
+    """
+    _ = admin_user
+    
+    try:
+        # Subquery: Calculate total stock for each inventory item
+        # Sum quantities from active, non-expired lots
+        stock_subquery = (
+            select(
+                InventoryLot.inventory_item_id,
+                func.coalesce(func.sum(InventoryLot.quantity), 0).label("total_stock"),
+            )
+            .where(
+                and_(
+                    InventoryLot.deleted_at.is_(None),  # Active lots only
+                    InventoryLot.expiry_date >= date.today(),  # Not expired
+                )
+            )
+            .group_by(InventoryLot.inventory_item_id)
+            .subquery()
+        )
+
+        # Main query: Get items with low stock
+        query = select(
+            InventoryItem.id,
+            InventoryItem.name,
+            InventoryItem.category,
+            InventoryItem.unit,
+            stock_subquery.c.total_stock.label("current_stock"),
+            InventoryItem.threshold,
+            (
+                InventoryItem.threshold - stock_subquery.c.total_stock
+            ).label("stock_deficit"),
+        ).join(
+            stock_subquery,
+            InventoryItem.id == stock_subquery.c.inventory_item_id,
+            isouter=True,
+        )
+
+        # Apply threshold filter
+        effective_threshold = threshold if threshold is not None else None
+        if effective_threshold is not None:
+            # Use provided threshold for all items
+            query = query.where(stock_subquery.c.total_stock < effective_threshold)
+        else:
+            # Use per-item threshold
+            query = query.where(stock_subquery.c.total_stock < InventoryItem.threshold)
+
+        # Sort by stock deficit (most critical first)
+        query = query.order_by(
+            (InventoryItem.threshold - stock_subquery.c.total_stock).desc()
+        )
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        # Convert rows to LowStockItem objects
+        low_stock_items = []
+        for row in rows:
+            low_stock_items.append(
+                LowStockItem(
+                    id=row[0],  # InventoryItem.id
+                    name=row[1],  # InventoryItem.name
+                    category=row[2],  # InventoryItem.category
+                    unit=row[3],  # InventoryItem.unit
+                    current_stock=int(row[4] or 0),  # stock_subquery.c.total_stock
+                    threshold=row[5],  # InventoryItem.threshold
+                    stock_deficit=int(row[6] or 0),  # stock_deficit
+                )
+            )
+
+        return low_stock_items
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve low-stock items",
         ) from exc

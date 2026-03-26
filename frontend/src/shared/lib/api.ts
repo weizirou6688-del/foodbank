@@ -125,6 +125,12 @@ export const adminAPI = {
     token: string
   ) => apiClient.delete(`/api/v1/packages/${id}`, token),
 
+  packPackage: (
+    id: number | string,
+    quantity: number,
+    token: string
+  ) => apiClient.post(`/api/v1/packages/${id}/pack`, { quantity }, token),
+
   getInventoryItems: (token: string) =>
     apiClient.get('/api/v1/inventory/items', token),
 
@@ -138,4 +144,37 @@ export const adminAPI = {
     id: number | string,
     token: string
   ) => apiClient.delete(`/api/v1/inventory/${id}`, token),
+
+  adjustInventoryLot: (
+    lotId: number | string,
+    data: Record<string, any>,
+    token: string
+  ) => apiClient.patch(`/api/v1/inventory/lots/${lotId}`, data, token),
+
+  getLowStockItems: (token: string, threshold?: number) => {
+    const url = threshold !== undefined 
+      ? `/api/v1/inventory/low-stock?threshold=${threshold}`
+      : '/api/v1/inventory/low-stock'
+    return apiClient.get(url, token)
+  },
+}
+
+export const applicationsAPI = {
+  submitApplication: (
+    data: {
+      food_bank_id: number
+      week_start?: string // ISO 8601 date string (YYYY-MM-DD)
+      items: Array<{ package_id: number; quantity: number }>
+    },
+    token: string
+  ) => apiClient.post('/api/v1/applications', data, token),
+
+  getMyApplications: (token: string) =>
+    apiClient.get('/api/v1/applications/my', token),
+
+  updateApplicationStatus: (
+    id: number | string,
+    data: { status: 'collected' | 'expired' },
+    token: string
+  ) => apiClient.patch(`/api/v1/applications/${id}`, data, token),
 }
