@@ -7,7 +7,7 @@ Spec § 2.4: POST (submit), GET /my (user's), PATCH/:id (admin status update)
 import secrets
 import string
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -79,15 +79,20 @@ async def submit_application(
     Spec § 2.4: POST /applications (requires auth, any user role).
     
     ApplicationCreate includes:
-    - items: List[ApplicationItemCreatePayload] (family_member_count, applicant_email)
-    - weekly_period: ISO week string (YYYY-Www)
+    - items: List[ApplicationItemCreatePayload]
+    - week_start: DATE (week start date in YYYY-MM-DD format)
     
-    TODO: Validate weekly_period format, verify <= 1 active app per user per week
+    TODO: Verify <= 1 active app per user per week
     """
     user_id = _extract_user_id(current_user)
 
-    iso_year, iso_week, _ = datetime.now().isocalendar()
-    weekly_period = f"{iso_year}-W{iso_week:02d}"
+    # Use provided week_start or generate from current date (Monday of current week)
+    week_start = application_in.week_start
+    if week_start is None:
+        today = date.today()
+        # Calculate Monday of the current week (0=Monday, 1=Tuesday, ..., 6=Sunday)
+        days_since_monday = today.weekday()
+        week_start = date.fromordinal(today.toordinal() - days_since_monday)
 
     total_quantity = sum(item.quantity for item in application_in.items)
     if total_quantity <= 0:
@@ -107,7 +112,7 @@ async def submit_application(
             existing_week_total = await db.scalar(
                 select(func.coalesce(func.sum(Application.total_quantity), 0)).where(
                     Application.user_id == user_id,
-                    Application.weekly_period == weekly_period,
+                    Application.week_start == week_start,
                 )
             )
             existing_week_total = int(existing_week_total or 0)
@@ -176,7 +181,7 @@ async def submit_application(
                 food_bank_id=food_bank_id,
                 redemption_code=redemption_code,
                 status="pending",
-                weekly_period=weekly_period,
+                week_start=week_start,
                 total_quantity=total_quantity,
             )
             db.add(application)

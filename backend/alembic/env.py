@@ -9,7 +9,7 @@ from logging.config import fileConfig
 from pathlib import Path
 import sys
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, create_engine
 from alembic import context
 
 # Add parent directory to path so we can import app modules
@@ -27,8 +27,15 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set the SQLAlchemy URL from settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Convert async database URL to sync URL for Alembic (Alembic is synchronous)
+def get_sync_database_url(async_url: str) -> str:
+    """Convert async PostgreSQL URL to sync URL for Alembic."""
+    # Replace asyncpg with psycopg2 (synchronous driver, already in requirements.txt)
+    return async_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+
+# Set the SQLAlchemy URL from settings (converted to sync)
+sync_database_url = get_sync_database_url(settings.database_url)
+config.set_main_option("sqlalchemy.url", sync_database_url)
 
 # Model's MetaData object for 'autogenerate' support
 target_metadata = Base.metadata
@@ -57,70 +64,35 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection) -> None:
-    """Helper function to execute migrations given a connection."""
-    context.configure(
-        connection=connection,
-        target_metadata=target_metadata,
-    )
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-async def run_migrations_online() -> None:
+def run_migrations_online() -> None:
     """
     Run migrations in 'online' mode.
     
     In this scenario we need to create an Engine and associate
     a connection with the context.
-    
-    Note: For async engine support, we create a sync-style connection
-    from the async engine using a special approach.
     """
-    # For a standard (non-async) connection setup:
+    # Get configuration and set the sync URL
     configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = settings.database_url
+    configuration["sqlalchemy.url"] = sync_database_url
     
+    # Create engine for synchronous migrations
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        strategy="mock",
-        executor=do_run_migrations,
     )
 
-    with connectable.connect() as connection:
-        do_run_migrations(connection)
+    with connectable.begin() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+        )
+        
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    # For async support, use run_migrations_online() within asyncio context
-    # For now, fallback to simple sync-style approach
-    # In production, you may want to handle async engine separately
-    import asyncio
-    
-    async def run_async():
-        """Run async migrations."""
-        # For async PostgreSQL, temporarily use sync-style migration
-        # by connecting through the engine
-        from sqlalchemy import create_engine
-        
-        # Convert async URL to sync URL for Alembic
-        sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
-        
-        engine = create_engine(sync_url, poolclass=pool.NullPool)
-        
-        with engine.begin() as connection:
-            context.configure(
-                connection=connection,
-                target_metadata=target_metadata,
-            )
-            
-            with context.begin_transaction():
-                context.run_migrations()
-    
-    # Run async migration
-    asyncio.run(run_async())
+    run_migrations_online()

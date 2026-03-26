@@ -82,3 +82,5 @@
 - 本项目采用 **前后端分离**，后端 API 前缀通常为 `/api`，前端通过 `services/api.ts` 调用。
 - 后端模型（`backend/app/models/`）与 Schema（`backend/app/schemas/`）一一对应，修改时需保持同步。
 - 前端页面（`pages/`）应尽量保持逻辑简单，复杂逻辑可抽取到 `services/` 或 `store/`。
+
+每当你完成一个独立功能的开发，或修复完一个 Bug 并验证通过后，请自动运行 git commit 提交代码，并生成一句简洁的中文 commit message。

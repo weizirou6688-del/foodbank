@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from pathlib import Path
 import sys
 
@@ -75,7 +76,7 @@ async def test_get_my_applications_returns_rows():
         food_bank_id=1,
         redemption_code="FB-ABC123",
         status="pending",
-        weekly_period="2026-W12",
+        week_start=date(2026, 3, 16),  # Monday of W12
         total_quantity=1,
     )
     app2 = Application(
@@ -84,7 +85,7 @@ async def test_get_my_applications_returns_rows():
         food_bank_id=1,
         redemption_code="FB-DEF456",
         status="collected",
-        weekly_period="2026-W11",
+        week_start=date(2026, 3, 9),  # Monday of W11
         total_quantity=2,
     )
 
@@ -104,7 +105,7 @@ async def test_update_application_status_success():
         food_bank_id=1,
         redemption_code="FB-ABC123",
         status="pending",
-        weekly_period="2026-W12",
+        week_start=date(2026, 3, 16),  # Monday of W12
         total_quantity=1,
     )
     db = FakeUpdateSession(app_row=app_row, code_owner=None)
@@ -145,7 +146,7 @@ async def test_update_application_status_code_conflict():
         food_bank_id=1,
         redemption_code="FB-ABC123",
         status="pending",
-        weekly_period="2026-W12",
+        week_start=date(2026, 3, 16),  # Monday of W12
         total_quantity=1,
     )
     db = FakeUpdateSession(app_row=app_row, code_owner=uuid.uuid4())
@@ -172,7 +173,7 @@ async def test_update_application_status_empty_payload_rejected():
             food_bank_id=1,
             redemption_code="FB-ABC123",
             status="pending",
-            weekly_period="2026-W12",
+            week_start=date(2026, 3, 16),  # Monday of W12
             total_quantity=1,
         )
     )

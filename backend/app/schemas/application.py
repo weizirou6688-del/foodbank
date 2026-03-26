@@ -2,18 +2,18 @@
 Pydantic schemas for Application entity validation and serialization.
 
 These schemas handle:
-- ApplicationCreate: Client submits food_bank_id, weekly_period, total_quantity.
+- ApplicationCreate: Client submits food_bank_id, week_start, total_quantity.
   Redemption code generated server-side; user_id from auth context.
 - ApplicationUpdate: Admin updates status (pending->collected/expired) or regenerates code.
 - ApplicationOut: Response includes all application details with timestamps.
 
 Redemption code format enforced: 'FB-' + 6 alphanumeric characters (per spec).
 Status lifecycle: pending -> collected (or expired).
-Weekly period enforces business rule: max 3 packages per user per week.
+Week start enforces business rule: max 3 packages per user per week.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -48,14 +48,12 @@ class ApplicationBase(BaseModel):
     # Regex enforces one of three allowed values.
     status: str = Field(default="pending", pattern="^(pending|collected|expired)$")
 
-    # From spec: weekly_period: VARCHAR(10), NOT NULL
-    # ISO week or date range (e.g., "2026-W12" or "2026-03-17").
+    # From spec § 1.8: week_start: DATE, NOT NULL
+    # Start date of the week when application was submitted.
     # Used to enforce weekly limit: max 3 packages per user per week.
-    # Validation: ISO week format YYYY-Www.
-    weekly_period: str = Field(
-        min_length=1, max_length=10,
-        pattern=r"^\d{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$",
-        description="ISO week format: YYYY-Www"
+    # Pydantic automatically validates date format (YYYY-MM-DD).
+    week_start: date = Field(
+        description="Week start date in YYYY-MM-DD format"
     )
 
     # From spec: total_quantity: INTEGER, NOT NULL
@@ -74,12 +72,12 @@ class ApplicationCreate(BaseModel):
     # Client specifies which food bank they're applying to.
     food_bank_id: int = Field(gt=0)
 
-    # From spec: weekly_period: VARCHAR(10), NOT NULL
-    # Client specifies the weekly period (or server generates from current week).
-    weekly_period: str = Field(
-        min_length=1, max_length=10,
-        pattern=r"^\d{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$",
-        description="ISO week format: YYYY-Www (e.g., 2026-W12)"
+    # From spec § 1.8: week_start: DATE, NOT NULL
+    # Client specifies the week start date (or server generates from current week).
+    # If not provided, server will generate from current date (Monday of current week).
+    week_start: date | None = Field(
+        default=None,
+        description="Week start date in YYYY-MM-DD format (e.g., 2026-03-17). If not provided, uses Monday of current week"
     )
 
     # From spec § 1.8: application_items — client submits which packages & quantities.
@@ -117,3 +115,9 @@ class ApplicationOut(ApplicationBase):
     # From spec: created_at: TIMESTAMP, NOT NULL, DEFAULT NOW()
     # Audit field: when application was submitted.
     created_at: datetime
+
+    # Audit field: when application was last updated.
+    updated_at: datetime
+
+    # Soft-delete field: null if active, timestamp if soft-deleted.
+    deleted_at: datetime | None = None

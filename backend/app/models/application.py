@@ -12,9 +12,9 @@ limiting 3 packages per user per week.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -76,11 +76,12 @@ class Application(Base):
     # index=True enables quick filtering by status (e.g., "find expired").
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'pending'"), index=True)
 
-    # From spec: weekly_period: VARCHAR(10), NOT NULL
-    # ISO week identifier (e.g., "2026-W12") or date range.
+    # From spec § 1.8: week_start: DATE, NOT NULL
+    # Start date of the week when application was submitted.
+    # Replaces ISO week identifier (weekly_period) for better range query support.
     # Enables business rule enforcement: max 3 packages per user per week.
     # index=True enables queries like "find applications in week X".
-    weekly_period: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    week_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
 
     # From spec: total_quantity: INTEGER, NOT NULL
     # Total number of packages in this application.
@@ -94,6 +95,21 @@ class Application(Base):
         DateTime(timezone=False),
         nullable=False,
         server_default=text("now()"),
+    )
+
+    # Audit field: records when application was last updated.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+
+    # Soft-delete field: null if active, timestamp if soft-deleted.
+    # Enables logical deletion while maintaining referential integrity.
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
     )
 
     # Relationship: Application -> User (many-to-one)
