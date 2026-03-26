@@ -72,56 +72,7 @@ try {
 
 ---
 
-### 2. 库存批次调整 API (`adjustInventoryLot`)
-
-**位置**: `adminAPI.adjustInventoryLot`
-
-**功能**: 调整特定库存批次（批号）的数量或属性
-
-**方法签名**:
-```typescript
-adjustInventoryLot(lotId: number | string, data: Record<string, any>, token: string): Promise<any>
-```
-
-**参数**:
-- `lotId`: 库存批次的 ID
-- `data`: 调整数据（如 quantity、reason 等）
-- `token`: 认证令牌（管理员权限）
-
-**请求**:
-```
-PATCH /api/v1/inventory/lots/{lotId}
-Authorization: Bearer {token}
-Content-Type: application/json
-
-{
-  "quantity": 50,
-  "reason": "报损调整"
-}
-```
-
-**使用示例**:
-```typescript
-import { adminAPI } from '@/services/api'
-
-try {
-  const response = await adminAPI.adjustInventoryLot(
-    101,           // 批次 ID
-    {
-      quantity: 45, // 新数量
-      reason: '盘点后修正' // 调整原因
-    },
-    authToken      // 管理员令牌
-  )
-  console.log('库存批次已调整:', response)
-} catch (error) {
-  console.error('调整失败:', error.message)
-}
-```
-
----
-
-### 3. 低库存警报 API (`getLowStockItems`)
+### 2. 低库存警报 API (`getLowStockItems`)
 
 **位置**: `adminAPI.getLowStockItems`
 

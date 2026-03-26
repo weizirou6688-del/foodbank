@@ -145,12 +145,6 @@ export const adminAPI = {
     token: string
   ) => apiClient.delete(`/api/v1/inventory/${id}`, token),
 
-  adjustInventoryLot: (
-    lotId: number | string,
-    data: Record<string, any>,
-    token: string
-  ) => apiClient.patch(`/api/v1/inventory/lots/${lotId}`, data, token),
-
   getLowStockItems: (token: string, threshold?: number) => {
     const url = threshold !== undefined 
       ? `/api/v1/inventory/low-stock?threshold=${threshold}`
