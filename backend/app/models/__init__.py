@@ -8,6 +8,7 @@ from .food_bank import FoodBank
 from .food_bank_hour import FoodBankHour
 from .food_package import FoodPackage
 from .inventory_item import InventoryItem
+from .inventory_lot import InventoryLot
 from .package_item import PackageItem
 from .restock_request import RestockRequest
 from .user import User
@@ -23,6 +24,7 @@ __all__ = [
     "FoodBankHour",
     "FoodPackage",
     "InventoryItem",
+    "InventoryLot",
     "PackageItem",
     "RestockRequest",
     "User",

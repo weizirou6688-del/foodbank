@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 import sys
 
@@ -74,9 +74,11 @@ class FakeSession:
         return None
 
 
-def _iso_week_now():
-    year, week, _ = datetime.now().isocalendar()
-    return f"{year}-W{week:02d}"
+def _week_start_now():
+    """Get Monday of current week."""
+    today = date.today()
+    days_since_monday = today.weekday()
+    return date.fromordinal(today.toordinal() - days_since_monday)
 
 
 @pytest.mark.asyncio
@@ -95,7 +97,7 @@ async def test_submit_application_success_deducts_stock_and_creates_rows():
 
     application_in = ApplicationCreate(
         food_bank_id=10,
-        weekly_period="1999-W01",  # endpoint should ignore this and use current ISO week
+        week_start=None,  # endpoint should ignore this and use current week Monday
         items=[
             ApplicationItemCreatePayload(package_id=1, quantity=1),
             ApplicationItemCreatePayload(package_id=1, quantity=1),
@@ -111,7 +113,7 @@ async def test_submit_application_success_deducts_stock_and_creates_rows():
     assert isinstance(result, Application)
     assert result.total_quantity == 2
     assert result.status == "pending"
-    assert result.weekly_period == _iso_week_now()
+    assert result.week_start == _week_start_now()
     assert result.food_bank_id == 10
     assert result.redemption_code.startswith("FB-")
 
@@ -142,7 +144,7 @@ async def test_submit_application_weekly_limit_exceeded():
 
     application_in = ApplicationCreate(
         food_bank_id=10,
-        weekly_period="2026-W12",
+        week_start=date(2026, 3, 16),  # Monday of W12
         items=[ApplicationItemCreatePayload(package_id=1, quantity=1)],
     )
 
@@ -173,7 +175,7 @@ async def test_submit_application_insufficient_stock():
 
     application_in = ApplicationCreate(
         food_bank_id=10,
-        weekly_period="2026-W12",
+        week_start=date(2026, 3, 16),  # Monday of W12
         items=[ApplicationItemCreatePayload(package_id=1, quantity=2)],
     )
 
@@ -214,7 +216,7 @@ async def test_submit_application_rejects_mixed_food_banks():
 
     application_in = ApplicationCreate(
         food_bank_id=10,
-        weekly_period="2026-W12",
+        week_start=date(2026, 3, 16),  # Monday of W12
         items=[
             ApplicationItemCreatePayload(package_id=1, quantity=1),
             ApplicationItemCreatePayload(package_id=2, quantity=1),
@@ -238,7 +240,7 @@ async def test_submit_application_package_not_found():
 
     application_in = ApplicationCreate(
         food_bank_id=10,
-        weekly_period="2026-W12",
+        week_start=date(2026, 3, 16),  # Monday of W12
         items=[ApplicationItemCreatePayload(package_id=999, quantity=1)],
     )
 

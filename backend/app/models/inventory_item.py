@@ -40,11 +40,6 @@ class InventoryItem(Base):
     # index=True enables efficient category-based queries and filters.
     category: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
-    # From spec: stock: INTEGER, NOT NULL, DEFAULT 0
-    # Current stock quantity. server_default=0 ensures new items start with zero stock.
-    # Stock is decremented atomically when applications are created (service layer).
-    stock: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-
     # From spec: unit: VARCHAR(50), NOT NULL
     # Unit of measure (e.g., "cans", "kg", "boxes", "liters").
     # Different items may use different units.
@@ -73,6 +68,17 @@ class InventoryItem(Base):
     # cascade='all, delete-orphan' ensures package associations cleaned up
     # if inventory item deleted.
     package_items: Mapped[list["PackageItem"]] = relationship(
+        back_populates="inventory_item",
+        cascade="all, delete-orphan",
+    )
+
+    # Relationship: InventoryItem -> InventoryLots (one-to-many)
+    # From spec § 1.5 "inventory_items → inventory_lots: one-to-many"
+    # FK: inventory_lots.inventory_item_id -> inventory_items.id
+    # Each inventory item can have multiple lots (batches) tracked independently.
+    # This replaces the single stock field with lot-based inventory tracking.
+    # cascade='all, delete-orphan' ensures all lots are removed if item is deleted.
+    lots: Mapped[list["InventoryLot"]] = relationship(
         back_populates="inventory_item",
         cascade="all, delete-orphan",
     )
