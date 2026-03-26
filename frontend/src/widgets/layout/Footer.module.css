@@ -1,0 +1,49 @@
+.footer {
+  background: #08131C;
+  color: #fff;
+  padding: 3rem 2rem;
+  margin-top: auto;
+}
+
+.inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  text-align: center;
+}
+
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.logo span {
+  color: #2EC4B6;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.links a {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.links a:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.copy {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.3);
+}
