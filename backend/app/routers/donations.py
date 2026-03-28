@@ -6,7 +6,7 @@ Spec § 2.5: POST /cash, POST /goods, GET /list (admin with ?type filter)
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,7 @@ from app.core.security import require_admin
 from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
 from app.models.donation_goods_item import DonationGoodsItem
+from app.services.email_service import send_thank_you_email
 from app.schemas.donation_cash import DonationCashCreate, DonationCashOut
 from app.schemas.donation_goods import DonationGoodsCreate, DonationGoodsOut
 
@@ -26,6 +27,7 @@ router = APIRouter(tags=["Donations"])
 @router.post("/cash", response_model=DonationCashOut, status_code=status.HTTP_201_CREATED)
 async def submit_cash_donation(
     donation_in: DonationCashCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -51,6 +53,15 @@ async def submit_cash_donation(
             db.add(donation)
             await db.flush()
             await db.refresh(donation)
+
+            if donation_in.donor_email:
+                background_tasks.add_task(
+                    send_thank_you_email,
+                    donation_in.donor_email,
+                    "cash",
+                    f"Amount (pence): {donation_in.amount_pence}",
+                )
+
             return donation
     except IntegrityError as exc:
         raise HTTPException(
@@ -69,6 +80,7 @@ async def submit_cash_donation(
 @router.post("/goods", response_model=DonationGoodsOut, status_code=status.HTTP_201_CREATED)
 async def submit_goods_donation(
     donation_in: DonationGoodsCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -106,6 +118,18 @@ async def submit_goods_donation(
 
             await db.flush()
             await db.refresh(donation)
+
+            if donation_in.donor_email:
+                goods_details = ", ".join(
+                    f"{item.item_name} x{item.quantity}" for item in donation_in.items
+                )
+                background_tasks.add_task(
+                    send_thank_you_email,
+                    donation_in.donor_email,
+                    "goods",
+                    goods_details,
+                )
+
             return donation
     except IntegrityError as exc:
         raise HTTPException(
