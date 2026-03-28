@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { FoodBank, FoodPackage, InventoryItem } from '@/shared/types/common'
 import { useAuthStore } from './authStore'
 import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
+import { getNearbyFoodbanks } from '@/utils/foodbankApi'
 
 const fetchWithAuthRetry = async (url: string, init: RequestInit = {}) => {
   const withToken = async (token: string) =>
@@ -54,6 +55,7 @@ interface FoodBankState {
   applyPackages: (
     userEmail: string,
     selections: { packageId: number; qty: number }[],
+    weekStart?: string // Optional: YYYY-MM-DD format. If not provided, uses Monday of current week
   ) => Promise<{ success: boolean; message: string; code?: string }>
   resetSearch: () => void
   loadUserCollections: (email: string) => Promise<void>
@@ -427,29 +429,29 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
     if (!postcode.trim()) return
     set({ isSearching: true })
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/food-banks?postcode=${encodeURIComponent(postcode)}`)
-      if (response.ok) {
-        const results = await response.json()
-        const normalizedResults = (Array.isArray(results) ? results : []).map((fb) => ({
-          ...fb,
-          hours: Array.isArray(fb?.hours) ? fb.hours : [],
-          distance: typeof fb?.distance === 'number' ? fb.distance : undefined,
-        }))
-        set({
-          searchResults: normalizedResults,
-          hasSearched: true,
-          isSearching: false,
-        })
-      } else {
-        set({
-          searchResults: [],
-          hasSearched: true,
-          isSearching: false,
-        })
-      }
+      const nearby = await getNearbyFoodbanks(postcode)
+      const normalizedResults: FoodBank[] = nearby.map((fb, index) => ({
+        id: index + 1,
+        name: fb.name,
+        address: `${fb.address}, ${fb.postcode}`,
+        distance: fb.distance,
+        hours: [],
+        lat: fb.lat,
+        lng: fb.lng,
+      }))
+
+      set({
+        searchResults: normalizedResults,
+        hasSearched: true,
+        isSearching: false,
+      })
     } catch (error) {
       console.error('Search failed:', error)
-      set({ hasSearched: true, isSearching: false })
+      set({
+        searchResults: [],
+        hasSearched: true,
+        isSearching: false,
+      })
     }
   },
 
@@ -473,11 +475,22 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
     }
   },
 
-  applyPackages: async (_userEmail, selections) => {
+  applyPackages: async (_userEmail, selections, weekStart) => {
     try {
       const authStore = useAuthStore.getState()
       if (!authStore.accessToken || !authStore.user) {
         return { success: false, message: 'Not authenticated' }
+      }
+
+      // Generate week_start as Monday of current week if not provided (YYYY-MM-DD format)
+      let finalWeekStart = weekStart
+      if (!finalWeekStart) {
+        const today = new Date()
+        const date = new Date(today)
+        const day = date.getDay()
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is Sunday
+        date.setDate(diff)
+        finalWeekStart = date.toISOString().split('T')[0]
       }
 
       const response = await fetch(`${API_BASE_URL}/api/v1/applications`, {
@@ -487,13 +500,12 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           'Authorization': `Bearer ${authStore.accessToken}`,
         },
         body: JSON.stringify({
-          user_id: authStore.user.id,
           food_bank_id: (get().selectedFoodBank as any)?.id || '',
+          week_start: finalWeekStart,
           items: selections.map((sel) => ({
-            food_package_id: String(sel.packageId),
+            package_id: sel.packageId,
             quantity: sel.qty,
           })),
-          status: 'pending',
         }),
       })
 
@@ -503,7 +515,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       }
 
       const result = await response.json()
-      const code = result.id || 'APP-' + Math.random().toString(36).substring(2, 8).toUpperCase()
+      const code = result.redemption_code || result.id || 'APP-' + Math.random().toString(36).substring(2, 8).toUpperCase()
       
       const currentWeekly = get().weeklyCollected + selections.reduce((s, sel) => s + sel.qty, 0)
       set({ weeklyCollected: currentWeekly })
