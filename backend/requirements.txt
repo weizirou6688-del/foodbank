@@ -19,6 +19,7 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 email-validator==2.0.0
 python-multipart==0.0.6
+aiosmtplib==3.0.2
 
 # Development & Testing (optional)
 pytest==7.4.3

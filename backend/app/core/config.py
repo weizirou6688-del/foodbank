@@ -69,6 +69,28 @@ class Settings(BaseSettings):
         default=False,
         description="Enable debug mode"
     )
+
+    # SMTP (donation thank-you emails)
+    smtp_host: str = Field(
+        default="smtp.gmail.com",
+        description="SMTP server hostname"
+    )
+    smtp_port: int = Field(
+        default=587,
+        description="SMTP server port"
+    )
+    smtp_username: str | None = Field(
+        default=None,
+        description="SMTP login username"
+    )
+    smtp_password: str | None = Field(
+        default=None,
+        description="SMTP login password or app password"
+    )
+    smtp_from_email: str | None = Field(
+        default=None,
+        description="From email address for SMTP messages"
+    )
     
     class Config:
         """Pydantic v2 config."""
