@@ -4,6 +4,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Modal from '@/components/ui/Modal'
+import { donationsAPI } from '@/shared/lib/api'
 import { isValidEmail } from '@/utils/validation'
 import type { GoodsDonationItem, GoodsDonationForm } from '@/types'
 import styles from './DonateGoods.module.css'
@@ -25,6 +26,7 @@ export default function DonateGoods() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [successModal, setSuccessModal] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const updateDonor = (field: keyof Omit<GoodsDonationForm, 'items'>, value: string) =>
     setForm((f) => ({ ...f, [field]: value }))
@@ -55,9 +57,25 @@ export default function DonateGoods() {
   const handleSubmit = async () => {
     if (!validate()) return
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 1000))
-    setLoading(false)
-    setSuccessModal(true)
+    setSubmitError('')
+    try {
+      await donationsAPI.donateGoods({
+        donor_name: form.donorName,
+        donor_email: form.email,
+        donor_phone: form.phone,
+        notes: form.notes,
+        items: form.items.map((item) => ({
+          item_name: item.name,
+          quantity: item.quantity,
+        })),
+      })
+      setSuccessModal(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to submit donation. Please try again.'
+      setSubmitError(message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDone = () => {
@@ -155,6 +173,7 @@ export default function DonateGoods() {
           <Button fullWidth size="lg" loading={loading} onClick={handleSubmit}>
             Submit Donation
           </Button>
+          {submitError && <p className={styles.cardSub}>{submitError}</p>}
         </div>
       </div>
 

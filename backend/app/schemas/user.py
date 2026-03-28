@@ -14,10 +14,24 @@ EmailStr from pydantic validates email format.
 Regex pattern enforces role constraint from spec § 1 (only public|supermarket|admin).
 """
 
+import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+
+def _is_strong_password(value: str) -> bool:
+  """Require English letters, numbers, and special characters (no spaces)."""
+  if not re.search(r"[A-Za-z]", value):
+    return False
+  if not re.search(r"\d", value):
+    return False
+  if not re.search(r"[^A-Za-z0-9]", value):
+    return False
+  if re.search(r"\s", value):
+    return False
+  return True
 
 
 # Base schema containing common user fields (name, email, role).
@@ -48,6 +62,16 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
 
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+      if not _is_strong_password(value):
+        raise ValueError(
+          "Password must include English letters, numbers, and special characters, "
+          "and must not contain spaces."
+        )
+      return value
+
 
 # Schema for partial user profile updates.
 class UserUpdate(BaseModel):
@@ -58,6 +82,18 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     role: str | None = Field(default=None, pattern="^(public|supermarket|admin)$")
     password: str | None = Field(default=None, min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def validate_optional_password_strength(cls, value: str | None) -> str | None:
+      if value is None:
+        return value
+      if not _is_strong_password(value):
+        raise ValueError(
+          "Password must include English letters, numbers, and special characters, "
+          "and must not contain spaces."
+        )
+      return value
 
 
 # Schema for API responses (reading user data).

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Modal from '@/components/ui/Modal'
+import { donationsAPI } from '@/shared/lib/api'
 import { isValidEmail, isValidCardNumber, isValidExpiry, formatCardNumber, formatExpiryDate } from '@/utils/validation'
 import type { CashDonationForm, FormErrors } from '@/types'
 import styles from './DonateCash.module.css'
@@ -17,6 +18,7 @@ export default function DonateCash() {
   const [errors, setErrors] = useState<FormErrors<CashDonationForm>>({})
   const [loading, setLoading] = useState(false)
   const [successModal, setSuccessModal] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const set = (field: keyof CashDonationForm, value: string | number) =>
     setForm((f) => ({ ...f, [field]: value }))
@@ -36,9 +38,20 @@ export default function DonateCash() {
   const handleSubmit = async () => {
     if (!validate()) return
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 1200))
-    setLoading(false)
-    setSuccessModal(true)
+    setSubmitError('')
+    try {
+      await donationsAPI.donateCash({
+        donor_email: form.email,
+        amount_pence: Math.round(Number(form.amount) * 100),
+        payment_reference: `web-${Date.now()}`,
+      })
+      setSuccessModal(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to submit donation. Please try again.'
+      setSubmitError(message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -158,6 +171,7 @@ export default function DonateCash() {
         >
           {loading ? 'Processing…' : form.amount ? `Donate £${form.amount}` : 'Donate'}
         </Button>
+        {submitError && <p className={styles.secureNote}>{submitError}</p>}
         <p className={styles.secureNote}>Secured by 256-bit SSL encryption</p>
       </div>
 

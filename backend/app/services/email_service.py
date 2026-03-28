@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from email_validator import EmailNotValidError, validate_email
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 # Ensure backend/.env values are available for SMTP configuration.
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
@@ -28,6 +28,8 @@ async def send_thank_you_email(to_email: str, donation_type: str, details: Any) 
     - SMTP_HOST (optional, default: smtp.gmail.com)
     - SMTP_PORT (optional, default: 587)
     """
+    logger.info("Email task started for recipient=%s donation_type=%s", to_email, donation_type)
+
     smtp_username = os.getenv("SMTP_USERNAME")
     smtp_password = os.getenv("SMTP_PASSWORD")
     smtp_from_email = os.getenv("SMTP_FROM_EMAIL") or smtp_username
@@ -52,18 +54,18 @@ async def send_thank_you_email(to_email: str, donation_type: str, details: Any) 
         logger.warning("Invalid recipient email '%s': %s", to_email, exc)
         return
 
-    donation_label = "现金" if donation_type == "cash" else "物资"
+    donation_label = "Cash" if donation_type == "cash" else "Goods"
 
     message = EmailMessage()
     message["From"] = smtp_from_email
     message["To"] = recipient
-    message["Subject"] = "感谢您的捐赠 | ABC Community Food Bank"
+    message["Subject"] = "Thank You for Your Donation | ABC Community Food Bank"
     message.set_content(
-        "感谢您支持 ABC Community Food Bank！\n\n"
-        f"捐赠类型: {donation_label}\n"
-        f"捐赠详情: {details}\n\n"
-        "您的善举将帮助更多有需要的家庭。\n"
-        "谢谢！"
+        "Thank you for supporting ABC Community Food Bank!\n\n"
+        f"Donation Type: {donation_label}\n"
+        f"Donation Details: {details}\n\n"
+        "Your generosity helps more families in need.\n"
+        "Thank you!"
     )
 
     try:

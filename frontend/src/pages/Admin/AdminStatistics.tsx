@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAuthStore } from '@/store/authStore'
+import { adminAPI } from '@/services/api'
 
 type Period = 'Day' | 'Week' | 'Month'
 
@@ -6,8 +8,67 @@ interface Props {
   onSwitch: (s: 'statistics' | 'food') => void
 }
 
+interface DonationRow {
+  donation_type: 'cash' | 'goods'
+  donor_email?: string
+  donor_name?: string
+  amount_pence?: number
+  status?: string
+  notes?: string
+  created_at?: string
+}
+
 export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
   const [period, setPeriod] = useState<Period>('Day')
+  const accessToken = useAuthStore((state) => state.accessToken)
+  const [donations, setDonations] = useState<DonationRow[]>([])
+  const [isLoadingDonations, setIsLoadingDonations] = useState(false)
+  const [donationsError, setDonationsError] = useState('')
+
+  const loadDonations = async () => {
+    if (!accessToken) {
+      setDonations([])
+      return
+    }
+
+    setIsLoadingDonations(true)
+    setDonationsError('')
+
+    try {
+      const data = await adminAPI.getDonations(accessToken)
+      setDonations(Array.isArray(data) ? (data as DonationRow[]) : [])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load donations.'
+      setDonationsError(message)
+    } finally {
+      setIsLoadingDonations(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadDonations()
+  }, [accessToken])
+
+  const latestDonations = useMemo(() => donations.slice(0, 12), [donations])
+
+  const formatDateTime = (value?: string) => {
+    if (!value) {
+      return '-'
+    }
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+      return value
+    }
+    return parsed.toLocaleString()
+  }
+
+  const renderDonationDetail = (row: DonationRow) => {
+    if (row.donation_type === 'cash') {
+      const amount = typeof row.amount_pence === 'number' ? (row.amount_pence / 100).toFixed(2) : '0.00'
+      return `£${amount}`
+    }
+    return row.notes || row.donor_name || 'Goods donation'
+  }
 
   return (
     <div className="fade-in">
@@ -111,6 +172,52 @@ export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
           </table>
           <div className="mt-4 text-sm text-gray-500">* based on moving average</div>
         </div>
+      </div>
+
+      <div className="mt-8 bg-white border-[1.5px] border-[#E8E8E8] rounded-xl p-6 shadow-sm overflow-x-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-[#1A1A1A]">Recent Donations</h3>
+          <button
+            onClick={() => void loadDonations()}
+            className="px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] border-[#E8E8E8] text-[#1A1A1A] hover:bg-gray-50"
+          >
+            Refresh
+          </button>
+        </div>
+
+        {isLoadingDonations && <p className="text-sm text-gray-500">Loading donations...</p>}
+        {donationsError && <p className="text-sm text-[#E63946]">{donationsError}</p>}
+
+        {!isLoadingDonations && !donationsError && latestDonations.length === 0 && (
+          <p className="text-sm text-gray-500">No donation records yet.</p>
+        )}
+
+        {!isLoadingDonations && !donationsError && latestDonations.length > 0 && (
+          <table className="w-full text-left border-collapse min-w-[620px]">
+            <thead>
+              <tr>
+                <th className="py-3 border-b-2 border-[#F7DC6F] font-semibold text-[#1A1A1A]">Type</th>
+                <th className="py-3 border-b-2 border-[#F7DC6F] font-semibold text-[#1A1A1A]">Donor</th>
+                <th className="py-3 border-b-2 border-[#F7DC6F] font-semibold text-[#1A1A1A]">Email</th>
+                <th className="py-3 border-b-2 border-[#F7DC6F] font-semibold text-[#1A1A1A]">Details</th>
+                <th className="py-3 border-b-2 border-[#F7DC6F] font-semibold text-[#1A1A1A]">Status</th>
+                <th className="py-3 border-b-2 border-[#F7DC6F] font-semibold text-[#1A1A1A]">Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latestDonations.map((row, index) => (
+                <tr key={`${row.donation_type}-${row.created_at || index}-${index}`}>
+                  <td className="py-3 border-b border-[#E8E8E8] text-[#1A1A1A]">{row.donation_type}</td>
+                  <td className="py-3 border-b border-[#E8E8E8] text-[#1A1A1A]">{row.donor_name || '-'}</td>
+                  <td className="py-3 border-b border-[#E8E8E8] text-[#1A1A1A]">{row.donor_email || '-'}</td>
+                  <td className="py-3 border-b border-[#E8E8E8] text-[#1A1A1A]">{renderDonationDetail(row)}</td>
+                  <td className="py-3 border-b border-[#E8E8E8] text-[#1A1A1A]">{row.status || '-'}</td>
+                  <td className="py-3 border-b border-[#E8E8E8] text-[#1A1A1A]">{formatDateTime(row.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

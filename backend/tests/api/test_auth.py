@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from app.models.user import User
 from app.routers.auth import register, login, logout, refresh, get_profile
@@ -67,7 +68,7 @@ async def test_register_success():
     payload = UserCreate(
         name="Alice",
         email="alice@example.com",
-        password="SecurePassword123",
+        password="SecurePassword123!",
     )
 
     result = await register(user_in=payload, db=db)
@@ -95,7 +96,7 @@ async def test_register_email_conflict():
     payload = UserCreate(
         name="Bobby",
         email="bob@example.com",
-        password="Password123",
+        password="Password123!",
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -103,6 +104,18 @@ async def test_register_email_conflict():
 
     assert exc.value.status_code == 409
     assert "already registered" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_register_weak_password_rejected():
+    with pytest.raises(ValidationError) as exc:
+        UserCreate(
+            name="Weak",
+            email="weak@example.com",
+            password="Password123",
+        )
+
+    assert "Password must include English letters, numbers, and special characters" in str(exc.value)
 
 
 @pytest.mark.asyncio

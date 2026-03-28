@@ -24,11 +24,11 @@ class RestockRequest(Base):
     __tablename__ = "restock_requests"
 
     # Check constraints enforce enums from spec § 1 and § 3 Business Rules.
-    # urgency: one of Critical, Urgent, Low (priority for admin action).
+    # urgency: one of high, medium, low (priority for admin action).
     # status: one of open, fulfilled, cancelled (lifecycle tracking).
     __table_args__ = (
         CheckConstraint(
-            "urgency IN ('Critical','Urgent','Low')",
+            "urgency IN ('high','medium','low')",
             name="ck_restock_requests_urgency",
         ),
         CheckConstraint(
@@ -63,7 +63,7 @@ class RestockRequest(Base):
     threshold: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # From spec: urgency: VARCHAR(20), NOT NULL
-    # Business priority level. Constraint enforces: Critical, Urgent, or Low.
+    # Business priority level. Constraint enforces: high, medium, or low.
     # Used for admin task prioritization and notifications.
     urgency: Mapped[str] = mapped_column(String(20), nullable=False)
 

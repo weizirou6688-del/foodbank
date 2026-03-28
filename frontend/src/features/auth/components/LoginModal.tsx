@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/app/store/authStore'
-import { isValidEmail } from '@/shared/lib/validation'
+import { isStrongPassword, isValidEmail } from '@/shared/lib/validation'
 
 interface LoginModalProps {
   isOpen: boolean
@@ -43,10 +43,13 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin' }: L
   const [signInForm, setSignInForm] = useState({ email: '', password: '' })
   const [signInError, setSignInError] = useState('')
   const [signInLoading, setSignInLoading] = useState(false)
+  const [showSignInPassword, setShowSignInPassword] = useState(false)
 
   const [regForm, setRegForm] = useState({ name: '', email: '', password: '', confirm: '' })
   const [regErrors, setRegErrors] = useState<Record<string, string>>({})
   const [regLoading, setRegLoading] = useState(false)
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false)
+  const [showRegisterConfirm, setShowRegisterConfirm] = useState(false)
 
   if (!isOpen) return null
 
@@ -68,10 +71,19 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin' }: L
 
   const handleRegister = async () => {
     const errors: Record<string, string> = {}
+    const passwordIsStrong = isStrongPassword(regForm.password)
+
     if (!regForm.name.trim())         errors.name     = 'Name is required.'
     if (!isValidEmail(regForm.email)) errors.email    = 'Please enter a valid email.'
-    if (regForm.password.length < 8)  errors.password = 'Password must be at least 8 characters.'
-    if (regForm.password !== regForm.confirm) errors.confirm = 'Passwords do not match.'
+    if (!passwordIsStrong) {
+      errors.password = 'Password must include letters, numbers, and special characters (no spaces).'
+    }
+    if (!regForm.confirm) {
+      errors.confirm = 'Please confirm password.'
+    } else if (passwordIsStrong && regForm.password !== regForm.confirm) {
+      errors.confirm = 'Passwords do not match.'
+    }
+
     setRegErrors(errors)
     if (Object.keys(errors).length > 0) return
     setRegLoading(true)
@@ -149,16 +161,52 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin' }: L
               </div>
               <div>
                 <label style={labelStyle}>Password</label>
-                <input
-                  type="password"
-                  placeholder="Enter password"
-                  value={signInForm.password}
-                  onChange={(e) => setSignInForm((f) => ({ ...f, password: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
-                  style={inputStyle}
-                  onFocus={(e) => { e.target.style.borderColor = '#F7DC6F' }}
-                  onBlur={(e)  => { e.target.style.borderColor = '#E5E7EB' }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showSignInPassword ? 'text' : 'password'}
+                    placeholder="Enter password"
+                    value={signInForm.password}
+                    onChange={(e) => setSignInForm((f) => ({ ...f, password: e.target.value }))}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
+                    style={{ ...inputStyle, paddingRight: '2.75rem' }}
+                    onFocus={(e) => { e.target.style.borderColor = '#F7DC6F' }}
+                    onBlur={(e)  => { e.target.style.borderColor = '#E5E7EB' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignInPassword((v) => !v)}
+                    aria-label={showSignInPassword ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute',
+                      right: 10,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#6b7280',
+                      cursor: 'pointer',
+                      width: 24,
+                      height: 24,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0,
+                    }}
+                  >
+                    {showSignInPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2 2l20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                        <path d="M10.6 6.2A10.9 10.9 0 0 1 12 6c5.5 0 9.4 3.4 10.8 6-0.6 1.2-1.8 2.8-3.5 4.1M6.1 6.6C4.2 7.8 2.8 9.7 2 12c1.4 2.6 5.3 6 10 6 1.4 0 2.8-0.3 4.1-0.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
               {signInError && <p style={errorStyle}>{signInError}</p>}
               <button
@@ -182,20 +230,86 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin' }: L
               {[
                 { label: 'Full Name',         key: 'name',     type: 'text',     placeholder: 'Your name' },
                 { label: 'Email Address',      key: 'email',    type: 'email',    placeholder: 'you@example.com' },
-                { label: 'Password',           key: 'password', type: 'password', placeholder: 'Min. 6 characters' },
+                { label: 'Password',           key: 'password', type: 'password', placeholder: 'At least 8 chars with letters, numbers, and symbols' },
                 { label: 'Confirm Password',   key: 'confirm',  type: 'password', placeholder: 'Repeat password' },
               ].map(({ label, key, type, placeholder }) => (
                 <div key={key}>
                   <label style={labelStyle}>{label}</label>
-                  <input
-                    type={type}
-                    placeholder={placeholder}
-                    value={regForm[key as keyof typeof regForm]}
-                    onChange={(e) => setRegForm((f) => ({ ...f, [key]: e.target.value }))}
-                    style={{ ...inputStyle, borderColor: regErrors[key] ? '#E63946' : '#E5E7EB' }}
-                    onFocus={(e) => { if (!regErrors[key]) e.target.style.borderColor = '#F7DC6F' }}
-                    onBlur={(e)  => { if (!regErrors[key]) e.target.style.borderColor = '#E5E7EB' }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={
+                        key === 'password'
+                          ? (showRegisterPassword ? 'text' : 'password')
+                          : key === 'confirm'
+                            ? (showRegisterConfirm ? 'text' : 'password')
+                            : type
+                      }
+                      placeholder={placeholder}
+                      value={regForm[key as keyof typeof regForm]}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setRegForm((f) => ({ ...f, [key]: value }))
+                        setRegErrors((prev) => {
+                          const next = { ...prev }
+                          delete next[key]
+                          if (key === 'password' || key === 'confirm') {
+                            delete next.confirm
+                          }
+                          return next
+                        })
+                      }}
+                      style={{
+                        ...inputStyle,
+                        borderColor: regErrors[key] ? '#E63946' : '#E5E7EB',
+                        paddingRight: key === 'password' || key === 'confirm' ? '2.75rem' : inputStyle.padding,
+                      }}
+                      onFocus={(e) => { if (!regErrors[key]) e.target.style.borderColor = '#F7DC6F' }}
+                      onBlur={(e)  => { if (!regErrors[key]) e.target.style.borderColor = '#E5E7EB' }}
+                    />
+                    {(key === 'password' || key === 'confirm') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (key === 'password') setShowRegisterPassword((v) => !v)
+                          if (key === 'confirm') setShowRegisterConfirm((v) => !v)
+                        }}
+                        aria-label={
+                          key === 'password'
+                            ? (showRegisterPassword ? 'Hide password' : 'Show password')
+                            : (showRegisterConfirm ? 'Hide password' : 'Show password')
+                        }
+                        style={{
+                          position: 'absolute',
+                          right: 10,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#6b7280',
+                          cursor: 'pointer',
+                          width: 24,
+                          height: 24,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: 0,
+                        }}
+                      >
+                        {((key === 'password' && showRegisterPassword) || (key === 'confirm' && showRegisterConfirm)) ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2 2l20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                            <path d="M10.6 6.2A10.9 10.9 0 0 1 12 6c5.5 0 9.4 3.4 10.8 6-0.6 1.2-1.8 2.8-3.5 4.1M6.1 6.6C4.2 7.8 2.8 9.7 2 12c1.4 2.6 5.3 6 10 6 1.4 0 2.8-0.3 4.1-0.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                          </svg>
+                        )}
+                      </button>
+                    )}
+                  </div>
                   {regErrors[key] && <p style={errorStyle}>{regErrors[key]}</p>}
                 </div>
               ))}

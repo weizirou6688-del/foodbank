@@ -1,0 +1,3340 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>ABC Community Food Bank API - Export</title>
+  <style>
+    :root { --bg:#f7f7f9; --card:#fff; --text:#1b1d21; --muted:#6b7280; --line:#e5e7eb; --accent:#0f766e; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+    header { background: linear-gradient(120deg,#0f766e,#0ea5a4); color:#fff; padding:24px; }
+    main { max-width:1200px; margin:0 auto; padding:20px; }
+    .grid { display:grid; grid-template-columns: 280px 1fr; gap:20px; }
+    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+    nav, section, .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+    nav ul { margin:0; padding-left:18px; }
+    a { color: var(--accent); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .endpoint { border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:14px; }
+    .method { display:inline-block; min-width:56px; text-align:center; font-weight:700; border-radius:6px; padding:2px 8px; margin-right:6px; color:#fff; }
+    .get { background:#16a34a; } .post { background:#2563eb; } .put { background:#d97706; } .patch { background:#7c3aed; } .delete { background:#dc2626; } .options,.head,.trace { background:#374151; }
+    code { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:6px; padding:2px 6px; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#0b1020; color:#dbeafe; border-radius:8px; padding:10px; overflow:auto; }
+    table { width:100%; border-collapse:collapse; margin:8px 0; }
+    th, td { border:1px solid var(--line); padding:8px; vertical-align:top; text-align:left; font-size:14px; }
+    th { background:#f8fafc; }
+    .muted { color:var(--muted); }
+    details { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:8px 0; background:#fff; }
+    h2,h3,h4,h5 { margin-top:0.8em; margin-bottom:0.5em; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ABC Community Food Bank API</h1>
+    <p>Version: 1.0.0</p>
+    <p>Generated: 2026-03-27 16:43:18 UTC</p>
+    <p></p>
+  </header>
+  <main>
+    <div class='panel'>
+      <h2>Overview</h2>
+      <p>Total Paths: <strong>32</strong></p>
+      <p>Total Schemas: <strong>42</strong></p>
+      <p>Source: <code>/openapi.json</code></p>
+    </div>
+
+    <div class='grid'>
+      <nav>
+        <h3>Tags</h3>
+        <ul><li><a href='#tag-Applications'>Applications</a></li><li><a href='#tag-Auth'>Auth</a></li><li><a href='#tag-Donations'>Donations</a></li><li><a href='#tag-Food-Banks'>Food Banks</a></li><li><a href='#tag-Food-Packages'>Food Packages</a></li><li><a href='#tag-Health'>Health</a></li><li><a href='#tag-Inventory'>Inventory</a></li><li><a href='#tag-Restock-Requests'>Restock Requests</a></li><li><a href='#tag-Statistics'>Statistics</a></li></ul>
+        <h3>Schemas</h3>
+        <ul><li><a href='#schema-ApplicationCreate'>ApplicationCreate</a></li><li><a href='#schema-ApplicationItemCreatePayload'>ApplicationItemCreatePayload</a></li><li><a href='#schema-ApplicationOut'>ApplicationOut</a></li><li><a href='#schema-ApplicationUpdate'>ApplicationUpdate</a></li><li><a href='#schema-ConsumedLotDetail'>ConsumedLotDetail</a></li><li><a href='#schema-DonationCashCreate'>DonationCashCreate</a></li><li><a href='#schema-DonationCashOut'>DonationCashOut</a></li><li><a href='#schema-DonationGoodsCreate'>DonationGoodsCreate</a></li><li><a href='#schema-DonationGoodsItemCreatePayload'>DonationGoodsItemCreatePayload</a></li><li><a href='#schema-DonationGoodsOut'>DonationGoodsOut</a></li><li><a href='#schema-FoodBankCreate'>FoodBankCreate</a></li><li><a href='#schema-FoodBankDetailOut'>FoodBankDetailOut</a></li><li><a href='#schema-FoodBankHourOut'>FoodBankHourOut</a></li><li><a href='#schema-FoodBankOut'>FoodBankOut</a></li><li><a href='#schema-FoodBankUpdate'>FoodBankUpdate</a></li><li><a href='#schema-FoodPackageCreateRequest'>FoodPackageCreateRequest</a></li><li><a href='#schema-FoodPackageCreateResponse'>FoodPackageCreateResponse</a></li><li><a href='#schema-FoodPackageDetailOut'>FoodPackageDetailOut</a></li><li><a href='#schema-FoodPackageOut'>FoodPackageOut</a></li><li><a href='#schema-FoodPackageUpdate'>FoodPackageUpdate</a></li><li><a href='#schema-HTTPValidationError'>HTTPValidationError</a></li><li><a href='#schema-InventoryItemCreateRequest'>InventoryItemCreateRequest</a></li><li><a href='#schema-InventoryItemOut'>InventoryItemOut</a></li><li><a href='#schema-InventoryItemUpdate'>InventoryItemUpdate</a></li><li><a href='#schema-InventoryLotAdjustRequest'>InventoryLotAdjustRequest</a></li><li><a href='#schema-InventoryLotOut'>InventoryLotOut</a></li><li><a href='#schema-LoginRequest'>LoginRequest</a></li><li><a href='#schema-LowStockItem'>LowStockItem</a></li><li><a href='#schema-PackRequest'>PackRequest</a></li><li><a href='#schema-PackResponse'>PackResponse</a></li><li><a href='#schema-PackageContentCreate'>PackageContentCreate</a></li><li><a href='#schema-PackageContentOut'>PackageContentOut</a></li><li><a href='#schema-PackageItemDetail'>PackageItemDetail</a></li><li><a href='#schema-RestockRequestCreate'>RestockRequestCreate</a></li><li><a href='#schema-RestockRequestFulfil'>RestockRequestFulfil</a></li><li><a href='#schema-RestockRequestOut'>RestockRequestOut</a></li><li><a href='#schema-StockAdjustment'>StockAdjustment</a></li><li><a href='#schema-StockGapPackageOut'>StockGapPackageOut</a></li><li><a href='#schema-TokenResponse'>TokenResponse</a></li><li><a href='#schema-UserCreate'>UserCreate</a></li><li><a href='#schema-UserOut'>UserOut</a></li><li><a href='#schema-ValidationError'>ValidationError</a></li></ul>
+      </nav>
+
+      <div>
+        <section>
+          <h2>API Endpoints</h2>
+          <section id='tag-Applications'><h3>Applications</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/applications</code></h4>
+  <p><strong>OperationId:</strong> list_all_applications_api_v1_applications_get</p>
+  <p><strong>Summary:</strong> List All Applications</p>
+  <p><strong>Description:</strong> List all applications (admin only).
+
+Spec § 2.4: Admin application listing endpoint.</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/ApplicationOut&quot;
+  },
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;title&quot;: &quot;Response List All Applications Api V1 Applications Get&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/applications</code></h4>
+  <p><strong>OperationId:</strong> submit_application_api_v1_applications_post</p>
+  <p><strong>Summary:</strong> Submit Application</p>
+  <p><strong>Description:</strong> Submit food assistance application.
+
+Spec § 2.4: POST /applications (requires auth, any user role).
+
+ApplicationCreate includes:
+- items: List[ApplicationItemCreatePayload]
+- week_start: DATE (week start date in YYYY-MM-DD format)
+
+TODO: Verify &lt;= 1 active app per user per week</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/ApplicationCreate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/ApplicationOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/applications/my</code></h4>
+  <p><strong>OperationId:</strong> get_my_applications_api_v1_applications_my_get</p>
+  <p><strong>Summary:</strong> Get My Applications</p>
+  <p><strong>Description:</strong> Get all applications for current user.
+
+Spec § 2.4: GET /applications/my (requires auth).
+
+TODO: Query all applications where user_id = current_user.id</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/ApplicationOut&quot;
+  },
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;title&quot;: &quot;Response Get My Applications Api V1 Applications My Get&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/applications/{application_id}</code></h4>
+  <p><strong>OperationId:</strong> update_application_status_api_v1_applications__application_id__patch</p>
+  <p><strong>Summary:</strong> Update Application Status</p>
+  <p><strong>Description:</strong> Update application status (admin only).
+
+Spec § 2.4: PATCH /applications/:id (requires admin role).
+
+ApplicationUpdate includes:
+- status: Status enum (pending, approved, rejected, cancelled)
+- admin_comment: Optional string
+
+TODO: Admin-only endpoint to update status and comments</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>application_id</td><td>path</td><td>Yes</td><td>string</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/ApplicationUpdate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/ApplicationOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Auth'><h3>Auth</h3>
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/auth/login</code></h4>
+  <p><strong>OperationId:</strong> login_api_v1_auth_login_post</p>
+  <p><strong>Summary:</strong> Login</p>
+  <p><strong>Description:</strong> Login with email and password.
+
+Spec § 2.1: POST /auth/login (no auth required).
+Returns access_token, refresh_token, and user profile.</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/LoginRequest&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/TokenResponse&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/auth/logout</code></h4>
+  <p><strong>OperationId:</strong> logout_api_v1_auth_logout_post</p>
+  <p><strong>Summary:</strong> Logout</p>
+  <p><strong>Description:</strong> Invalidate refresh token (logout).
+
+Spec § 2.1: POST /auth/logout (requires auth).
+In a production system, store blacklist of revoked tokens.
+
+Returns 204 No Content.</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">No body</p></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/auth/me</code></h4>
+  <p><strong>OperationId:</strong> get_profile_api_v1_auth_me_get</p>
+  <p><strong>Summary:</strong> Get Profile</p>
+  <p><strong>Description:</strong> Get current authenticated user&#x27;s profile.
+
+Spec § 2.1: GET /auth/me (requires auth).</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/UserOut&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/auth/refresh</code></h4>
+  <p><strong>OperationId:</strong> refresh_api_v1_auth_refresh_post</p>
+  <p><strong>Summary:</strong> Refresh</p>
+  <p><strong>Description:</strong> Exchange refresh token for new access token.
+
+Spec § 2.1: POST /auth/refresh (no auth required, bring refresh_token in body).</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>refresh_token</td><td>query</td><td>Yes</td><td>string</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/auth/register</code></h4>
+  <p><strong>OperationId:</strong> register_api_v1_auth_register_post</p>
+  <p><strong>Summary:</strong> Register</p>
+  <p><strong>Description:</strong> Register a new public user account.
+
+Spec § 2.1: POST /auth/register (no auth required).
+Role is always set to &#x27;public&#x27; for new registrations.
+
+Returns UserOut (id, name, email, role, timestamps).</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/UserCreate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/UserOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Donations'><h3>Donations</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/donations</code></h4>
+  <p><strong>OperationId:</strong> list_donations_api_v1_donations_get</p>
+  <p><strong>Summary:</strong> List Donations</p>
+  <p><strong>Description:</strong> List all donations (admin only, with optional type filter).
+
+Spec § 2.5: GET /donations?type= (requires admin).
+
+Supports filters:
+- ?type=cash → only DonationCash
+- ?type=goods → only DonationGoods
+
+TODO: Query donations with optional type filter</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>type</td><td>query</td><td>No</td><td>object</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;type&quot;: &quot;object&quot;
+  },
+  &quot;title&quot;: &quot;Response List Donations Api V1 Donations Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/donations/cash</code></h4>
+  <p><strong>OperationId:</strong> submit_cash_donation_api_v1_donations_cash_post</p>
+  <p><strong>Summary:</strong> Submit Cash Donation</p>
+  <p><strong>Description:</strong> Submit cash donation (public, no auth required).
+
+Spec § 2.5: POST /donations/cash (no auth).
+
+DonationCashCreate includes:
+- amount: Decimal USD amount
+- donor_name, donor_email, donor_phone: Optional
+- message: Optional
+
+TODO: Create DonationCash record, record transaction</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/DonationCashCreate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/DonationCashOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/donations/goods</code></h4>
+  <p><strong>OperationId:</strong> submit_goods_donation_api_v1_donations_goods_post</p>
+  <p><strong>Summary:</strong> Submit Goods Donation</p>
+  <p><strong>Description:</strong> Submit goods donation (public, no auth required).
+
+Spec § 2.5: POST /donations/goods (no auth).
+
+DonationGoodsCreate includes:
+- donor_name, donor_email, donor_phone: Optional
+- items: List[DonationGoodsItemCreatePayload] (item_name, count, unit)
+
+TODO: Create DonationGoods record and DonationGoodsItem entries</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/DonationGoodsCreate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/DonationGoodsOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Food-Banks'><h3>Food Banks</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/food-banks</code></h4>
+  <p><strong>OperationId:</strong> list_food_banks_api_v1_food_banks_get</p>
+  <p><strong>Summary:</strong> List Food Banks</p>
+  <p><strong>Description:</strong> List all food banks.
+
+Spec § 2.2: GET /food-banks (no auth).
+Supports ?postcode= for proximity filtering (within 2km).
+
+Note: proximity filtering not implemented in basic version.</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>postcode</td><td>query</td><td>No</td><td>string</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/FoodBankOut&quot;
+  },
+  &quot;title&quot;: &quot;Response List Food Banks Api V1 Food Banks Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/food-banks</code></h4>
+  <p><strong>OperationId:</strong> create_food_bank_api_v1_food_banks_post</p>
+  <p><strong>Summary:</strong> Create Food Bank</p>
+  <p><strong>Description:</strong> Create new food bank location (admin only).
+
+Spec § 2.2: POST /food-banks (requires admin role).</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankCreate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method delete'>DELETE</span> <code>/api/v1/food-banks/{food_bank_id}</code></h4>
+  <p><strong>OperationId:</strong> delete_food_bank_api_v1_food_banks__food_bank_id__delete</p>
+  <p><strong>Summary:</strong> Delete Food Bank</p>
+  <p><strong>Description:</strong> Delete food bank (admin only).
+
+Spec § 2.2: DELETE /food-banks/:id (requires admin).
+
+Note: Cascading delete removes related hours/packages.</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>food_bank_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">No body</p></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/food-banks/{food_bank_id}</code></h4>
+  <p><strong>OperationId:</strong> get_food_bank_api_v1_food_banks__food_bank_id__get</p>
+  <p><strong>Summary:</strong> Get Food Bank</p>
+  <p><strong>Description:</strong> Get single food bank with operating hours.
+
+Spec § 2.2: GET /food-banks/:id (no auth).</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>food_bank_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankDetailOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/food-banks/{food_bank_id}</code></h4>
+  <p><strong>OperationId:</strong> update_food_bank_api_v1_food_banks__food_bank_id__patch</p>
+  <p><strong>Summary:</strong> Update Food Bank</p>
+  <p><strong>Description:</strong> Update food bank details (admin only).
+
+Spec § 2.2: PATCH /food-banks/:id (requires admin).</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>food_bank_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankUpdate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Food-Packages'><h3>Food Packages</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/food-banks/{food_bank_id}/packages</code></h4>
+  <p><strong>OperationId:</strong> list_packages_for_bank_api_v1_food_banks__food_bank_id__packages_get</p>
+  <p><strong>Summary:</strong> List Packages For Bank</p>
+  <p><strong>Description:</strong> List available packages for a specific food bank.</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>food_bank_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/FoodPackageOut&quot;
+  },
+  &quot;title&quot;: &quot;Response List Packages For Bank Api V1 Food Banks  Food Bank Id  Packages Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/packages</code></h4>
+  <p><strong>OperationId:</strong> create_package_api_v1_packages_post</p>
+  <p><strong>Summary:</strong> Create Package</p>
+  <p><strong>Description:</strong> Create a food package with package contents in one transaction (admin only).</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodPackageCreateRequest&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodPackageCreateResponse&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method delete'>DELETE</span> <code>/api/v1/packages/{package_id}</code></h4>
+  <p><strong>OperationId:</strong> delete_package_api_v1_packages__package_id__delete</p>
+  <p><strong>Summary:</strong> Delete Package</p>
+  <p><strong>Description:</strong> Delete/soft-delete a food package (admin only).</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>package_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">No body</p></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/packages/{package_id}</code></h4>
+  <p><strong>OperationId:</strong> get_package_details_api_v1_packages__package_id__get</p>
+  <p><strong>Summary:</strong> Get Package Details</p>
+  <p><strong>Description:</strong> Get package details including package composition items.</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>package_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodPackageDetailOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/packages/{package_id}</code></h4>
+  <p><strong>OperationId:</strong> update_package_api_v1_packages__package_id__patch</p>
+  <p><strong>Summary:</strong> Update Package</p>
+  <p><strong>Description:</strong> Update a food package (admin only).</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>package_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodPackageUpdate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodPackageOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/packages/{package_id}/pack</code></h4>
+  <p><strong>OperationId:</strong> pack_package_api_v1_packages__package_id__pack_post</p>
+  <p><strong>Summary:</strong> Pack Package</p>
+  <p><strong>Description:</strong> Pack food packages by deducting ingredients from inventory lots (admin only).
+
+Spec § 2.3: POST /packages/:id/pack (admin only, atomic operation)
+
+This endpoint converts inventory lot items into pre-assembled food packages
+following the FEFO (First Expiry First Out) principle. Admin provides the
+number of packages to pack, and the service automatically deducts required
+ingredients from inventory lots and increases package stock.
+
+Transaction flow:
+1. Fetch package and verify it&#x27;s active
+2. For each ingredient in package recipe:
+   - Calculate required quantity (recipe_qty × packages_to_pack)
+   - Get inventory lots sorted by expiry_date (FEFO)
+   - Verify sufficient inventory
+   - Deduct from lots in order, soft-delete empty lots
+3. Increase package stock
+4. Return updated package
+
+If any ingredient lacks sufficient inventory, entire transaction
+is rolled back and a 400 error is returned.
+
+Args:
+    package_id: ID of the package to pack
+    pack_in: PackRequest with quantity (number of packages to pack)
+    admin_user: Current authenticated admin user
+    db: Database session
+    
+Returns:
+    PackResponse with updated package details and consumed lots
+    
+Raises:
+    404: Package not found
+    400: Insufficient inventory for an ingredient</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>package_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/PackRequest&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/PackResponse&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Health'><h3>Health</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/</code></h4>
+  <p><strong>OperationId:</strong> root__get</p>
+  <p><strong>Summary:</strong> Root</p>
+  <p><strong>Description:</strong> Root health check endpoint.
+
+Returns:
+    Confirmation that API is running.</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/health</code></h4>
+  <p><strong>OperationId:</strong> health_check_health_get</p>
+  <p><strong>Summary:</strong> Health Check</p>
+  <p><strong>Description:</strong> Health check endpoint. Use for monitoring/readiness checks.
+
+Returns:
+    Health status.</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{}</pre></details>
+</article>
+</section><section id='tag-Inventory'><h3>Inventory</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/inventory</code></h4>
+  <p><strong>OperationId:</strong> list_inventory_api_v1_inventory_get</p>
+  <p><strong>Summary:</strong> List Inventory</p>
+  <p><strong>Description:</strong> List all inventory items for a food bank (admin only).
+
+Spec § 2.6: GET /inventory?food_bank_id= (requires admin).
+
+TODO: Query all InventoryItem records for food_bank_id</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>food_bank_id</td><td>query</td><td>No</td><td>object</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+  },
+  &quot;title&quot;: &quot;Response List Inventory Api V1 Inventory Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/inventory</code></h4>
+  <p><strong>OperationId:</strong> create_inventory_item_api_v1_inventory_post</p>
+  <p><strong>Summary:</strong> Create Inventory Item</p>
+  <p><strong>Description:</strong> Add new inventory item (admin only).
+
+Spec § 2.6: POST /inventory (requires admin).
+
+InventoryItemCreate includes:
+- food_bank_id, item_name, unit, quantity, threshold
+- storage_location (optional)
+
+TODO: Create InventoryItem record</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemCreateRequest&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/inventory/lots</code></h4>
+  <p><strong>OperationId:</strong> list_inventory_lots_api_v1_inventory_lots_get</p>
+  <p><strong>Summary:</strong> List Inventory Lots</p>
+  <p><strong>Description:</strong> List inventory lots for admin batch management UI.</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>include_inactive</td><td>query</td><td>No</td><td>boolean</td><td>Include inactive (wasted) lots</td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/InventoryLotOut&quot;
+  },
+  &quot;title&quot;: &quot;Response List Inventory Lots Api V1 Inventory Lots Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/inventory/lots/{lot_id}</code></h4>
+  <p><strong>OperationId:</strong> adjust_inventory_lot_api_v1_inventory_lots__lot_id__patch</p>
+  <p><strong>Summary:</strong> Adjust Inventory Lot</p>
+  <p><strong>Description:</strong> Adjust an inventory lot (damage, expiry date, status, quantity).</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>lot_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryLotAdjustRequest&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryLotOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/inventory/low-stock</code></h4>
+  <p><strong>OperationId:</strong> get_low_stock_items_api_v1_inventory_low_stock_get</p>
+  <p><strong>Summary:</strong> Get Low Stock Items</p>
+  <p><strong>Description:</strong> List inventory items with stock below threshold (admin only).
+
+Spec § 2.6: GET /inventory/low-stock (requires admin).
+
+Returns items where total active stock (non-expired lots) is below threshold.
+Supports optional threshold parameter to override per-item thresholds.
+
+Query logic:
+- Calculate SUM(quantity) for each item where:
+  * status=&#x27;active&#x27; (deleted_at IS NULL)
+  * expiry_date &gt;= CURRENT_DATE (not expired)
+- Filter items with total_stock &lt; item.threshold (or override threshold if provided)
+- Return sorted by stock_deficit DESC (most critical first)</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>threshold</td><td>query</td><td>No</td><td>object</td><td>Override default threshold</td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/LowStockItem&quot;
+  },
+  &quot;title&quot;: &quot;Response Get Low Stock Items Api V1 Inventory Low Stock Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method delete'>DELETE</span> <code>/api/v1/inventory/{item_id}</code></h4>
+  <p><strong>OperationId:</strong> delete_inventory_item_api_v1_inventory__item_id__delete</p>
+  <p><strong>Summary:</strong> Delete Inventory Item</p>
+  <p><strong>Description:</strong> Delete inventory item (admin only).
+
+Spec § 2.6: DELETE /inventory/:id (requires admin).
+
+Note: Cannot delete if used in food packages or active applications.
+
+TODO: Soft delete or hard delete with cascade checks</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>item_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">No body</p></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/inventory/{item_id}</code></h4>
+  <p><strong>OperationId:</strong> update_inventory_item_api_v1_inventory__item_id__patch</p>
+  <p><strong>Summary:</strong> Update Inventory Item</p>
+  <p><strong>Description:</strong> Update inventory item details (admin only).
+
+Spec § 2.6: PATCH /inventory/:id (requires admin).
+
+TODO: Update item_name, unit, threshold, storage_location</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>item_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemUpdate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/inventory/{item_id}/stock-in</code></h4>
+  <p><strong>OperationId:</strong> stock_in_api_v1_inventory__item_id__stock_in_post</p>
+  <p><strong>Summary:</strong> Stock In</p>
+  <p><strong>Description:</strong> Increase inventory quantity (admin only).
+
+Spec § 2.6: POST /inventory/:id/stock-in (requires admin).
+
+StockAdjustment includes:
+- quantity: int (amount to add)
+- reason: str (source/reason for donation)
+
+TODO: Increment quantity in DB</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>item_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/StockAdjustment&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/inventory/{item_id}/stock-out</code></h4>
+  <p><strong>OperationId:</strong> stock_out_api_v1_inventory__item_id__stock_out_post</p>
+  <p><strong>Summary:</strong> Stock Out</p>
+  <p><strong>Description:</strong> Decrease inventory quantity (admin only).
+
+Spec § 2.6: POST /inventory/:id/stock-out (requires admin).
+
+StockAdjustment includes:
+- quantity: int (amount to remove)
+- reason: str (purpose: &quot;package_prepared&quot;, &quot;distribution&quot;, etc.)
+
+TODO: Decrement quantity in DB, prevent negative stock</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>item_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/StockAdjustment&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Restock-Requests'><h3>Restock Requests</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/restock-requests</code></h4>
+  <p><strong>OperationId:</strong> list_restock_requests_api_v1_restock_requests_get</p>
+  <p><strong>Summary:</strong> List Restock Requests</p>
+  <p><strong>Description:</strong> List all restock requests (admin only).
+
+Spec § 2.7: GET /restock-requests (requires admin).
+
+Returns: All requests with status (pending, fulfilled, declined)
+
+TODO: Query all RestockRequest records, ordered by created date</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestOut&quot;
+  },
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;title&quot;: &quot;Response List Restock Requests Api V1 Restock Requests Get&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/restock-requests</code></h4>
+  <p><strong>OperationId:</strong> create_restock_request_api_v1_restock_requests_post</p>
+  <p><strong>Summary:</strong> Create Restock Request</p>
+  <p><strong>Description:</strong> Submit restock request (admin only).
+
+Spec § 2.7: POST /restock-requests (requires admin).
+
+RestockRequestCreate includes:
+- inventory_item_id: int
+- requested_quantity: int (target stock level)
+- priority: str (&quot;low&quot;, &quot;medium&quot;, &quot;high&quot;)
+- notes: Optional
+
+TODO: Create RestockRequest with status=pending</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestCreate&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method delete'>DELETE</span> <code>/api/v1/restock-requests/{request_id}</code></h4>
+  <p><strong>OperationId:</strong> decline_restock_request_api_v1_restock_requests__request_id__delete</p>
+  <p><strong>Summary:</strong> Decline Restock Request</p>
+  <p><strong>Description:</strong> Decline restock request (admin only).
+
+Spec § 2.7: DELETE /restock-requests/:id (requires admin).
+
+Sets status=declined.
+
+TODO: Mark request as declined</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>request_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">No body</p></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/restock-requests/{request_id}/fulfil</code></h4>
+  <p><strong>OperationId:</strong> fulfil_restock_request_api_v1_restock_requests__request_id__fulfil_post</p>
+  <p><strong>Summary:</strong> Fulfil Restock Request</p>
+  <p><strong>Description:</strong> Mark restock request as fulfilled (admin only).
+
+Spec § 2.7: POST /restock-requests/:id/fulfil (requires admin).
+
+RestockRequestFulfil includes:
+- notes: Optional (confirmation notes)
+
+Sets status=fulfilled and updates fulfil_date=now().
+
+TODO: Mark request fulfilled, optionally update inventory</p>
+  <h5>Parameters</h5>
+  <table><thead><tr><th>Name</th><th>In</th><th>Required</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td>request_id</td><td>path</td><td>Yes</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>Request Body</h5>
+  <div><p><strong>application/json</strong> (Required: Yes)</p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestFulfil&quot;
+}</pre></div>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Statistics'><h3>Statistics</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/stats/donations</code></h4>
+  <p><strong>OperationId:</strong> get_donation_stats_api_v1_stats_donations_get</p>
+  <p><strong>Summary:</strong> Get Donation Stats</p>
+  <p><strong>Description:</strong> Get donation trends and statistics (admin only).
+
+Spec § 2.8: GET /stats/donations (requires admin).
+
+Returns:
+- total_cash_donations: Decimal
+- total_goods_donations: int (count)
+- average_cash_per_donation: Decimal
+- donations_by_week: List[{week: str, cash: Decimal, goods_count: int}]
+
+TODO: Query and aggregate donation statistics</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;Response Get Donation Stats Api V1 Stats Donations Get&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/stats/packages</code></h4>
+  <p><strong>OperationId:</strong> get_package_stats_api_v1_stats_packages_get</p>
+  <p><strong>Summary:</strong> Get Package Stats</p>
+  <p><strong>Description:</strong> Get most frequent packages and request patterns (admin only).
+
+Spec § 2.8: GET /stats/packages (requires admin).
+
+Returns:
+- package_id, package_name, request_count, total_requested_items
+- Sorted by request_count DESC
+
+TODO: Query ApplicationItem aggregation on package_id</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;items&quot;: {
+    &quot;type&quot;: &quot;object&quot;
+  },
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;title&quot;: &quot;Response Get Package Stats Api V1 Stats Packages Get&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/stats/stock-gap</code></h4>
+  <p><strong>OperationId:</strong> get_stock_gap_analysis_api_v1_stats_stock_gap_get</p>
+  <p><strong>Summary:</strong> Get Stock Gap Analysis</p>
+  <p><strong>Description:</strong> Identify food packages below stock threshold (admin only).
+
+Spec § 2.8: GET /stats/stock-gap (requires admin).
+
+Returns packages where:
+- stock &lt; threshold
+- Ordered by gap (threshold - stock) DESC
+
+Response fields:
+- package_id, package_name, stock, threshold, gap</p>
+  <h5>Parameters</h5>
+  <p class="muted">None</p>
+  <h5>Request Body</h5>
+  <p class="muted">None</p>
+  <h5>Responses</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/StockGapPackageOut&quot;
+  },
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;title&quot;: &quot;Response Get Stock Gap Analysis Api V1 Stats Stock Gap Get&quot;
+}</pre></details>
+</article>
+</section>
+        </section>
+
+        <section>
+          <h2>Component Schemas</h2>
+          <details id='schema-ApplicationCreate'><summary><strong>ApplicationCreate</strong></summary><pre>Type: object
+Required: food_bank_id, items
+Properties:
+- food_bank_id: integer
+- week_start: object
+- items: array</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;food_bank_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;week_start&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Week Start&quot;,
+      &quot;description&quot;: &quot;Week start date in YYYY-MM-DD format (e.g., 2026-03-17). If not provided, uses Monday of current week&quot;
+    },
+    &quot;items&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/ApplicationItemCreatePayload&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;minItems&quot;: 1,
+      &quot;title&quot;: &quot;Items&quot;,
+      &quot;description&quot;: &quot;List of packages (package_id + quantity) to apply for&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;food_bank_id&quot;,
+    &quot;items&quot;
+  ],
+  &quot;title&quot;: &quot;ApplicationCreate&quot;
+}</pre></details><details id='schema-ApplicationItemCreatePayload'><summary><strong>ApplicationItemCreatePayload</strong></summary><pre>Type: object
+Required: package_id, quantity
+Properties:
+- package_id: integer
+- quantity: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;package_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Package Id&quot;,
+      &quot;description&quot;: &quot;Package ID to apply for&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1.0,
+      &quot;title&quot;: &quot;Quantity&quot;,
+      &quot;description&quot;: &quot;Number of this package requested&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;package_id&quot;,
+    &quot;quantity&quot;
+  ],
+  &quot;title&quot;: &quot;ApplicationItemCreatePayload&quot;,
+  &quot;description&quot;: &quot;Inner payload: specifies which package and quantity in an application.&quot;
+}</pre></details><details id='schema-ApplicationOut'><summary><strong>ApplicationOut</strong></summary><pre>Type: object
+Required: user_id, food_bank_id, redemption_code, week_start, total_quantity, id, created_at, updated_at
+Properties:
+- user_id: string
+- food_bank_id: integer
+- redemption_code: string
+- status: string
+- week_start: string
+- total_quantity: integer
+- id: string
+- created_at: string
+- updated_at: string
+- deleted_at: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;user_id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;title&quot;: &quot;User Id&quot;
+    },
+    &quot;food_bank_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;redemption_code&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 20,
+      &quot;pattern&quot;: &quot;^FB-[A-Za-z0-9]{6}$&quot;,
+      &quot;title&quot;: &quot;Redemption Code&quot;
+    },
+    &quot;status&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(pending|collected|expired)$&quot;,
+      &quot;title&quot;: &quot;Status&quot;,
+      &quot;default&quot;: &quot;pending&quot;
+    },
+    &quot;week_start&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date&quot;,
+      &quot;title&quot;: &quot;Week Start&quot;,
+      &quot;description&quot;: &quot;Week start date in YYYY-MM-DD format&quot;
+    },
+    &quot;total_quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1.0,
+      &quot;title&quot;: &quot;Total Quantity&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    },
+    &quot;updated_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Updated At&quot;
+    },
+    &quot;deleted_at&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date-time&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Deleted At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;user_id&quot;,
+    &quot;food_bank_id&quot;,
+    &quot;redemption_code&quot;,
+    &quot;week_start&quot;,
+    &quot;total_quantity&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;,
+    &quot;updated_at&quot;
+  ],
+  &quot;title&quot;: &quot;ApplicationOut&quot;
+}</pre></details><details id='schema-ApplicationUpdate'><summary><strong>ApplicationUpdate</strong></summary><pre>Type: object
+Properties:
+- status: object
+- redemption_code: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;status&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;pattern&quot;: &quot;^(pending|collected|expired)$&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Status&quot;
+    },
+    &quot;redemption_code&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 20,
+          &quot;pattern&quot;: &quot;^FB-[A-Za-z0-9]{6}$&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Redemption Code&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;ApplicationUpdate&quot;
+}</pre></details><details id='schema-ConsumedLotDetail'><summary><strong>ConsumedLotDetail</strong></summary><pre>Type: object
+Required: item_id, lot_id, quantity_used, remaining_in_lot, expiry_date
+Properties:
+- item_id: integer
+- lot_id: integer
+- quantity_used: integer
+- remaining_in_lot: integer
+- expiry_date: string
+- batch_reference: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Item Id&quot;,
+      &quot;description&quot;: &quot;Inventory item ID&quot;
+    },
+    &quot;lot_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Lot Id&quot;,
+      &quot;description&quot;: &quot;Inventory lot ID&quot;
+    },
+    &quot;quantity_used&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Quantity Used&quot;,
+      &quot;description&quot;: &quot;Quantity deducted from this lot&quot;
+    },
+    &quot;remaining_in_lot&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Remaining In Lot&quot;,
+      &quot;description&quot;: &quot;Remaining quantity in lot after deduction&quot;
+    },
+    &quot;expiry_date&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Expiry Date&quot;,
+      &quot;description&quot;: &quot;Expiry date of the lot&quot;
+    },
+    &quot;batch_reference&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Batch Reference&quot;,
+      &quot;description&quot;: &quot;Batch reference code&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;item_id&quot;,
+    &quot;lot_id&quot;,
+    &quot;quantity_used&quot;,
+    &quot;remaining_in_lot&quot;,
+    &quot;expiry_date&quot;
+  ],
+  &quot;title&quot;: &quot;ConsumedLotDetail&quot;,
+  &quot;description&quot;: &quot;Details of an inventory lot consumed during packing.&quot;
+}</pre></details><details id='schema-DonationCashCreate'><summary><strong>DonationCashCreate</strong></summary><pre>Type: object
+Required: donor_email, amount_pence
+Properties:
+- donor_email: string
+- amount_pence: integer
+- payment_reference: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;donor_email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Donor Email&quot;
+    },
+    &quot;amount_pence&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1.0,
+      &quot;title&quot;: &quot;Amount Pence&quot;
+    },
+    &quot;payment_reference&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 100
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Payment Reference&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;donor_email&quot;,
+    &quot;amount_pence&quot;
+  ],
+  &quot;title&quot;: &quot;DonationCashCreate&quot;
+}</pre></details><details id='schema-DonationCashOut'><summary><strong>DonationCashOut</strong></summary><pre>Type: object
+Required: donor_email, amount_pence, id, created_at
+Properties:
+- donor_email: string
+- amount_pence: integer
+- payment_reference: object
+- status: string
+- id: string
+- created_at: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;donor_email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Donor Email&quot;
+    },
+    &quot;amount_pence&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1.0,
+      &quot;title&quot;: &quot;Amount Pence&quot;
+    },
+    &quot;payment_reference&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 100
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Payment Reference&quot;
+    },
+    &quot;status&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(completed|failed|refunded)$&quot;,
+      &quot;title&quot;: &quot;Status&quot;,
+      &quot;default&quot;: &quot;completed&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;donor_email&quot;,
+    &quot;amount_pence&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;DonationCashOut&quot;
+}</pre></details><details id='schema-DonationGoodsCreate'><summary><strong>DonationGoodsCreate</strong></summary><pre>Type: object
+Required: donor_name, donor_email, donor_phone, items
+Properties:
+- donor_user_id: object
+- donor_name: string
+- donor_email: string
+- donor_phone: string
+- notes: object
+- items: array</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;donor_user_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;uuid&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Donor User Id&quot;
+    },
+    &quot;donor_name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 100,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Donor Name&quot;
+    },
+    &quot;donor_email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Donor Email&quot;
+    },
+    &quot;donor_phone&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 30,
+      &quot;minLength&quot;: 3,
+      &quot;title&quot;: &quot;Donor Phone&quot;
+    },
+    &quot;notes&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Notes&quot;
+    },
+    &quot;items&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/DonationGoodsItemCreatePayload&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;minItems&quot;: 1,
+      &quot;title&quot;: &quot;Items&quot;,
+      &quot;description&quot;: &quot;List of food items donated (item_name + quantity)&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;donor_name&quot;,
+    &quot;donor_email&quot;,
+    &quot;donor_phone&quot;,
+    &quot;items&quot;
+  ],
+  &quot;title&quot;: &quot;DonationGoodsCreate&quot;
+}</pre></details><details id='schema-DonationGoodsItemCreatePayload'><summary><strong>DonationGoodsItemCreatePayload</strong></summary><pre>Type: object
+Required: item_name, quantity
+Properties:
+- item_name: string
+- quantity: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;item_name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Item Name&quot;,
+      &quot;description&quot;: &quot;Name of donated food item (e.g., &#x27;Tinned Beans&#x27;)&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1.0,
+      &quot;title&quot;: &quot;Quantity&quot;,
+      &quot;description&quot;: &quot;Quantity of this item donated&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;item_name&quot;,
+    &quot;quantity&quot;
+  ],
+  &quot;title&quot;: &quot;DonationGoodsItemCreatePayload&quot;,
+  &quot;description&quot;: &quot;Inner payload: specifies each item type and quantity in goods donation.&quot;
+}</pre></details><details id='schema-DonationGoodsOut'><summary><strong>DonationGoodsOut</strong></summary><pre>Type: object
+Required: donor_name, donor_email, donor_phone, id, created_at
+Properties:
+- donor_user_id: object
+- donor_name: string
+- donor_email: string
+- donor_phone: string
+- notes: object
+- status: string
+- id: string
+- created_at: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;donor_user_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;uuid&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Donor User Id&quot;
+    },
+    &quot;donor_name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 100,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Donor Name&quot;
+    },
+    &quot;donor_email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Donor Email&quot;
+    },
+    &quot;donor_phone&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 30,
+      &quot;minLength&quot;: 3,
+      &quot;title&quot;: &quot;Donor Phone&quot;
+    },
+    &quot;notes&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Notes&quot;
+    },
+    &quot;status&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(pending|received|rejected)$&quot;,
+      &quot;title&quot;: &quot;Status&quot;,
+      &quot;default&quot;: &quot;pending&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;donor_name&quot;,
+    &quot;donor_email&quot;,
+    &quot;donor_phone&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;DonationGoodsOut&quot;
+}</pre></details><details id='schema-FoodBankCreate'><summary><strong>FoodBankCreate</strong></summary><pre>Type: object
+Required: name, address, lat, lng
+Properties:
+- name: string
+- address: string
+- lat: object
+- lng: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;address&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Address&quot;
+    },
+    &quot;lat&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;number&quot;
+        },
+        {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Lat&quot;
+    },
+    &quot;lng&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;number&quot;
+        },
+        {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Lng&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;address&quot;,
+    &quot;lat&quot;,
+    &quot;lng&quot;
+  ],
+  &quot;title&quot;: &quot;FoodBankCreate&quot;
+}</pre></details><details id='schema-FoodBankDetailOut'><summary><strong>FoodBankDetailOut</strong></summary><pre>Type: object
+Required: name, address, lat, lng, id, created_at
+Properties:
+- name: string
+- address: string
+- lat: string
+- lng: string
+- id: integer
+- created_at: string
+- hours: array</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;address&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Address&quot;
+    },
+    &quot;lat&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Lat&quot;
+    },
+    &quot;lng&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Lng&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    },
+    &quot;hours&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/FoodBankHourOut&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Hours&quot;,
+      &quot;description&quot;: &quot;Operating hours for this location&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;address&quot;,
+    &quot;lat&quot;,
+    &quot;lng&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;FoodBankDetailOut&quot;
+}</pre></details><details id='schema-FoodBankHourOut'><summary><strong>FoodBankHourOut</strong></summary><pre>Type: object
+Required: food_bank_id, day_of_week, open_time, close_time, id
+Properties:
+- food_bank_id: integer
+- day_of_week: string
+- open_time: object
+- close_time: object
+- id: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;food_bank_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;day_of_week&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 20,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Day Of Week&quot;
+    },
+    &quot;open_time&quot;: {
+      &quot;title&quot;: &quot;Open Time&quot;
+    },
+    &quot;close_time&quot;: {
+      &quot;title&quot;: &quot;Close Time&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;food_bank_id&quot;,
+    &quot;day_of_week&quot;,
+    &quot;open_time&quot;,
+    &quot;close_time&quot;,
+    &quot;id&quot;
+  ],
+  &quot;title&quot;: &quot;FoodBankHourOut&quot;
+}</pre></details><details id='schema-FoodBankOut'><summary><strong>FoodBankOut</strong></summary><pre>Type: object
+Required: name, address, lat, lng, id, created_at
+Properties:
+- name: string
+- address: string
+- lat: string
+- lng: string
+- id: integer
+- created_at: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;address&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Address&quot;
+    },
+    &quot;lat&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Lat&quot;
+    },
+    &quot;lng&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Lng&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;address&quot;,
+    &quot;lat&quot;,
+    &quot;lng&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;FoodBankOut&quot;
+}</pre></details><details id='schema-FoodBankUpdate'><summary><strong>FoodBankUpdate</strong></summary><pre>Type: object
+Properties:
+- name: object
+- address: object
+- lat: object
+- lng: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 200,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;address&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Address&quot;
+    },
+    &quot;lat&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;number&quot;
+        },
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Lat&quot;
+    },
+    &quot;lng&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;number&quot;
+        },
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Lng&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;FoodBankUpdate&quot;
+}</pre></details><details id='schema-FoodPackageCreateRequest'><summary><strong>FoodPackageCreateRequest</strong></summary><pre>Type: object
+Required: name, category, threshold, contents
+Properties:
+- name: string
+- category: string
+- threshold: integer
+- contents: array
+- description: object
+- image_url: object
+- food_bank_id: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Pantry &amp; Spices&quot;,
+        &quot;Breakfast&quot;,
+        &quot;Lunchbox&quot;,
+        &quot;Family Bundle&quot;,
+        &quot;Emergency Pack&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;
+    },
+    &quot;contents&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/PackageContentCreate&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;minItems&quot;: 1,
+      &quot;title&quot;: &quot;Contents&quot;
+    },
+    &quot;description&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Description&quot;
+    },
+    &quot;image_url&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Image Url&quot;
+    },
+    &quot;food_bank_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;threshold&quot;,
+    &quot;contents&quot;
+  ],
+  &quot;title&quot;: &quot;FoodPackageCreateRequest&quot;
+}</pre></details><details id='schema-FoodPackageCreateResponse'><summary><strong>FoodPackageCreateResponse</strong></summary><pre>Type: object
+Required: id, name, category, description, stock, threshold, applied_count, image_url, food_bank_id, is_active, created_at, contents
+Properties:
+- id: integer
+- name: string
+- category: string
+- description: object
+- stock: integer
+- threshold: integer
+- applied_count: integer
+- image_url: object
+- food_bank_id: object
+- is_active: boolean
+- created_at: string
+- contents: array</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Pantry &amp; Spices&quot;,
+        &quot;Breakfast&quot;,
+        &quot;Lunchbox&quot;,
+        &quot;Family Bundle&quot;,
+        &quot;Emergency Pack&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;description&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Description&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Stock&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Threshold&quot;
+    },
+    &quot;applied_count&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Applied Count&quot;
+    },
+    &quot;image_url&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Image Url&quot;
+    },
+    &quot;food_bank_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;is_active&quot;: {
+      &quot;type&quot;: &quot;boolean&quot;,
+      &quot;title&quot;: &quot;Is Active&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    },
+    &quot;contents&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/PackageContentOut&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Contents&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;description&quot;,
+    &quot;stock&quot;,
+    &quot;threshold&quot;,
+    &quot;applied_count&quot;,
+    &quot;image_url&quot;,
+    &quot;food_bank_id&quot;,
+    &quot;is_active&quot;,
+    &quot;created_at&quot;,
+    &quot;contents&quot;
+  ],
+  &quot;title&quot;: &quot;FoodPackageCreateResponse&quot;
+}</pre></details><details id='schema-FoodPackageDetailOut'><summary><strong>FoodPackageDetailOut</strong></summary><pre>Type: object
+Required: name, category, id, created_at
+Properties:
+- name: string
+- category: string
+- description: object
+- stock: integer
+- threshold: integer
+- applied_count: integer
+- image_url: object
+- food_bank_id: object
+- is_active: boolean
+- id: integer
+- created_at: string
+- package_items: array</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Pantry &amp; Spices&quot;,
+        &quot;Breakfast&quot;,
+        &quot;Lunchbox&quot;,
+        &quot;Family Bundle&quot;,
+        &quot;Emergency Pack&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;description&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Description&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Stock&quot;,
+      &quot;default&quot;: 0
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;,
+      &quot;default&quot;: 5
+    },
+    &quot;applied_count&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Applied Count&quot;,
+      &quot;default&quot;: 0
+    },
+    &quot;image_url&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Image Url&quot;
+    },
+    &quot;food_bank_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;is_active&quot;: {
+      &quot;type&quot;: &quot;boolean&quot;,
+      &quot;title&quot;: &quot;Is Active&quot;,
+      &quot;default&quot;: true
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    },
+    &quot;package_items&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/PackageItemDetail&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Package Items&quot;,
+      &quot;description&quot;: &quot;List of inventory items in this package with quantities&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;FoodPackageDetailOut&quot;
+}</pre></details><details id='schema-FoodPackageOut'><summary><strong>FoodPackageOut</strong></summary><pre>Type: object
+Required: name, category, id, created_at
+Properties:
+- name: string
+- category: string
+- description: object
+- stock: integer
+- threshold: integer
+- applied_count: integer
+- image_url: object
+- food_bank_id: object
+- is_active: boolean
+- id: integer
+- created_at: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Pantry &amp; Spices&quot;,
+        &quot;Breakfast&quot;,
+        &quot;Lunchbox&quot;,
+        &quot;Family Bundle&quot;,
+        &quot;Emergency Pack&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;description&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Description&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Stock&quot;,
+      &quot;default&quot;: 0
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;,
+      &quot;default&quot;: 5
+    },
+    &quot;applied_count&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Applied Count&quot;,
+      &quot;default&quot;: 0
+    },
+    &quot;image_url&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Image Url&quot;
+    },
+    &quot;food_bank_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;is_active&quot;: {
+      &quot;type&quot;: &quot;boolean&quot;,
+      &quot;title&quot;: &quot;Is Active&quot;,
+      &quot;default&quot;: true
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;FoodPackageOut&quot;
+}</pre></details><details id='schema-FoodPackageUpdate'><summary><strong>FoodPackageUpdate</strong></summary><pre>Type: object
+Properties:
+- name: object
+- category: object
+- description: object
+- stock: object
+- threshold: object
+- applied_count: object
+- image_url: object
+- food_bank_id: object
+- is_active: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 200,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;enum&quot;: [
+            &quot;Pantry &amp; Spices&quot;,
+            &quot;Breakfast&quot;,
+            &quot;Lunchbox&quot;,
+            &quot;Family Bundle&quot;,
+            &quot;Emergency Pack&quot;
+          ]
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;description&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Description&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Stock&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Threshold&quot;
+    },
+    &quot;applied_count&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Applied Count&quot;
+    },
+    &quot;image_url&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Image Url&quot;
+    },
+    &quot;food_bank_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;is_active&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;boolean&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Is Active&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;FoodPackageUpdate&quot;
+}</pre></details><details id='schema-HTTPValidationError'><summary><strong>HTTPValidationError</strong></summary><pre>Type: object
+Properties:
+- detail: array</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;detail&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/ValidationError&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Detail&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;HTTPValidationError&quot;
+}</pre></details><details id='schema-InventoryItemCreateRequest'><summary><strong>InventoryItemCreateRequest</strong></summary><pre>Type: object
+Required: name, category, initial_stock
+Properties:
+- name: string
+- category: string
+- initial_stock: integer
+- unit: string
+- threshold: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Proteins &amp; Meat&quot;,
+        &quot;Vegetables&quot;,
+        &quot;Fruits&quot;,
+        &quot;Dairy&quot;,
+        &quot;Canned Goods&quot;,
+        &quot;Grains &amp; Pasta&quot;,
+        &quot;Snacks&quot;,
+        &quot;Beverages&quot;,
+        &quot;Baby Food&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;initial_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Initial Stock&quot;
+    },
+    &quot;unit&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 50,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Unit&quot;,
+      &quot;default&quot;: &quot;units&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;,
+      &quot;default&quot;: 10
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;initial_stock&quot;
+  ],
+  &quot;title&quot;: &quot;InventoryItemCreateRequest&quot;
+}</pre></details><details id='schema-InventoryItemOut'><summary><strong>InventoryItemOut</strong></summary><pre>Type: object
+Required: name, category, unit, id, updated_at
+Properties:
+- name: string
+- category: string
+- stock: integer
+- unit: string
+- threshold: integer
+- id: integer
+- updated_at: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Proteins &amp; Meat&quot;,
+        &quot;Vegetables&quot;,
+        &quot;Fruits&quot;,
+        &quot;Dairy&quot;,
+        &quot;Canned Goods&quot;,
+        &quot;Grains &amp; Pasta&quot;,
+        &quot;Snacks&quot;,
+        &quot;Beverages&quot;,
+        &quot;Baby Food&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Stock&quot;,
+      &quot;default&quot;: 0
+    },
+    &quot;unit&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 50,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Unit&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;,
+      &quot;default&quot;: 10
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;updated_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Updated At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;unit&quot;,
+    &quot;id&quot;,
+    &quot;updated_at&quot;
+  ],
+  &quot;title&quot;: &quot;InventoryItemOut&quot;
+}</pre></details><details id='schema-InventoryItemUpdate'><summary><strong>InventoryItemUpdate</strong></summary><pre>Type: object
+Properties:
+- name: object
+- category: object
+- stock: object
+- unit: object
+- threshold: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 200,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;enum&quot;: [
+            &quot;Proteins &amp; Meat&quot;,
+            &quot;Vegetables&quot;,
+            &quot;Fruits&quot;,
+            &quot;Dairy&quot;,
+            &quot;Canned Goods&quot;,
+            &quot;Grains &amp; Pasta&quot;,
+            &quot;Snacks&quot;,
+            &quot;Beverages&quot;,
+            &quot;Baby Food&quot;
+          ]
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Stock&quot;
+    },
+    &quot;unit&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 50,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Unit&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Threshold&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;InventoryItemUpdate&quot;
+}</pre></details><details id='schema-InventoryLotAdjustRequest'><summary><strong>InventoryLotAdjustRequest</strong></summary><pre>Type: object
+Properties:
+- quantity: object
+- damage_quantity: object
+- expiry_date: object
+- status: object
+- batch_reference: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;quantity&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Quantity&quot;
+    },
+    &quot;damage_quantity&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Damage Quantity&quot;
+    },
+    &quot;expiry_date&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Expiry Date&quot;
+    },
+    &quot;status&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;enum&quot;: [
+            &quot;active&quot;,
+            &quot;wasted&quot;
+          ]
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Status&quot;
+    },
+    &quot;batch_reference&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 100
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Batch Reference&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;InventoryLotAdjustRequest&quot;,
+  &quot;description&quot;: &quot;Request schema for PATCH /inventory/lots/{lot_id}.&quot;
+}</pre></details><details id='schema-InventoryLotOut'><summary><strong>InventoryLotOut</strong></summary><pre>Type: object
+Required: id, inventory_item_id, item_name, quantity, expiry_date, received_date, status
+Properties:
+- id: integer
+- inventory_item_id: integer
+- item_name: string
+- quantity: integer
+- expiry_date: string
+- received_date: string
+- batch_reference: object
+- status: string
+- deleted_at: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;inventory_item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Inventory Item Id&quot;
+    },
+    &quot;item_name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Item Name&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Quantity&quot;
+    },
+    &quot;expiry_date&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date&quot;,
+      &quot;title&quot;: &quot;Expiry Date&quot;
+    },
+    &quot;received_date&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date&quot;,
+      &quot;title&quot;: &quot;Received Date&quot;
+    },
+    &quot;batch_reference&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Batch Reference&quot;
+    },
+    &quot;status&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;active&quot;,
+        &quot;wasted&quot;,
+        &quot;expired&quot;
+      ],
+      &quot;title&quot;: &quot;Status&quot;
+    },
+    &quot;deleted_at&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date-time&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Deleted At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;inventory_item_id&quot;,
+    &quot;item_name&quot;,
+    &quot;quantity&quot;,
+    &quot;expiry_date&quot;,
+    &quot;received_date&quot;,
+    &quot;status&quot;
+  ],
+  &quot;title&quot;: &quot;InventoryLotOut&quot;,
+  &quot;description&quot;: &quot;Response schema for inventory lot rows in admin management UI.&quot;
+}</pre></details><details id='schema-LoginRequest'><summary><strong>LoginRequest</strong></summary><pre>Type: object
+Required: email, password
+Properties:
+- email: string
+- password: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Email&quot;
+    },
+    &quot;password&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 128,
+      &quot;minLength&quot;: 8,
+      &quot;title&quot;: &quot;Password&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;email&quot;,
+    &quot;password&quot;
+  ],
+  &quot;title&quot;: &quot;LoginRequest&quot;
+}</pre></details><details id='schema-LowStockItem'><summary><strong>LowStockItem</strong></summary><pre>Type: object
+Required: id, name, category, unit, current_stock, threshold, stock_deficit
+Properties:
+- id: integer
+- name: string
+- category: string
+- unit: string
+- current_stock: integer
+- threshold: integer
+- stock_deficit: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Proteins &amp; Meat&quot;,
+        &quot;Vegetables&quot;,
+        &quot;Fruits&quot;,
+        &quot;Dairy&quot;,
+        &quot;Canned Goods&quot;,
+        &quot;Grains &amp; Pasta&quot;,
+        &quot;Snacks&quot;,
+        &quot;Beverages&quot;,
+        &quot;Baby Food&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;unit&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Unit&quot;
+    },
+    &quot;current_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Current Stock&quot;,
+      &quot;description&quot;: &quot;Total quantity from active lots&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Threshold&quot;,
+      &quot;description&quot;: &quot;Stock level threshold&quot;
+    },
+    &quot;stock_deficit&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Stock Deficit&quot;,
+      &quot;description&quot;: &quot;Amount below threshold&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;unit&quot;,
+    &quot;current_stock&quot;,
+    &quot;threshold&quot;,
+    &quot;stock_deficit&quot;
+  ],
+  &quot;title&quot;: &quot;LowStockItem&quot;,
+  &quot;description&quot;: &quot;Response schema for low-stock items in GET /inventory/low-stock.\n\nRepresents an inventory item with current total stock that is below\nthe specified threshold.&quot;
+}</pre></details><details id='schema-PackRequest'><summary><strong>PackRequest</strong></summary><pre>Type: object
+Required: quantity
+Properties:
+- quantity: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Quantity&quot;,
+      &quot;description&quot;: &quot;Number of packages to pack (deduct ingredients from inventory lots)&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;quantity&quot;
+  ],
+  &quot;title&quot;: &quot;PackRequest&quot;,
+  &quot;description&quot;: &quot;Request for packing packages from inventory lots.&quot;
+}</pre></details><details id='schema-PackResponse'><summary><strong>PackResponse</strong></summary><pre>Type: object
+Required: package_id, package_name, quantity, new_stock, consumed_lots, timestamp
+Properties:
+- package_id: integer
+- package_name: string
+- quantity: integer
+- new_stock: integer
+- consumed_lots: array
+- timestamp: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;package_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Package Id&quot;,
+      &quot;description&quot;: &quot;Package ID&quot;
+    },
+    &quot;package_name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Package Name&quot;,
+      &quot;description&quot;: &quot;Package name&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Quantity&quot;,
+      &quot;description&quot;: &quot;Number of packages packed&quot;
+    },
+    &quot;new_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;New Stock&quot;,
+      &quot;description&quot;: &quot;Updated stock after packing&quot;
+    },
+    &quot;consumed_lots&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/ConsumedLotDetail&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Consumed Lots&quot;,
+      &quot;description&quot;: &quot;Details of inventory lots consumed during packing&quot;
+    },
+    &quot;timestamp&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Timestamp&quot;,
+      &quot;description&quot;: &quot;Operation timestamp (ISO format)&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;package_id&quot;,
+    &quot;package_name&quot;,
+    &quot;quantity&quot;,
+    &quot;new_stock&quot;,
+    &quot;consumed_lots&quot;,
+    &quot;timestamp&quot;
+  ],
+  &quot;title&quot;: &quot;PackResponse&quot;,
+  &quot;description&quot;: &quot;Response after successful packing operation.&quot;
+}</pre></details><details id='schema-PackageContentCreate'><summary><strong>PackageContentCreate</strong></summary><pre>Type: object
+Required: item_id, quantity
+Properties:
+- item_id: integer
+- quantity: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Item Id&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Quantity&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;item_id&quot;,
+    &quot;quantity&quot;
+  ],
+  &quot;title&quot;: &quot;PackageContentCreate&quot;
+}</pre></details><details id='schema-PackageContentOut'><summary><strong>PackageContentOut</strong></summary><pre>Type: object
+Required: item_id, quantity
+Properties:
+- item_id: integer
+- quantity: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Item Id&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Quantity&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;item_id&quot;,
+    &quot;quantity&quot;
+  ],
+  &quot;title&quot;: &quot;PackageContentOut&quot;
+}</pre></details><details id='schema-PackageItemDetail'><summary><strong>PackageItemDetail</strong></summary><pre>Type: object
+Required: id, quantity, inventory_item_name, inventory_item_unit
+Properties:
+- id: integer
+- quantity: integer
+- inventory_item_name: string
+- inventory_item_unit: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Quantity&quot;
+    },
+    &quot;inventory_item_name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Inventory Item Name&quot;,
+      &quot;description&quot;: &quot;Name of physical item in package&quot;
+    },
+    &quot;inventory_item_unit&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Inventory Item Unit&quot;,
+      &quot;description&quot;: &quot;Unit of measure (cans, kg, etc.)&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;quantity&quot;,
+    &quot;inventory_item_name&quot;,
+    &quot;inventory_item_unit&quot;
+  ],
+  &quot;title&quot;: &quot;PackageItemDetail&quot;,
+  &quot;description&quot;: &quot;Simplified package item for response (includes inventory details).&quot;
+}</pre></details><details id='schema-RestockRequestCreate'><summary><strong>RestockRequestCreate</strong></summary><pre>Type: object
+Required: inventory_item_id, current_stock, threshold, urgency
+Properties:
+- inventory_item_id: integer
+- current_stock: integer
+- threshold: integer
+- urgency: string
+- assigned_to_user_id: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;inventory_item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Inventory Item Id&quot;
+    },
+    &quot;current_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Current Stock&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;
+    },
+    &quot;urgency&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(Critical|Urgent|Low)$&quot;,
+      &quot;title&quot;: &quot;Urgency&quot;
+    },
+    &quot;assigned_to_user_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;uuid&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Assigned To User Id&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;inventory_item_id&quot;,
+    &quot;current_stock&quot;,
+    &quot;threshold&quot;,
+    &quot;urgency&quot;
+  ],
+  &quot;title&quot;: &quot;RestockRequestCreate&quot;
+}</pre></details><details id='schema-RestockRequestFulfil'><summary><strong>RestockRequestFulfil</strong></summary><pre>Type: object
+Properties:
+- notes: object</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;notes&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 500
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Notes&quot;,
+      &quot;description&quot;: &quot;Optional fulfillment notes&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;RestockRequestFulfil&quot;,
+  &quot;description&quot;: &quot;Request schema for marking a restock request as fulfilled.\n\nUsed for POST /restock-requests/:id/fulfil.&quot;
+}</pre></details><details id='schema-RestockRequestOut'><summary><strong>RestockRequestOut</strong></summary><pre>Type: object
+Required: inventory_item_id, current_stock, threshold, urgency, id, created_at
+Properties:
+- inventory_item_id: integer
+- current_stock: integer
+- threshold: integer
+- urgency: string
+- assigned_to_user_id: object
+- status: string
+- id: integer
+- created_at: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;inventory_item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Inventory Item Id&quot;
+    },
+    &quot;current_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Current Stock&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;
+    },
+    &quot;urgency&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(Critical|Urgent|Low)$&quot;,
+      &quot;title&quot;: &quot;Urgency&quot;
+    },
+    &quot;assigned_to_user_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;uuid&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Assigned To User Id&quot;
+    },
+    &quot;status&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(open|fulfilled|cancelled)$&quot;,
+      &quot;title&quot;: &quot;Status&quot;,
+      &quot;default&quot;: &quot;open&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;inventory_item_id&quot;,
+    &quot;current_stock&quot;,
+    &quot;threshold&quot;,
+    &quot;urgency&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;RestockRequestOut&quot;
+}</pre></details><details id='schema-StockAdjustment'><summary><strong>StockAdjustment</strong></summary><pre>Type: object
+Required: quantity, reason
+Properties:
+- quantity: integer
+- reason: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Quantity&quot;,
+      &quot;description&quot;: &quot;Positive integer quantity to add or remove&quot;
+    },
+    &quot;reason&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 500,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Reason&quot;,
+      &quot;description&quot;: &quot;Reason for stock adjustment&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;quantity&quot;,
+    &quot;reason&quot;
+  ],
+  &quot;title&quot;: &quot;StockAdjustment&quot;,
+  &quot;description&quot;: &quot;Request schema for adjusting inventory quantity.\n\nUsed for POST /inventory/:id/stock-in and POST /inventory/:id/stock-out.&quot;
+}</pre></details><details id='schema-StockGapPackageOut'><summary><strong>StockGapPackageOut</strong></summary><pre>Type: object
+Required: package_id, package_name, stock, threshold, gap
+Properties:
+- package_id: integer
+- package_name: string
+- stock: integer
+- threshold: integer
+- gap: integer</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;package_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Package Id&quot;
+    },
+    &quot;package_name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Package Name&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Stock&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Threshold&quot;
+    },
+    &quot;gap&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Gap&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;package_id&quot;,
+    &quot;package_name&quot;,
+    &quot;stock&quot;,
+    &quot;threshold&quot;,
+    &quot;gap&quot;
+  ],
+  &quot;title&quot;: &quot;StockGapPackageOut&quot;
+}</pre></details><details id='schema-TokenResponse'><summary><strong>TokenResponse</strong></summary><pre>Type: object
+Required: access_token, refresh_token, user
+Properties:
+- access_token: string
+- refresh_token: string
+- token_type: string
+- user: #/components/schemas/UserOut</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;access_token&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Access Token&quot;
+    },
+    &quot;refresh_token&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Refresh Token&quot;
+    },
+    &quot;token_type&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Token Type&quot;,
+      &quot;default&quot;: &quot;bearer&quot;
+    },
+    &quot;user&quot;: {
+      &quot;$ref&quot;: &quot;#/components/schemas/UserOut&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;access_token&quot;,
+    &quot;refresh_token&quot;,
+    &quot;user&quot;
+  ],
+  &quot;title&quot;: &quot;TokenResponse&quot;
+}</pre></details><details id='schema-UserCreate'><summary><strong>UserCreate</strong></summary><pre>Type: object
+Required: name, email, password
+Properties:
+- name: string
+- email: string
+- password: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 100,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Email&quot;
+    },
+    &quot;password&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 128,
+      &quot;minLength&quot;: 8,
+      &quot;title&quot;: &quot;Password&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;email&quot;,
+    &quot;password&quot;
+  ],
+  &quot;title&quot;: &quot;UserCreate&quot;
+}</pre></details><details id='schema-UserOut'><summary><strong>UserOut</strong></summary><pre>Type: object
+Required: name, email, role, id, created_at, updated_at
+Properties:
+- name: string
+- email: string
+- role: string
+- id: string
+- created_at: string
+- updated_at: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 100,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Email&quot;
+    },
+    &quot;role&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(public|supermarket|admin)$&quot;,
+      &quot;title&quot;: &quot;Role&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    },
+    &quot;updated_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Updated At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;email&quot;,
+    &quot;role&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;,
+    &quot;updated_at&quot;
+  ],
+  &quot;title&quot;: &quot;UserOut&quot;
+}</pre></details><details id='schema-ValidationError'><summary><strong>ValidationError</strong></summary><pre>Type: object
+Required: loc, msg, type
+Properties:
+- loc: array
+- msg: string
+- type: string</pre><pre>{
+  &quot;properties&quot;: {
+    &quot;loc&quot;: {
+      &quot;items&quot;: {
+        &quot;anyOf&quot;: [
+          {
+            &quot;type&quot;: &quot;string&quot;
+          },
+          {
+            &quot;type&quot;: &quot;integer&quot;
+          }
+        ]
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Location&quot;
+    },
+    &quot;msg&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Message&quot;
+    },
+    &quot;type&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Error Type&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;loc&quot;,
+    &quot;msg&quot;,
+    &quot;type&quot;
+  ],
+  &quot;title&quot;: &quot;ValidationError&quot;
+}</pre></details>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

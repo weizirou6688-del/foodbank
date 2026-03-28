@@ -71,22 +71,18 @@ const apiClient = new APIClient(API_BASE_URL)
 
 export const donationsAPI = {
   donateCash: (data: {
-    email: string
-    amount: number
-    cardholder_name: string
-    card_number: string
-    expiry_date: string
-    cvv: string
+    donor_email: string
+    amount_pence: number
+    payment_reference?: string
   }) => apiClient.post('/api/v1/donations/cash', data),
 
-  donateGoods: (
-    data: {
-      donor_name: string
-      contact_email: string
-      items: Array<{ name: string; quantity: number; category: string }>
-    },
-    token: string
-  ) => apiClient.post('/api/v1/donations/goods', data, token),
+  donateGoods: (data: {
+    donor_name: string
+    donor_email: string
+    donor_phone: string
+    notes?: string
+    items: Array<{ item_name: string; quantity: number }>
+  }) => apiClient.post('/api/v1/donations/goods', data),
 }
 
 export const statsAPI = {
@@ -159,6 +155,11 @@ export const adminAPI = {
       ? `/api/v1/inventory/low-stock?threshold=${threshold}`
       : '/api/v1/inventory/low-stock'
     return apiClient.get(url, token)
+  },
+
+  getDonations: (token: string, type?: 'cash' | 'goods') => {
+    const query = type ? `?type=${type}` : ''
+    return apiClient.get(`/api/v1/donations${query}`, token)
   },
 }
 

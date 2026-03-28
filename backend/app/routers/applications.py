@@ -8,8 +8,6 @@ import secrets
 import string
 import uuid
 from datetime import date, datetime
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
@@ -22,7 +20,12 @@ from app.models.application_item import ApplicationItem
 from app.models.food_package import FoodPackage
 from app.models.inventory_lot import InventoryLot
 from app.models.package_item import PackageItem
-from app.schemas.application import ApplicationCreate, ApplicationOut, ApplicationUpdate
+from app.schemas.application import (
+    ApplicationCreate,
+    ApplicationListResponse,
+    ApplicationOut,
+    ApplicationUpdate,
+)
 
 
 router = APIRouter(tags=["Applications"])
@@ -301,7 +304,7 @@ async def submit_application(
         ) from exc
 
 
-@router.get("/my", response_model=List[ApplicationOut])
+@router.get("/my", response_model=ApplicationListResponse)
 async def get_my_applications(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -319,10 +322,19 @@ async def get_my_applications(
         .where(Application.user_id == user_id)
         .order_by(Application.created_at.desc())
     )
-    return list(result.scalars().all())
+    items = list(result.scalars().all())
+    total = len(items)
+    # TODO: 实现真实分页
+    return {
+        "items": items,
+        "total": total,
+        "page": 1,
+        "size": total,
+        "pages": 1,
+    }
 
 
-@router.get("", response_model=List[ApplicationOut])
+@router.get("", response_model=ApplicationListResponse)
 async def list_all_applications(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -334,8 +346,16 @@ async def list_all_applications(
     """
     _ = admin_user
     result = await db.execute(select(Application))
-    applications = result.scalars().all()
-    return applications
+    items = list(result.scalars().all())
+    total = len(items)
+    # TODO: 实现真实分页
+    return {
+        "items": items,
+        "total": total,
+        "page": 1,
+        "size": total,
+        "pages": 1,
+    }
 
 
 @router.patch("/{application_id}", response_model=ApplicationOut)
@@ -358,7 +378,11 @@ async def update_application_status(
     """
     _ = admin_user
 
-    if application_in.status is None and application_in.redemption_code is None:
+    if (
+        application_in.status is None
+        and application_in.redemption_code is None
+        and application_in.admin_comment is None
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields provided to update",
@@ -391,6 +415,8 @@ async def update_application_status(
 
             if application_in.status is not None:
                 application.status = application_in.status
+
+            _ = application_in.admin_comment
 
             await db.flush()
             await db.refresh(application)

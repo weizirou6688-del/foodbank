@@ -44,9 +44,8 @@ class ApplicationBase(BaseModel):
     redemption_code: str = Field(pattern=r"^FB-[A-Za-z0-9]{6}$", max_length=20)
 
     # From spec: status: VARCHAR(20), NOT NULL, DEFAULT 'pending'
-    # Lifecycle: pending (submitted) -> collected (redeemed) or expired (stale).
-    # Regex enforces one of three allowed values.
-    status: str = Field(default="pending", pattern="^(pending|collected|expired)$")
+    # Lifecycle: pending, approved, rejected, collected, expired.
+    status: str = Field(default="pending", pattern="^(pending|approved|rejected|collected|expired)$")
 
     # From spec § 1.8: week_start: DATE, NOT NULL
     # Start date of the week when application was submitted.
@@ -93,14 +92,16 @@ class ApplicationUpdate(BaseModel):
     # All fields optional; typically admins update status or regenerate code.
 
     # From spec: status: VARCHAR(20)
-    # Admin marks application as collected or expired.
-    # Regex enforces one of three allowed values.
-    status: str | None = Field(default=None, pattern="^(pending|collected|expired)$")
+    # Admin updates application status within supported lifecycle states.
+    status: str | None = Field(default=None, pattern="^(pending|approved|rejected|collected|expired)$")
 
     # From spec: redemption_code: VARCHAR(20), UNIQUE
     # Admin can regenerate code if original lost/damaged.
     # Regex enforces format.
     redemption_code: str | None = Field(default=None, pattern=r"^FB-[A-Za-z0-9]{6}$", max_length=20)
+
+    # Admin approval/rejection comment.
+    admin_comment: str | None = None
 
 
 # Schema for API responses (reading application data).
@@ -121,3 +122,12 @@ class ApplicationOut(ApplicationBase):
 
     # Soft-delete field: null if active, timestamp if soft-deleted.
     deleted_at: datetime | None = None
+
+
+class ApplicationListResponse(BaseModel):
+    # TODO: 实现真实分页
+    items: list[ApplicationOut]
+    total: int
+    page: int
+    size: int
+    pages: int

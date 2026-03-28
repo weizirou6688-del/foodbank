@@ -62,6 +62,7 @@ class InventoryItemCreate(InventoryItemBase):
 
 
 class InventoryItemCreateRequest(BaseModel):
+    food_bank_id: int | None = Field(default=None, gt=0)
     name: str = Field(min_length=1, max_length=200)
     category: InventoryCategory
     initial_stock: int = Field(ge=0)
@@ -90,9 +91,23 @@ class InventoryItemOut(InventoryItemBase):
     # Included in response so client knows the item's system ID.
     id: int
 
+    food_bank_id: int | None = None
+
+    # TODO: 从活跃批次实时计算（未过期、未废弃）。
+    total_stock: int = 0
+
     # From spec: updated_at: TIMESTAMP, NOT NULL, DEFAULT NOW()
     # Audit field: last modification time (updated on every change).
     updated_at: datetime
+
+
+class InventoryItemListResponse(BaseModel):
+    # TODO: 实现真实分页
+    items: list[InventoryItemOut]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
 # Schema for stock adjustment (stock-in/stock-out operations).

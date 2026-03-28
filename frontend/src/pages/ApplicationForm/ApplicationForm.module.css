@@ -1,0 +1,407 @@
+.page {
+  min-height: 100vh;
+  background: #f9f9f9;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.heroTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+.heroSub {
+  font-size: 1.1rem;
+  margin: 0;
+  opacity: 0.95;
+}
+
+.main {
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  width: 100%;
+}
+
+.infoBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.fbName {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+  color: #333;
+}
+
+.fbAddr {
+  font-size: 0.95rem;
+  color: #666;
+  margin: 0;
+}
+
+.weeklyBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: #f0f0f0;
+  border-radius: 6px;
+  min-width: 120px;
+}
+
+.weeklyNum {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.weeklyLabel {
+  font-size: 0.8rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0.25rem;
+}
+
+.weekSelector {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.dateInput {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.dateInput:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0;
+}
+
+.notice {
+  background: #e8f4f8;
+  border-left: 4px solid #667eea;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.errorBanner {
+  background: #ffe0e0;
+  border-left: 4px solid #ff6b6b;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 2rem;
+  color: #cc0000;
+  font-weight: 500;
+}
+
+.pkgGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 120px;
+}
+
+.pkgCard {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.pkgCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pkgCard.selected {
+  border: 3px solid #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.selectedBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #667eea;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.lowBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #ff6b6b;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.pkgImg {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.pkgBody {
+  padding: 1rem;
+}
+
+.pkgName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.pkgDesc {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.4;
+}
+
+.itemList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.itemList li {
+  padding: 0.25rem 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.itemList span {
+  color: #999;
+  font-weight: 600;
+}
+
+.stockRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-top: 1px solid #eee;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.stockOk {
+  color: #51cf66;
+  font-weight: 600;
+}
+
+.stockLow {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.qtyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #eee;
+}
+
+.qtyLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.qtyControl {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.qtyControl button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #667eea;
+  transition: all 0.2s ease;
+}
+
+.qtyControl button:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.qtyControl button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qtyControl span {
+  min-width: 30px;
+  text-align: center;
+  font-weight: 600;
+  color: #333;
+}
+
+.submitBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #ddd;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.submitSummary {
+  font-size: 0.95rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.emptyState h2 {
+  font-size: 1.8rem;
+  color: #333;
+  margin: 0 0 0.5rem 0;
+}
+
+.emptyState p {
+  font-size: 1rem;
+  color: #666;
+  margin: 0 0 1.5rem 0;
+}
+
+.modalContent {
+  padding: 1rem;
+}
+
+.modalLabel {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.code {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #667eea;
+  background: #f0f0f0;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.1em;
+}
+
+.modalHint {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 2rem 1rem;
+  }
+
+  .heroTitle {
+    font-size: 2rem;
+  }
+
+  .infoBar {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .weeklyBadge {
+    width: 100%;
+  }
+
+  .pkgGrid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+
+  .submitBar {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .submitSummary {
+    width: 100%;
+  }
+}

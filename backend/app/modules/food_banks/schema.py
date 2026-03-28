@@ -11,24 +11,15 @@ Coordinates use Decimal type for precise geographic storage (±0.1 meter precisi
 """
 
 from datetime import datetime
-from decimal import Decimal
-from typing import Annotated
-
-from pydantic import BaseModel, ConfigDict, Field, condecimal
-
-
-# Latitude/Longitude coordinate with precision DECIMAL(9,6)
-# max_digits=9: total significant digits (e.g., 51.123456 = 2+6 = 8 digits)
-# decimal_places=6: digits after decimal point (~0.111 meters precision)
-Coordinate = Annotated[Decimal, condecimal(max_digits=9, decimal_places=6)]
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # Common fields for food bank creation and responses.
 class FoodBankBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     address: str = Field(min_length=1)
-    lat: Coordinate
-    lng: Coordinate
+    lat: float
+    lng: float
 
 
 class FoodBankCreate(FoodBankBase):
@@ -38,14 +29,23 @@ class FoodBankCreate(FoodBankBase):
 class FoodBankUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     address: str | None = Field(default=None, min_length=1)
-    lat: Decimal | None = None
-    lng: Decimal | None = None
+    lat: float | None = None
+    lng: float | None = None
 
 
 class FoodBankOut(FoodBankBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     created_at: datetime
+
+
+class FoodBankListResponse(BaseModel):
+    # TODO: 实现真实分页
+    items: list[FoodBankOut]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
 class FoodBankDetailOut(FoodBankOut):

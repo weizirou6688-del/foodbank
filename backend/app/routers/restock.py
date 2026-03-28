@@ -4,8 +4,6 @@ Restock request management routes.
 Spec § 2.7: GET (list), POST (create), DELETE /:id (decline), POST /:id/fulfil
 """
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -15,13 +13,18 @@ from app.core.database import get_db
 from app.core.security import require_admin
 from app.models.inventory_item import InventoryItem
 from app.models.restock_request import RestockRequest
-from app.schemas.restock_request import RestockRequestCreate, RestockRequestOut, RestockRequestFulfil
+from app.schemas.restock_request import (
+    RestockRequestCreate,
+    RestockRequestFulfil,
+    RestockRequestListResponse,
+    RestockRequestOut,
+)
 
 
 router = APIRouter(tags=["Restock Requests"])
 
 
-@router.get("", response_model=List[RestockRequestOut])
+@router.get("", response_model=RestockRequestListResponse)
 async def list_restock_requests(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -39,7 +42,16 @@ async def list_restock_requests(
     result = await db.execute(
         select(RestockRequest).order_by(RestockRequest.created_at.desc())
     )
-    return list(result.scalars().all())
+    items = list(result.scalars().all())
+    total = len(items)
+    # TODO: 实现真实分页
+    return {
+        "items": items,
+        "total": total,
+        "page": 1,
+        "size": total,
+        "pages": 1,
+    }
 
 
 @router.post("", response_model=RestockRequestOut, status_code=status.HTTP_201_CREATED)
