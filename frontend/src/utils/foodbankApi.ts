@@ -1,4 +1,18 @@
-interface GiveFoodBank {
+import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
+
+interface GiveFoodBankApiRecord {
+  name: string
+  address: string
+  postcode: string
+  lat?: number | null
+  lng?: number | null
+  latt_long?: string | null
+  phone?: string
+  url?: string
+  needs?: string[]
+}
+
+export interface NearbyFoodBank {
   name: string
   address: string
   postcode: string
@@ -7,41 +21,39 @@ interface GiveFoodBank {
   phone?: string
   url?: string
   needs?: string[]
-}
-
-export interface NearbyFoodBank extends GiveFoodBank {
   distance: number
 }
 
 interface PostcodesIoResponse {
-  status: number
-  result?: {
-    latitude: number
-    longitude: number
-  }
+  lat: number
+  lng: number
+  source: string
 }
 
 export async function getCoordinatesFromPostcode(postcode: string): Promise<{ lat: number; lng: number }> {
-  const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`)
-  const data = (await response.json()) as PostcodesIoResponse
-
-  if (data.status !== 200 || !data.result) {
-    throw new Error(`Invalid postcode: ${postcode}`)
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/food-banks/geocode?postcode=${encodeURIComponent(postcode.trim())}`,
+  )
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Invalid postcode' })) as { detail?: string }
+    throw new Error(err.detail || `Invalid postcode: ${postcode}`)
   }
 
+  const data = (await response.json()) as PostcodesIoResponse
+
   return {
-    lat: data.result.latitude,
-    lng: data.result.longitude,
+    lat: data.lat,
+    lng: data.lng,
   }
 }
 
-export async function getAllFoodbanks(): Promise<GiveFoodBank[]> {
-  const response = await fetch('https://www.givefood.org.uk/api/1/foodbanks.json')
+export async function getAllFoodbanks(): Promise<GiveFoodBankApiRecord[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/external-feed`)
   if (!response.ok) {
     throw new Error('Failed to fetch food banks')
   }
 
-  return response.json() as Promise<GiveFoodBank[]>
+  return response.json() as Promise<GiveFoodBankApiRecord[]>
 }
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -56,15 +68,51 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return earthRadiusKm * c
 }
 
+function parseCoordinates(foodbank: GiveFoodBankApiRecord): { lat: number; lng: number } | null {
+  if (typeof foodbank.lat === 'number' && typeof foodbank.lng === 'number') {
+    return { lat: foodbank.lat, lng: foodbank.lng }
+  }
+
+  if (!foodbank.latt_long) {
+    return null
+  }
+
+  const [latStr, lngStr] = foodbank.latt_long.split(',')
+  const lat = Number(latStr)
+  const lng = Number(lngStr)
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null
+  }
+
+  return { lat, lng }
+}
+
 export async function getNearbyFoodbanks(postcode: string): Promise<NearbyFoodBank[]> {
   const userCoords = await getCoordinatesFromPostcode(postcode)
   const allFoodbanks = await getAllFoodbanks()
 
-  return allFoodbanks
-    .map((foodbank) => ({
-      ...foodbank,
-      distance: haversineDistance(userCoords.lat, userCoords.lng, foodbank.lat, foodbank.lng),
-    }))
-    .filter((foodbank) => foodbank.distance <= 2)
+  const rankedByDistance = allFoodbanks
+    .flatMap((foodbank) => {
+      const coords = parseCoordinates(foodbank)
+      if (!coords) {
+        return []
+      }
+
+      return [{
+        ...foodbank,
+        lat: coords.lat,
+        lng: coords.lng,
+        distance: haversineDistance(userCoords.lat, userCoords.lng, coords.lat, coords.lng),
+      }]
+    })
     .sort((a, b) => a.distance - b.distance)
+
+  const withinTwoMiles = rankedByDistance.filter((foodbank) => foodbank.distance <= 3.218688)
+  if (withinTwoMiles.length > 0) {
+    return withinTwoMiles
+  }
+
+  // Fallback: return nearest results even if no food bank is inside strict 2-mile radius.
+  return rankedByDistance.slice(0, 10)
 }

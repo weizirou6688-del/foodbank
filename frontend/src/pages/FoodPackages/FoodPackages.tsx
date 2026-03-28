@@ -15,7 +15,7 @@ interface Selection {
 export default function FoodPackages() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const { selectedFoodBank, packages, weeklyCollected, loadUserCollections, applyPackages } = useFoodBankStore()
+  const { selectedFoodBank, packages, weeklyCollected, loadUserCollections, loadPackages, applyPackages } = useFoodBankStore()
 
   const [selections, setSelections] = useState<Record<number, number>>({})
   const [codeModal, setCodeModal] = useState<{ open: boolean; code: string }>({ open: false, code: '' })
@@ -25,7 +25,31 @@ export default function FoodPackages() {
     if (user) loadUserCollections(user.email)
   }, [user, loadUserCollections])
 
-  const fb = selectedFoodBank ?? { name: 'Downtown Community Food Bank', address: '123 Main Street, London' }
+  useEffect(() => {
+    if (!selectedFoodBank) {
+      return
+    }
+
+    loadPackages().catch((error) => {
+      const message = error instanceof Error ? error.message : 'Failed to load packages from server'
+      setErrorMsg(message)
+    })
+  }, [selectedFoodBank?.id, loadPackages])
+
+  if (!selectedFoodBank) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.emptyState}>
+          <h2>Please Select a Food Bank First</h2>
+          <p>You need to select a food bank before viewing packages.</p>
+          <Button onClick={() => navigate('/find-foodbank')}>
+            Find Food Bank
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   const remaining = WEEKLY_COLLECTION_LIMIT - weeklyCollected
 
   const toggleSelect = (pkgId: number) => {
@@ -73,8 +97,8 @@ export default function FoodPackages() {
         {/* Food bank info bar */}
         <div className={styles.infoBar}>
           <div>
-            <h3 className={styles.fbName}>{fb.name}</h3>
-            <p className={styles.fbAddr}>{fb.address}</p>
+            <h3 className={styles.fbName}>{selectedFoodBank.name}</h3>
+            <p className={styles.fbAddr}>{selectedFoodBank.address}</p>
           </div>
           <div className={styles.weeklyBadge}>
             <span className={styles.weeklyNum}>{remaining}</span>

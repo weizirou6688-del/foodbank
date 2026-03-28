@@ -4,6 +4,7 @@ Donation submission and tracking routes.
 Spec § 2.5: POST /cash, POST /goods, GET /list (admin with ?type filter)
 """
 
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -22,6 +23,7 @@ from app.schemas.donation_goods import DonationGoodsCreate, DonationGoodsOut
 
 
 router = APIRouter(tags=["Donations"])
+logger = logging.getLogger("uvicorn.error")
 
 
 @router.post("/cash", response_model=DonationCashOut, status_code=status.HTTP_201_CREATED)
@@ -61,6 +63,7 @@ async def submit_cash_donation(
                     "cash",
                     f"Amount (pence): {donation_in.amount_pence}",
                 )
+                logger.info("Queued cash donation thank-you email for %s", donation_in.donor_email)
 
             return donation
     except IntegrityError as exc:
@@ -129,6 +132,7 @@ async def submit_goods_donation(
                     "goods",
                     goods_details,
                 )
+                logger.info("Queued goods donation thank-you email for %s", donation_in.donor_email)
 
             return donation
     except IntegrityError as exc:

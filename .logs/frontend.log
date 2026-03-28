@@ -1,0 +1,18 @@
+
+> abc-foodbank@0.1.0 dev
+> vite --host 0.0.0.0 --port 5173
+
+
+  VITE v5.4.21  ready in 340 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://10.0.0.184:5173/
+  ➜  Network: http://172.17.0.1:5173/
+8:09:56 PM [vite] hmr update /src/index.css, /src/pages/Admin/AdminFoodManagement.tsx
+8:10:03 PM [vite] hmr update /src/pages/DonateCash/DonateCash.tsx, /src/index.css
+8:10:10 PM [vite] hmr update /src/pages/DonateGoods/DonateGoods.tsx, /src/index.css
+8:31:43 PM [vite] hmr update /src/index.css, /src/pages/Admin/AdminFoodManagement.tsx, /src/pages/DonateCash/DonateCash.tsx, /src/pages/DonateGoods/DonateGoods.tsx
+8:32:01 PM [vite] hmr update /src/pages/Admin/AdminStatistics.tsx, /src/index.css
+8:43:02 PM [vite] hmr update /src/index.css, /src/features/auth/components/LoginModal.tsx, /src/pages/DonateGoods/DonateGoods.tsx, /src/pages/DonateCash/DonateCash.tsx
+8:43:11 PM [vite] hmr update /src/features/auth/components/LoginModal.tsx, /src/index.css
+8:55:30 PM [vite] hmr update /src/features/auth/components/LoginModal.tsx, /src/index.css

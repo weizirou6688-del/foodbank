@@ -69,7 +69,7 @@ export default function FindFoodBank() {
                         <h3 className={styles.fbName}>{fb.name}</h3>
                         <p className={styles.fbAddr}>{fb.address}</p>
                         <Badge variant="teal">
-                          {typeof fb.distance === 'number' ? `${fb.distance} km away` : 'Nearby'}
+                          {typeof fb.distance === 'number' ? `${fb.distance.toFixed(2)} km away` : 'Nearby'}
                         </Badge>
 
                         <div className={styles.fbHours}>

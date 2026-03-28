@@ -19,10 +19,10 @@ from app.models.inventory_lot import InventoryLot
 from app.models.package_item import PackageItem
 from app.schemas.inventory_item import (
     InventoryItemCreateRequest,
+    InventoryItemListResponse,
     InventoryItemOut,
     InventoryItemUpdate,
     LowStockItem,
-    StockAdjustment,
 )
 from app.schemas.inventory_lot import InventoryLotAdjustRequest, InventoryLotOut
 
@@ -30,7 +30,7 @@ from app.schemas.inventory_lot import InventoryLotAdjustRequest, InventoryLotOut
 router = APIRouter(tags=["Inventory"])
 
 
-@router.get("", response_model=List[InventoryItemOut])
+@router.get("", response_model=InventoryItemListResponse)
 async def list_inventory(
     food_bank_id: int | None = None,
     admin_user: dict = Depends(require_admin),
@@ -48,7 +48,16 @@ async def list_inventory(
     result = await db.execute(
         select(InventoryItem).order_by(InventoryItem.updated_at.desc())
     )
-    return list(result.scalars().all())
+    items = list(result.scalars().all())
+    total = len(items)
+    # TODO: 实现真实分页
+    return {
+        "items": items,
+        "total": total,
+        "page": 1,
+        "size": total,
+        "pages": 1,
+    }
 
 
 @router.post("", response_model=InventoryItemOut, status_code=status.HTTP_201_CREATED)
@@ -303,98 +312,100 @@ async def update_inventory_item(
         ) from exc
 
 
-@router.post("/{item_id}/stock-in", response_model=InventoryItemOut)
-async def stock_in(
-    item_id: int,
-    adjustment_in: StockAdjustment,
-    admin_user: dict = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Increase inventory quantity (admin only).
-    
-    Spec § 2.6: POST /inventory/:id/stock-in (requires admin).
-    
-    StockAdjustment includes:
-    - quantity: int (amount to add)
-    - reason: str (source/reason for donation)
-    
-    TODO: Increment quantity in DB
-    """
-    _ = admin_user
-    _ = adjustment_in.reason
-    try:
-        async with db.begin():
-            item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == item_id)
-            )
-            if item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found",
-                )
+# TODO: 后续使用批次管理替代
+# @router.post("/{item_id}/stock-in", response_model=InventoryItemOut)
+# async def stock_in(
+#     item_id: int,
+#     adjustment_in: StockAdjustment,
+#     admin_user: dict = Depends(require_admin),
+#     db: AsyncSession = Depends(get_db),
+# ):
+#     """
+#     Increase inventory quantity (admin only).
+#
+#     Spec § 2.6: POST /inventory/:id/stock-in (requires admin).
+#
+#     StockAdjustment includes:
+#     - quantity: int (amount to add)
+#     - reason: str (source/reason for donation)
+#
+#     TODO: Increment quantity in DB
+#     """
+#     _ = admin_user
+#     _ = adjustment_in.reason
+#     try:
+#         async with db.begin():
+#             item = await db.scalar(
+#                 select(InventoryItem).where(InventoryItem.id == item_id)
+#             )
+#             if item is None:
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail="Inventory item not found",
+#                 )
+#
+#             item.stock += adjustment_in.quantity
+#             await db.flush()
+#             await db.refresh(item)
+#             return item
+#     except HTTPException:
+#         raise
+#     except Exception as exc:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Failed to increase inventory stock",
+#         ) from exc
 
-            item.stock += adjustment_in.quantity
-            await db.flush()
-            await db.refresh(item)
-            return item
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to increase inventory stock",
-        ) from exc
 
-
-@router.post("/{item_id}/stock-out", response_model=InventoryItemOut)
-async def stock_out(
-    item_id: int,
-    adjustment_in: StockAdjustment,
-    admin_user: dict = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Decrease inventory quantity (admin only).
-    
-    Spec § 2.6: POST /inventory/:id/stock-out (requires admin).
-    
-    StockAdjustment includes:
-    - quantity: int (amount to remove)
-    - reason: str (purpose: "package_prepared", "distribution", etc.)
-    
-    TODO: Decrement quantity in DB, prevent negative stock
-    """
-    _ = admin_user
-    _ = adjustment_in.reason
-    try:
-        async with db.begin():
-            item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == item_id)
-            )
-            if item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found",
-                )
-
-            if item.stock < adjustment_in.quantity:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Insufficient stock",
-                )
-
-            item.stock -= adjustment_in.quantity
-            await db.flush()
-            await db.refresh(item)
-            return item
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to decrease inventory stock",
-        ) from exc
+# TODO: 后续使用批次管理替代
+# @router.post("/{item_id}/stock-out", response_model=InventoryItemOut)
+# async def stock_out(
+#     item_id: int,
+#     adjustment_in: StockAdjustment,
+#     admin_user: dict = Depends(require_admin),
+#     db: AsyncSession = Depends(get_db),
+# ):
+#     """
+#     Decrease inventory quantity (admin only).
+#
+#     Spec § 2.6: POST /inventory/:id/stock-out (requires admin).
+#
+#     StockAdjustment includes:
+#     - quantity: int (amount to remove)
+#     - reason: str (purpose: "package_prepared", "distribution", etc.)
+#
+#     TODO: Decrement quantity in DB, prevent negative stock
+#     """
+#     _ = admin_user
+#     _ = adjustment_in.reason
+#     try:
+#         async with db.begin():
+#             item = await db.scalar(
+#                 select(InventoryItem).where(InventoryItem.id == item_id)
+#             )
+#             if item is None:
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail="Inventory item not found",
+#                 )
+#
+#             if item.stock < adjustment_in.quantity:
+#                 raise HTTPException(
+#                     status_code=status.HTTP_400_BAD_REQUEST,
+#                     detail="Insufficient stock",
+#                 )
+#
+#             item.stock -= adjustment_in.quantity
+#             await db.flush()
+#             await db.refresh(item)
+#             return item
+#     except HTTPException:
+#         raise
+#     except Exception as exc:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Failed to decrease inventory stock",
+#         ) from exc
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -505,18 +516,21 @@ async def get_low_stock_items(
             isouter=True,
         )
 
+        # Treat items without active lots as zero stock.
+        effective_total_stock = func.coalesce(stock_subquery.c.total_stock, 0)
+
         # Apply threshold filter
         effective_threshold = threshold if threshold is not None else None
         if effective_threshold is not None:
             # Use provided threshold for all items
-            query = query.where(stock_subquery.c.total_stock < effective_threshold)
+            query = query.where(effective_total_stock < effective_threshold)
         else:
             # Use per-item threshold
-            query = query.where(stock_subquery.c.total_stock < InventoryItem.threshold)
+            query = query.where(effective_total_stock < InventoryItem.threshold)
 
         # Sort by stock deficit (most critical first)
         query = query.order_by(
-            (InventoryItem.threshold - stock_subquery.c.total_stock).desc()
+            (InventoryItem.threshold - effective_total_stock).desc()
         )
 
         result = await db.execute(query)

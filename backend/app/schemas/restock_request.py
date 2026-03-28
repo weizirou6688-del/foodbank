@@ -7,14 +7,18 @@ These schemas handle:
 - RestockRequestUpdate: Allows status changes (open->fulfilled/cancelled), assignments.
 - RestockRequestOut: Response with ID, urgency level, and creation timestamp.
 
-Urgency levels enforce business rule: Critical, Urgent, or Low.
+Urgency levels enforce business rule: high, medium, or low.
 Status lifecycle: open (pending) -> fulfilled (stock replenished) or cancelled (obsolete).
 """
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+RestockUrgency = Literal["high", "medium", "low"]
 
 
 # Common fields for restock request creation and responses.
@@ -32,9 +36,9 @@ class RestockRequestBase(BaseModel):
     # Stored for historical context. Validation: ge=0.
     threshold: int = Field(ge=0)
 
-    # From spec: urgency: VARCHAR(20), NOT NULL, CHECK(urgency IN ('Critical','Urgent','Low'))
-    # Business priority level. Regex enforces one of three allowed values.
-    urgency: str = Field(pattern="^(Critical|Urgent|Low)$")
+    # From spec: urgency: VARCHAR(20), NOT NULL
+    # Business priority level.
+    urgency: RestockUrgency
 
     # From spec: assigned_to_user_id: UUID, FK -> users.id, NULLABLE
     # Optional: if set, this user is responsible for fulfilling request.
@@ -64,7 +68,7 @@ class RestockRequestCreate(BaseModel):
 
     # From spec: urgency: VARCHAR(20), NOT NULL
     # Priority level assigned at creation time.
-    urgency: str = Field(pattern="^(Critical|Urgent|Low)$")
+    urgency: RestockUrgency
 
     # From spec: assigned_to_user_id: UUID, NULLABLE
     # Optional: can assign to staff member at creation or leave NULL.
@@ -88,7 +92,7 @@ class RestockRequestUpdate(BaseModel):
 
     # From spec: urgency: VARCHAR(20)
     # Admin can reprioritize request based on supply constraints.
-    urgency: str | None = Field(default=None, pattern="^(Critical|Urgent|Low)$")
+    urgency: RestockUrgency | None = None
 
     # From spec: assigned_to_user_id: UUID, NULLABLE
     # Admin assigns/reassigns request to staff; NULL to unassign.
@@ -111,6 +115,15 @@ class RestockRequestOut(RestockRequestBase):
     # From spec: created_at: TIMESTAMP, NOT NULL, DEFAULT NOW()
     # Audit field: when request was created (tracks age for priority).
     created_at: datetime
+
+
+class RestockRequestListResponse(BaseModel):
+    # TODO: 实现真实分页
+    items: list[RestockRequestOut]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
 # Schema for fulfilling a restock request.

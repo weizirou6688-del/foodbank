@@ -3,6 +3,7 @@ import Layout from '@/widgets/layout/Layout'
 import Home from '@/pages/Home/Home'
 import FindFoodBank from '@/pages/FindFoodBank/FindFoodBank'
 import FoodPackages from '@/pages/FoodPackages/FoodPackages'
+import ApplicationForm from '@/pages/ApplicationForm/ApplicationForm'
 import DonateCash from '@/pages/DonateCash/DonateCash'
 import DonateGoods from '@/pages/DonateGoods/DonateGoods'
 import Admin from '@/pages/Admin/Admin'
@@ -21,6 +22,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <FoodPackages />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'application',
+        element: (
+          <ProtectedRoute>
+            <ApplicationForm />
           </ProtectedRoute>
         ),
       },

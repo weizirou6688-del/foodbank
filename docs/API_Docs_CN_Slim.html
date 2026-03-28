@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang='zh-CN'>
+<head>
+<meta charset='utf-8'/>
+<meta name='viewport' content='width=device-width, initial-scale=1'/>
+<title>FoodBank 后端接口文档（中文精简版）</title>
+<style>
+:root{--bg:#f7f7fb;--card:#fff;--text:#111827;--line:#e5e7eb;--muted:#6b7280;--brand:#0f766e;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,-apple-system,Segoe UI,Helvetica,Arial,sans-serif}
+header{padding:24px;color:#fff;background:linear-gradient(135deg,#0f766e,#0891b2)}
+main{max-width:1180px;margin:0 auto;padding:18px}
+.grid{display:grid;grid-template-columns:280px 1fr;gap:16px}@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+a{color:var(--brand);text-decoration:none}a:hover{text-decoration:underline}
+.endpoint{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}
+.method{display:inline-block;min-width:56px;text-align:center;color:#fff;font-weight:700;border-radius:6px;padding:2px 8px;margin-right:6px}
+.get{background:#16a34a}.post{background:#2563eb}.put{background:#d97706}.patch{background:#7c3aed}.delete{background:#dc2626}
+code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 6px}
+pre{background:#0b1020;color:#dbeafe;border-radius:8px;padding:10px;white-space:pre-wrap;word-break:break-word}
+.muted{color:var(--muted)}
+table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);padding:8px;text-align:left;vertical-align:top;font-size:14px}th{background:#f8fafc}
+details{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0;background:#fff}
+</style>
+</head>
+<body>
+<header>
+  <h1>FoodBank 后端接口文档（中文精简版）</h1>
+  <p>来源: /openapi.json | 生成时间: 2026-03-27 16:46:00 UTC</p>
+  <p>服务: ABC Community Food Bank API v1.0.0</p>
+</header>
+<main>
+  <div class='card'>
+    <h2>文档范围</h2>
+    <p>仅保留核心业务分组: Auth、Inventory、Applications、Restock Requests、Food Banks。</p>
+    <p>接口数量: <strong>27</strong> | 涉及 Schema 数量: <strong>25</strong></p>
+  </div>
+  <div class='grid'>
+    <nav class='card'>
+      <h3>接口目录</h3>
+      <ul>
+      <li><a href='#tag-Applications'>申请管理 (Applications)</a></li><li><a href='#tag-Auth'>认证登录 (Auth)</a></li><li><a href='#tag-Food-Banks'>Food Bank 管理 (Food Banks)</a></li><li><a href='#tag-Inventory'>库存管理 (Inventory)</a></li><li><a href='#tag-Restock-Requests'>补货申请 (Restock Requests)</a></li>
+      </ul>
+      <h3>Schema 目录</h3>
+      <ul><li><a href='#schema-ApplicationCreate'>ApplicationCreate</a></li><li><a href='#schema-ApplicationItemCreatePayload'>ApplicationItemCreatePayload</a></li><li><a href='#schema-ApplicationOut'>ApplicationOut</a></li><li><a href='#schema-ApplicationUpdate'>ApplicationUpdate</a></li><li><a href='#schema-FoodBankCreate'>FoodBankCreate</a></li><li><a href='#schema-FoodBankDetailOut'>FoodBankDetailOut</a></li><li><a href='#schema-FoodBankHourOut'>FoodBankHourOut</a></li><li><a href='#schema-FoodBankOut'>FoodBankOut</a></li><li><a href='#schema-FoodBankUpdate'>FoodBankUpdate</a></li><li><a href='#schema-HTTPValidationError'>HTTPValidationError</a></li><li><a href='#schema-InventoryItemCreateRequest'>InventoryItemCreateRequest</a></li><li><a href='#schema-InventoryItemOut'>InventoryItemOut</a></li><li><a href='#schema-InventoryItemUpdate'>InventoryItemUpdate</a></li><li><a href='#schema-InventoryLotAdjustRequest'>InventoryLotAdjustRequest</a></li><li><a href='#schema-InventoryLotOut'>InventoryLotOut</a></li><li><a href='#schema-LoginRequest'>LoginRequest</a></li><li><a href='#schema-LowStockItem'>LowStockItem</a></li><li><a href='#schema-RestockRequestCreate'>RestockRequestCreate</a></li><li><a href='#schema-RestockRequestFulfil'>RestockRequestFulfil</a></li><li><a href='#schema-RestockRequestOut'>RestockRequestOut</a></li><li><a href='#schema-StockAdjustment'>StockAdjustment</a></li><li><a href='#schema-TokenResponse'>TokenResponse</a></li><li><a href='#schema-UserCreate'>UserCreate</a></li><li><a href='#schema-UserOut'>UserOut</a></li><li><a href='#schema-ValidationError'>ValidationError</a></li></ul>
+    </nav>
+    <div>
+      <section class='card'>
+        <h2>核心接口明细</h2>
+        <section id='tag-Applications'><h3>申请管理 (Applications)</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/applications</code></h4>
+  <p><strong>接口名称:</strong> List All Applications</p>
+  <p><strong>OperationId:</strong> list_all_applications_api_v1_applications_get</p>
+  <p><strong>说明:</strong> List all applications (admin only).
+
+Spec § 2.4: Admin application listing endpoint.</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/ApplicationOut&quot;
+  },
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;title&quot;: &quot;Response List All Applications Api V1 Applications Get&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/applications</code></h4>
+  <p><strong>接口名称:</strong> Submit Application</p>
+  <p><strong>OperationId:</strong> submit_application_api_v1_applications_post</p>
+  <p><strong>说明:</strong> Submit food assistance application.
+
+Spec § 2.4: POST /applications (requires auth, any user role).
+
+ApplicationCreate includes:
+- items: List[ApplicationItemCreatePayload]
+- week_start: DATE (week start date in YYYY-MM-DD format)
+
+TODO: Verify &lt;= 1 active app per user per week</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/ApplicationCreate&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/ApplicationOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/applications/my</code></h4>
+  <p><strong>接口名称:</strong> Get My Applications</p>
+  <p><strong>OperationId:</strong> get_my_applications_api_v1_applications_my_get</p>
+  <p><strong>说明:</strong> Get all applications for current user.
+
+Spec § 2.4: GET /applications/my (requires auth).
+
+TODO: Query all applications where user_id = current_user.id</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/ApplicationOut&quot;
+  },
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;title&quot;: &quot;Response Get My Applications Api V1 Applications My Get&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/applications/{application_id}</code></h4>
+  <p><strong>接口名称:</strong> Update Application Status</p>
+  <p><strong>OperationId:</strong> update_application_status_api_v1_applications__application_id__patch</p>
+  <p><strong>说明:</strong> Update application status (admin only).
+
+Spec § 2.4: PATCH /applications/:id (requires admin role).
+
+ApplicationUpdate includes:
+- status: Status enum (pending, approved, rejected, cancelled)
+- admin_comment: Optional string
+
+TODO: Admin-only endpoint to update status and comments</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>application_id</td><td>path</td><td>是</td><td>string</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/ApplicationUpdate&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/ApplicationOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Auth'><h3>认证登录 (Auth)</h3>
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/auth/login</code></h4>
+  <p><strong>接口名称:</strong> Login</p>
+  <p><strong>OperationId:</strong> login_api_v1_auth_login_post</p>
+  <p><strong>说明:</strong> Login with email and password.
+
+Spec § 2.1: POST /auth/login (no auth required).
+Returns access_token, refresh_token, and user profile.</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/LoginRequest&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/TokenResponse&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/auth/logout</code></h4>
+  <p><strong>接口名称:</strong> Logout</p>
+  <p><strong>OperationId:</strong> logout_api_v1_auth_logout_post</p>
+  <p><strong>说明:</strong> Invalidate refresh token (logout).
+
+Spec § 2.1: POST /auth/logout (requires auth).
+In a production system, store blacklist of revoked tokens.
+
+Returns 204 No Content.</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">无响应体</p></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/auth/me</code></h4>
+  <p><strong>接口名称:</strong> Get Profile</p>
+  <p><strong>OperationId:</strong> get_profile_api_v1_auth_me_get</p>
+  <p><strong>说明:</strong> Get current authenticated user&#x27;s profile.
+
+Spec § 2.1: GET /auth/me (requires auth).</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/UserOut&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/auth/refresh</code></h4>
+  <p><strong>接口名称:</strong> Refresh</p>
+  <p><strong>OperationId:</strong> refresh_api_v1_auth_refresh_post</p>
+  <p><strong>说明:</strong> Exchange refresh token for new access token.
+
+Spec § 2.1: POST /auth/refresh (no auth required, bring refresh_token in body).</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>refresh_token</td><td>query</td><td>是</td><td>string</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/auth/register</code></h4>
+  <p><strong>接口名称:</strong> Register</p>
+  <p><strong>OperationId:</strong> register_api_v1_auth_register_post</p>
+  <p><strong>说明:</strong> Register a new public user account.
+
+Spec § 2.1: POST /auth/register (no auth required).
+Role is always set to &#x27;public&#x27; for new registrations.
+
+Returns UserOut (id, name, email, role, timestamps).</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/UserCreate&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/UserOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Food-Banks'><h3>Food Bank 管理 (Food Banks)</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/food-banks</code></h4>
+  <p><strong>接口名称:</strong> List Food Banks</p>
+  <p><strong>OperationId:</strong> list_food_banks_api_v1_food_banks_get</p>
+  <p><strong>说明:</strong> List all food banks.
+
+Spec § 2.2: GET /food-banks (no auth).
+Supports ?postcode= for proximity filtering (within 2km).
+
+Note: proximity filtering not implemented in basic version.</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>postcode</td><td>query</td><td>否</td><td>string</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/FoodBankOut&quot;
+  },
+  &quot;title&quot;: &quot;Response List Food Banks Api V1 Food Banks Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/food-banks</code></h4>
+  <p><strong>接口名称:</strong> Create Food Bank</p>
+  <p><strong>OperationId:</strong> create_food_bank_api_v1_food_banks_post</p>
+  <p><strong>说明:</strong> Create new food bank location (admin only).
+
+Spec § 2.2: POST /food-banks (requires admin role).</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankCreate&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method delete'>DELETE</span> <code>/api/v1/food-banks/{food_bank_id}</code></h4>
+  <p><strong>接口名称:</strong> Delete Food Bank</p>
+  <p><strong>OperationId:</strong> delete_food_bank_api_v1_food_banks__food_bank_id__delete</p>
+  <p><strong>说明:</strong> Delete food bank (admin only).
+
+Spec § 2.2: DELETE /food-banks/:id (requires admin).
+
+Note: Cascading delete removes related hours/packages.</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>food_bank_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">无响应体</p></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/food-banks/{food_bank_id}</code></h4>
+  <p><strong>接口名称:</strong> Get Food Bank</p>
+  <p><strong>OperationId:</strong> get_food_bank_api_v1_food_banks__food_bank_id__get</p>
+  <p><strong>说明:</strong> Get single food bank with operating hours.
+
+Spec § 2.2: GET /food-banks/:id (no auth).</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>food_bank_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankDetailOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/food-banks/{food_bank_id}</code></h4>
+  <p><strong>接口名称:</strong> Update Food Bank</p>
+  <p><strong>OperationId:</strong> update_food_bank_api_v1_food_banks__food_bank_id__patch</p>
+  <p><strong>说明:</strong> Update food bank details (admin only).
+
+Spec § 2.2: PATCH /food-banks/:id (requires admin).</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>food_bank_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankUpdate&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/FoodBankOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Inventory'><h3>库存管理 (Inventory)</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/inventory</code></h4>
+  <p><strong>接口名称:</strong> List Inventory</p>
+  <p><strong>OperationId:</strong> list_inventory_api_v1_inventory_get</p>
+  <p><strong>说明:</strong> List all inventory items for a food bank (admin only).
+
+Spec § 2.6: GET /inventory?food_bank_id= (requires admin).
+
+TODO: Query all InventoryItem records for food_bank_id</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>food_bank_id</td><td>query</td><td>否</td><td>object</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+  },
+  &quot;title&quot;: &quot;Response List Inventory Api V1 Inventory Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/inventory</code></h4>
+  <p><strong>接口名称:</strong> Create Inventory Item</p>
+  <p><strong>OperationId:</strong> create_inventory_item_api_v1_inventory_post</p>
+  <p><strong>说明:</strong> Add new inventory item (admin only).
+
+Spec § 2.6: POST /inventory (requires admin).
+
+InventoryItemCreate includes:
+- food_bank_id, item_name, unit, quantity, threshold
+- storage_location (optional)
+
+TODO: Create InventoryItem record</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemCreateRequest&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/inventory/lots</code></h4>
+  <p><strong>接口名称:</strong> List Inventory Lots</p>
+  <p><strong>OperationId:</strong> list_inventory_lots_api_v1_inventory_lots_get</p>
+  <p><strong>说明:</strong> List inventory lots for admin batch management UI.</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>include_inactive</td><td>query</td><td>否</td><td>boolean</td><td>Include inactive (wasted) lots</td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/InventoryLotOut&quot;
+  },
+  &quot;title&quot;: &quot;Response List Inventory Lots Api V1 Inventory Lots Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/inventory/lots/{lot_id}</code></h4>
+  <p><strong>接口名称:</strong> Adjust Inventory Lot</p>
+  <p><strong>OperationId:</strong> adjust_inventory_lot_api_v1_inventory_lots__lot_id__patch</p>
+  <p><strong>说明:</strong> Adjust an inventory lot (damage, expiry date, status, quantity).</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>lot_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryLotAdjustRequest&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryLotOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/inventory/low-stock</code></h4>
+  <p><strong>接口名称:</strong> Get Low Stock Items</p>
+  <p><strong>OperationId:</strong> get_low_stock_items_api_v1_inventory_low_stock_get</p>
+  <p><strong>说明:</strong> List inventory items with stock below threshold (admin only).
+
+Spec § 2.6: GET /inventory/low-stock (requires admin).
+
+Returns items where total active stock (non-expired lots) is below threshold.
+Supports optional threshold parameter to override per-item thresholds.
+
+Query logic:
+- Calculate SUM(quantity) for each item where:
+  * status=&#x27;active&#x27; (deleted_at IS NULL)
+  * expiry_date &gt;= CURRENT_DATE (not expired)
+- Filter items with total_stock &lt; item.threshold (or override threshold if provided)
+- Return sorted by stock_deficit DESC (most critical first)</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>threshold</td><td>query</td><td>否</td><td>object</td><td>Override default threshold</td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/LowStockItem&quot;
+  },
+  &quot;title&quot;: &quot;Response Get Low Stock Items Api V1 Inventory Low Stock Get&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method delete'>DELETE</span> <code>/api/v1/inventory/{item_id}</code></h4>
+  <p><strong>接口名称:</strong> Delete Inventory Item</p>
+  <p><strong>OperationId:</strong> delete_inventory_item_api_v1_inventory__item_id__delete</p>
+  <p><strong>说明:</strong> Delete inventory item (admin only).
+
+Spec § 2.6: DELETE /inventory/:id (requires admin).
+
+Note: Cannot delete if used in food packages or active applications.
+
+TODO: Soft delete or hard delete with cascade checks</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>item_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">无响应体</p></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method patch'>PATCH</span> <code>/api/v1/inventory/{item_id}</code></h4>
+  <p><strong>接口名称:</strong> Update Inventory Item</p>
+  <p><strong>OperationId:</strong> update_inventory_item_api_v1_inventory__item_id__patch</p>
+  <p><strong>说明:</strong> Update inventory item details (admin only).
+
+Spec § 2.6: PATCH /inventory/:id (requires admin).
+
+TODO: Update item_name, unit, threshold, storage_location</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>item_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemUpdate&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/inventory/{item_id}/stock-in</code></h4>
+  <p><strong>接口名称:</strong> Stock In</p>
+  <p><strong>OperationId:</strong> stock_in_api_v1_inventory__item_id__stock_in_post</p>
+  <p><strong>说明:</strong> Increase inventory quantity (admin only).
+
+Spec § 2.6: POST /inventory/:id/stock-in (requires admin).
+
+StockAdjustment includes:
+- quantity: int (amount to add)
+- reason: str (source/reason for donation)
+
+TODO: Increment quantity in DB</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>item_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/StockAdjustment&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/inventory/{item_id}/stock-out</code></h4>
+  <p><strong>接口名称:</strong> Stock Out</p>
+  <p><strong>OperationId:</strong> stock_out_api_v1_inventory__item_id__stock_out_post</p>
+  <p><strong>说明:</strong> Decrease inventory quantity (admin only).
+
+Spec § 2.6: POST /inventory/:id/stock-out (requires admin).
+
+StockAdjustment includes:
+- quantity: int (amount to remove)
+- reason: str (purpose: &quot;package_prepared&quot;, &quot;distribution&quot;, etc.)
+
+TODO: Decrement quantity in DB, prevent negative stock</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>item_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/StockAdjustment&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/InventoryItemOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section><section id='tag-Restock-Requests'><h3>补货申请 (Restock Requests)</h3>
+<article class='endpoint'>
+  <h4><span class='method get'>GET</span> <code>/api/v1/restock-requests</code></h4>
+  <p><strong>接口名称:</strong> List Restock Requests</p>
+  <p><strong>OperationId:</strong> list_restock_requests_api_v1_restock_requests_get</p>
+  <p><strong>说明:</strong> List all restock requests (admin only).
+
+Spec § 2.7: GET /restock-requests (requires admin).
+
+Returns: All requests with status (pending, fulfilled, declined)
+
+TODO: Query all RestockRequest records, ordered by created date</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;items&quot;: {
+    &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestOut&quot;
+  },
+  &quot;type&quot;: &quot;array&quot;,
+  &quot;title&quot;: &quot;Response List Restock Requests Api V1 Restock Requests Get&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/restock-requests</code></h4>
+  <p><strong>接口名称:</strong> Create Restock Request</p>
+  <p><strong>OperationId:</strong> create_restock_request_api_v1_restock_requests_post</p>
+  <p><strong>说明:</strong> Submit restock request (admin only).
+
+Spec § 2.7: POST /restock-requests (requires admin).
+
+RestockRequestCreate includes:
+- inventory_item_id: int
+- requested_quantity: int (target stock level)
+- priority: str (&quot;low&quot;, &quot;medium&quot;, &quot;high&quot;)
+- notes: Optional
+
+TODO: Create RestockRequest with status=pending</p>
+  <h5>请求参数</h5>
+  <p class="muted">无</p>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestCreate&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>201</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method delete'>DELETE</span> <code>/api/v1/restock-requests/{request_id}</code></h4>
+  <p><strong>接口名称:</strong> Decline Restock Request</p>
+  <p><strong>OperationId:</strong> decline_restock_request_api_v1_restock_requests__request_id__delete</p>
+  <p><strong>说明:</strong> Decline restock request (admin only).
+
+Spec § 2.7: DELETE /restock-requests/:id (requires admin).
+
+Sets status=declined.
+
+TODO: Mark request as declined</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>request_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p class="muted">无</p>
+  <h5>响应</h5>
+  <details><summary><strong>204</strong> - Successful Response</summary><p class="muted">无响应体</p></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+
+<article class='endpoint'>
+  <h4><span class='method post'>POST</span> <code>/api/v1/restock-requests/{request_id}/fulfil</code></h4>
+  <p><strong>接口名称:</strong> Fulfil Restock Request</p>
+  <p><strong>OperationId:</strong> fulfil_restock_request_api_v1_restock_requests__request_id__fulfil_post</p>
+  <p><strong>说明:</strong> Mark restock request as fulfilled (admin only).
+
+Spec § 2.7: POST /restock-requests/:id/fulfil (requires admin).
+
+RestockRequestFulfil includes:
+- notes: Optional (confirmation notes)
+
+Sets status=fulfilled and updates fulfil_date=now().
+
+TODO: Mark request fulfilled, optionally update inventory</p>
+  <h5>请求参数</h5>
+  <table><thead><tr><th>参数名</th><th>位置</th><th>必填</th><th>类型</th><th>说明</th></tr></thead><tbody><tr><td>request_id</td><td>path</td><td>是</td><td>integer</td><td></td></tr></tbody></table>
+  <h5>请求体</h5>
+  <p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestFulfil&quot;
+}</pre>
+  <h5>响应</h5>
+  <details><summary><strong>200</strong> - Successful Response</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/RestockRequestOut&quot;
+}</pre></details><details><summary><strong>422</strong> - Validation Error</summary><p><strong>application/json</strong></p><pre>{
+  &quot;$ref&quot;: &quot;#/components/schemas/HTTPValidationError&quot;
+}</pre></details>
+</article>
+</section>
+      </section>
+      <section class='card'>
+        <h2>相关 Schema 定义</h2>
+        <details id='schema-ApplicationCreate'><summary><strong>ApplicationCreate</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;food_bank_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;week_start&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Week Start&quot;,
+      &quot;description&quot;: &quot;Week start date in YYYY-MM-DD format (e.g., 2026-03-17). If not provided, uses Monday of current week&quot;
+    },
+    &quot;items&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/ApplicationItemCreatePayload&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;minItems&quot;: 1,
+      &quot;title&quot;: &quot;Items&quot;,
+      &quot;description&quot;: &quot;List of packages (package_id + quantity) to apply for&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;food_bank_id&quot;,
+    &quot;items&quot;
+  ],
+  &quot;title&quot;: &quot;ApplicationCreate&quot;
+}</pre></details><details id='schema-ApplicationItemCreatePayload'><summary><strong>ApplicationItemCreatePayload</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;package_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Package Id&quot;,
+      &quot;description&quot;: &quot;Package ID to apply for&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1.0,
+      &quot;title&quot;: &quot;Quantity&quot;,
+      &quot;description&quot;: &quot;Number of this package requested&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;package_id&quot;,
+    &quot;quantity&quot;
+  ],
+  &quot;title&quot;: &quot;ApplicationItemCreatePayload&quot;,
+  &quot;description&quot;: &quot;Inner payload: specifies which package and quantity in an application.&quot;
+}</pre></details><details id='schema-ApplicationOut'><summary><strong>ApplicationOut</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;user_id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;title&quot;: &quot;User Id&quot;
+    },
+    &quot;food_bank_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;redemption_code&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 20,
+      &quot;pattern&quot;: &quot;^FB-[A-Za-z0-9]{6}$&quot;,
+      &quot;title&quot;: &quot;Redemption Code&quot;
+    },
+    &quot;status&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(pending|collected|expired)$&quot;,
+      &quot;title&quot;: &quot;Status&quot;,
+      &quot;default&quot;: &quot;pending&quot;
+    },
+    &quot;week_start&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date&quot;,
+      &quot;title&quot;: &quot;Week Start&quot;,
+      &quot;description&quot;: &quot;Week start date in YYYY-MM-DD format&quot;
+    },
+    &quot;total_quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1.0,
+      &quot;title&quot;: &quot;Total Quantity&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    },
+    &quot;updated_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Updated At&quot;
+    },
+    &quot;deleted_at&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date-time&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Deleted At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;user_id&quot;,
+    &quot;food_bank_id&quot;,
+    &quot;redemption_code&quot;,
+    &quot;week_start&quot;,
+    &quot;total_quantity&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;,
+    &quot;updated_at&quot;
+  ],
+  &quot;title&quot;: &quot;ApplicationOut&quot;
+}</pre></details><details id='schema-ApplicationUpdate'><summary><strong>ApplicationUpdate</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;status&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;pattern&quot;: &quot;^(pending|collected|expired)$&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Status&quot;
+    },
+    &quot;redemption_code&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 20,
+          &quot;pattern&quot;: &quot;^FB-[A-Za-z0-9]{6}$&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Redemption Code&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;ApplicationUpdate&quot;
+}</pre></details><details id='schema-FoodBankCreate'><summary><strong>FoodBankCreate</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;address&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Address&quot;
+    },
+    &quot;lat&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;number&quot;
+        },
+        {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Lat&quot;
+    },
+    &quot;lng&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;number&quot;
+        },
+        {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Lng&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;address&quot;,
+    &quot;lat&quot;,
+    &quot;lng&quot;
+  ],
+  &quot;title&quot;: &quot;FoodBankCreate&quot;
+}</pre></details><details id='schema-FoodBankDetailOut'><summary><strong>FoodBankDetailOut</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;address&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Address&quot;
+    },
+    &quot;lat&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Lat&quot;
+    },
+    &quot;lng&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Lng&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    },
+    &quot;hours&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/FoodBankHourOut&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Hours&quot;,
+      &quot;description&quot;: &quot;Operating hours for this location&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;address&quot;,
+    &quot;lat&quot;,
+    &quot;lng&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;FoodBankDetailOut&quot;
+}</pre></details><details id='schema-FoodBankHourOut'><summary><strong>FoodBankHourOut</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;food_bank_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Food Bank Id&quot;
+    },
+    &quot;day_of_week&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 20,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Day Of Week&quot;
+    },
+    &quot;open_time&quot;: {
+      &quot;title&quot;: &quot;Open Time&quot;
+    },
+    &quot;close_time&quot;: {
+      &quot;title&quot;: &quot;Close Time&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;food_bank_id&quot;,
+    &quot;day_of_week&quot;,
+    &quot;open_time&quot;,
+    &quot;close_time&quot;,
+    &quot;id&quot;
+  ],
+  &quot;title&quot;: &quot;FoodBankHourOut&quot;
+}</pre></details><details id='schema-FoodBankOut'><summary><strong>FoodBankOut</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;address&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Address&quot;
+    },
+    &quot;lat&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Lat&quot;
+    },
+    &quot;lng&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Lng&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;address&quot;,
+    &quot;lat&quot;,
+    &quot;lng&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;FoodBankOut&quot;
+}</pre></details><details id='schema-FoodBankUpdate'><summary><strong>FoodBankUpdate</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 200,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;address&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Address&quot;
+    },
+    &quot;lat&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;number&quot;
+        },
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Lat&quot;
+    },
+    &quot;lng&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;number&quot;
+        },
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Lng&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;FoodBankUpdate&quot;
+}</pre></details><details id='schema-HTTPValidationError'><summary><strong>HTTPValidationError</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;detail&quot;: {
+      &quot;items&quot;: {
+        &quot;$ref&quot;: &quot;#/components/schemas/ValidationError&quot;
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Detail&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;HTTPValidationError&quot;
+}</pre></details><details id='schema-InventoryItemCreateRequest'><summary><strong>InventoryItemCreateRequest</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Proteins &amp; Meat&quot;,
+        &quot;Vegetables&quot;,
+        &quot;Fruits&quot;,
+        &quot;Dairy&quot;,
+        &quot;Canned Goods&quot;,
+        &quot;Grains &amp; Pasta&quot;,
+        &quot;Snacks&quot;,
+        &quot;Beverages&quot;,
+        &quot;Baby Food&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;initial_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Initial Stock&quot;
+    },
+    &quot;unit&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 50,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Unit&quot;,
+      &quot;default&quot;: &quot;units&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;,
+      &quot;default&quot;: 10
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;initial_stock&quot;
+  ],
+  &quot;title&quot;: &quot;InventoryItemCreateRequest&quot;
+}</pre></details><details id='schema-InventoryItemOut'><summary><strong>InventoryItemOut</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 200,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Proteins &amp; Meat&quot;,
+        &quot;Vegetables&quot;,
+        &quot;Fruits&quot;,
+        &quot;Dairy&quot;,
+        &quot;Canned Goods&quot;,
+        &quot;Grains &amp; Pasta&quot;,
+        &quot;Snacks&quot;,
+        &quot;Beverages&quot;,
+        &quot;Baby Food&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Stock&quot;,
+      &quot;default&quot;: 0
+    },
+    &quot;unit&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 50,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Unit&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;,
+      &quot;default&quot;: 10
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;updated_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Updated At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;unit&quot;,
+    &quot;id&quot;,
+    &quot;updated_at&quot;
+  ],
+  &quot;title&quot;: &quot;InventoryItemOut&quot;
+}</pre></details><details id='schema-InventoryItemUpdate'><summary><strong>InventoryItemUpdate</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 200,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;enum&quot;: [
+            &quot;Proteins &amp; Meat&quot;,
+            &quot;Vegetables&quot;,
+            &quot;Fruits&quot;,
+            &quot;Dairy&quot;,
+            &quot;Canned Goods&quot;,
+            &quot;Grains &amp; Pasta&quot;,
+            &quot;Snacks&quot;,
+            &quot;Beverages&quot;,
+            &quot;Baby Food&quot;
+          ]
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;stock&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Stock&quot;
+    },
+    &quot;unit&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 50,
+          &quot;minLength&quot;: 1
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Unit&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Threshold&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;InventoryItemUpdate&quot;
+}</pre></details><details id='schema-InventoryLotAdjustRequest'><summary><strong>InventoryLotAdjustRequest</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;quantity&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Quantity&quot;
+    },
+    &quot;damage_quantity&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0.0
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Damage Quantity&quot;
+    },
+    &quot;expiry_date&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Expiry Date&quot;
+    },
+    &quot;status&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;enum&quot;: [
+            &quot;active&quot;,
+            &quot;wasted&quot;
+          ]
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Status&quot;
+    },
+    &quot;batch_reference&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 100
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Batch Reference&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;InventoryLotAdjustRequest&quot;,
+  &quot;description&quot;: &quot;Request schema for PATCH /inventory/lots/{lot_id}.&quot;
+}</pre></details><details id='schema-InventoryLotOut'><summary><strong>InventoryLotOut</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;inventory_item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Inventory Item Id&quot;
+    },
+    &quot;item_name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Item Name&quot;
+    },
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Quantity&quot;
+    },
+    &quot;expiry_date&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date&quot;,
+      &quot;title&quot;: &quot;Expiry Date&quot;
+    },
+    &quot;received_date&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date&quot;,
+      &quot;title&quot;: &quot;Received Date&quot;
+    },
+    &quot;batch_reference&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Batch Reference&quot;
+    },
+    &quot;status&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;active&quot;,
+        &quot;wasted&quot;,
+        &quot;expired&quot;
+      ],
+      &quot;title&quot;: &quot;Status&quot;
+    },
+    &quot;deleted_at&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date-time&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Deleted At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;inventory_item_id&quot;,
+    &quot;item_name&quot;,
+    &quot;quantity&quot;,
+    &quot;expiry_date&quot;,
+    &quot;received_date&quot;,
+    &quot;status&quot;
+  ],
+  &quot;title&quot;: &quot;InventoryLotOut&quot;,
+  &quot;description&quot;: &quot;Response schema for inventory lot rows in admin management UI.&quot;
+}</pre></details><details id='schema-LoginRequest'><summary><strong>LoginRequest</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Email&quot;
+    },
+    &quot;password&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 128,
+      &quot;minLength&quot;: 8,
+      &quot;title&quot;: &quot;Password&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;email&quot;,
+    &quot;password&quot;
+  ],
+  &quot;title&quot;: &quot;LoginRequest&quot;
+}</pre></details><details id='schema-LowStockItem'><summary><strong>LowStockItem</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;category&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Proteins &amp; Meat&quot;,
+        &quot;Vegetables&quot;,
+        &quot;Fruits&quot;,
+        &quot;Dairy&quot;,
+        &quot;Canned Goods&quot;,
+        &quot;Grains &amp; Pasta&quot;,
+        &quot;Snacks&quot;,
+        &quot;Beverages&quot;,
+        &quot;Baby Food&quot;
+      ],
+      &quot;title&quot;: &quot;Category&quot;
+    },
+    &quot;unit&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Unit&quot;
+    },
+    &quot;current_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Current Stock&quot;,
+      &quot;description&quot;: &quot;Total quantity from active lots&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Threshold&quot;,
+      &quot;description&quot;: &quot;Stock level threshold&quot;
+    },
+    &quot;stock_deficit&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Stock Deficit&quot;,
+      &quot;description&quot;: &quot;Amount below threshold&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;name&quot;,
+    &quot;category&quot;,
+    &quot;unit&quot;,
+    &quot;current_stock&quot;,
+    &quot;threshold&quot;,
+    &quot;stock_deficit&quot;
+  ],
+  &quot;title&quot;: &quot;LowStockItem&quot;,
+  &quot;description&quot;: &quot;Response schema for low-stock items in GET /inventory/low-stock.\n\nRepresents an inventory item with current total stock that is below\nthe specified threshold.&quot;
+}</pre></details><details id='schema-RestockRequestCreate'><summary><strong>RestockRequestCreate</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;inventory_item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Inventory Item Id&quot;
+    },
+    &quot;current_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Current Stock&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;
+    },
+    &quot;urgency&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(Critical|Urgent|Low)$&quot;,
+      &quot;title&quot;: &quot;Urgency&quot;
+    },
+    &quot;assigned_to_user_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;uuid&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Assigned To User Id&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;inventory_item_id&quot;,
+    &quot;current_stock&quot;,
+    &quot;threshold&quot;,
+    &quot;urgency&quot;
+  ],
+  &quot;title&quot;: &quot;RestockRequestCreate&quot;
+}</pre></details><details id='schema-RestockRequestFulfil'><summary><strong>RestockRequestFulfil</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;notes&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;maxLength&quot;: 500
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Notes&quot;,
+      &quot;description&quot;: &quot;Optional fulfillment notes&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;title&quot;: &quot;RestockRequestFulfil&quot;,
+  &quot;description&quot;: &quot;Request schema for marking a restock request as fulfilled.\n\nUsed for POST /restock-requests/:id/fulfil.&quot;
+}</pre></details><details id='schema-RestockRequestOut'><summary><strong>RestockRequestOut</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;inventory_item_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Inventory Item Id&quot;
+    },
+    &quot;current_stock&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Current Stock&quot;
+    },
+    &quot;threshold&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Threshold&quot;
+    },
+    &quot;urgency&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(Critical|Urgent|Low)$&quot;,
+      &quot;title&quot;: &quot;Urgency&quot;
+    },
+    &quot;assigned_to_user_id&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;uuid&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ],
+      &quot;title&quot;: &quot;Assigned To User Id&quot;
+    },
+    &quot;status&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(open|fulfilled|cancelled)$&quot;,
+      &quot;title&quot;: &quot;Status&quot;,
+      &quot;default&quot;: &quot;open&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;inventory_item_id&quot;,
+    &quot;current_stock&quot;,
+    &quot;threshold&quot;,
+    &quot;urgency&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;
+  ],
+  &quot;title&quot;: &quot;RestockRequestOut&quot;
+}</pre></details><details id='schema-StockAdjustment'><summary><strong>StockAdjustment</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;quantity&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;exclusiveMinimum&quot;: 0.0,
+      &quot;title&quot;: &quot;Quantity&quot;,
+      &quot;description&quot;: &quot;Positive integer quantity to add or remove&quot;
+    },
+    &quot;reason&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 500,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Reason&quot;,
+      &quot;description&quot;: &quot;Reason for stock adjustment&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;quantity&quot;,
+    &quot;reason&quot;
+  ],
+  &quot;title&quot;: &quot;StockAdjustment&quot;,
+  &quot;description&quot;: &quot;Request schema for adjusting inventory quantity.\n\nUsed for POST /inventory/:id/stock-in and POST /inventory/:id/stock-out.&quot;
+}</pre></details><details id='schema-TokenResponse'><summary><strong>TokenResponse</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;access_token&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Access Token&quot;
+    },
+    &quot;refresh_token&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Refresh Token&quot;
+    },
+    &quot;token_type&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Token Type&quot;,
+      &quot;default&quot;: &quot;bearer&quot;
+    },
+    &quot;user&quot;: {
+      &quot;$ref&quot;: &quot;#/components/schemas/UserOut&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;access_token&quot;,
+    &quot;refresh_token&quot;,
+    &quot;user&quot;
+  ],
+  &quot;title&quot;: &quot;TokenResponse&quot;
+}</pre></details><details id='schema-UserCreate'><summary><strong>UserCreate</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 100,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Email&quot;
+    },
+    &quot;password&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 128,
+      &quot;minLength&quot;: 8,
+      &quot;title&quot;: &quot;Password&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;email&quot;,
+    &quot;password&quot;
+  ],
+  &quot;title&quot;: &quot;UserCreate&quot;
+}</pre></details><details id='schema-UserOut'><summary><strong>UserOut</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;name&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;maxLength&quot;: 100,
+      &quot;minLength&quot;: 1,
+      &quot;title&quot;: &quot;Name&quot;
+    },
+    &quot;email&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;email&quot;,
+      &quot;title&quot;: &quot;Email&quot;
+    },
+    &quot;role&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;pattern&quot;: &quot;^(public|supermarket|admin)$&quot;,
+      &quot;title&quot;: &quot;Role&quot;
+    },
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;title&quot;: &quot;Id&quot;
+    },
+    &quot;created_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Created At&quot;
+    },
+    &quot;updated_at&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;date-time&quot;,
+      &quot;title&quot;: &quot;Updated At&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;name&quot;,
+    &quot;email&quot;,
+    &quot;role&quot;,
+    &quot;id&quot;,
+    &quot;created_at&quot;,
+    &quot;updated_at&quot;
+  ],
+  &quot;title&quot;: &quot;UserOut&quot;
+}</pre></details><details id='schema-ValidationError'><summary><strong>ValidationError</strong></summary><pre>{
+  &quot;properties&quot;: {
+    &quot;loc&quot;: {
+      &quot;items&quot;: {
+        &quot;anyOf&quot;: [
+          {
+            &quot;type&quot;: &quot;string&quot;
+          },
+          {
+            &quot;type&quot;: &quot;integer&quot;
+          }
+        ]
+      },
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;title&quot;: &quot;Location&quot;
+    },
+    &quot;msg&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Message&quot;
+    },
+    &quot;type&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;title&quot;: &quot;Error Type&quot;
+    }
+  },
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;loc&quot;,
+    &quot;msg&quot;,
+    &quot;type&quot;
+  ],
+  &quot;title&quot;: &quot;ValidationError&quot;
+}</pre></details>
+      </section>
+    </div>
+  </div>
+</main>
+</body>
+</html>

@@ -96,8 +96,14 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         if (!foodBanksResponse.ok) {
           throw new Error('Failed to load food banks')
         }
-        const foodBanks = await foodBanksResponse.json()
-        if (!Array.isArray(foodBanks) || foodBanks.length === 0) {
+        const foodBanksPayload = await foodBanksResponse.json()
+        const foodBanks = Array.isArray(foodBanksPayload)
+          ? foodBanksPayload
+          : Array.isArray(foodBanksPayload?.items)
+            ? foodBanksPayload.items
+            : []
+
+        if (foodBanks.length === 0) {
           set({ packages: [] })
           return
         }
@@ -182,8 +188,20 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       }
 
       const data = await response.json()
-      const normalizedInventory: InventoryItem[] = Array.isArray(data)
-        ? data.map((item) => ({
+      const inventoryItems: Array<{
+        id: number | string
+        name: string
+        category: string
+        stock?: number
+        unit: string
+        threshold?: number
+      }> = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.items)
+          ? data.items
+          : []
+
+      const normalizedInventory: InventoryItem[] = inventoryItems.map((item) => ({
             id: Number(item.id),
             name: item.name,
             category: item.category,
@@ -191,7 +209,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
             unit: item.unit,
             threshold: Number(item.threshold ?? 0),
           }))
-        : []
 
       set({ inventory: normalizedInventory })
     } catch (error) {
