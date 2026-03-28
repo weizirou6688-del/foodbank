@@ -134,6 +134,15 @@ export const adminAPI = {
   getInventoryItems: (token: string) =>
     apiClient.get('/api/v1/inventory/items', token),
 
+  getInventoryLots: (token: string, includeInactive = true) =>
+    apiClient.get(`/api/v1/inventory/lots?include_inactive=${includeInactive}`, token),
+
+  adjustInventoryLot: (
+    lotId: number | string,
+    data: Record<string, any>,
+    token: string
+  ) => apiClient.patch(`/api/v1/inventory/lots/${lotId}`, data, token),
+
   updateInventoryItem: (
     id: number | string,
     data: Record<string, any>,

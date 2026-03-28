@@ -4,7 +4,7 @@ Inventory management routes.
 Spec § 2.6: GET (list items), POST, PATCH, POST /:id/in, POST /:id/out, DELETE
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -24,6 +24,7 @@ from app.schemas.inventory_item import (
     LowStockItem,
     StockAdjustment,
 )
+from app.schemas.inventory_lot import InventoryLotAdjustRequest, InventoryLotOut
 
 
 router = APIRouter(tags=["Inventory"])
@@ -105,6 +106,146 @@ async def create_inventory_item(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create inventory item",
+        ) from exc
+
+
+@router.get("/lots", response_model=List[InventoryLotOut])
+async def list_inventory_lots(
+    include_inactive: bool = Query(True, description="Include inactive (wasted) lots"),
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """List inventory lots for admin batch management UI."""
+    _ = admin_user
+
+    try:
+        query = (
+            select(InventoryLot, InventoryItem.name)
+            .join(InventoryItem, InventoryItem.id == InventoryLot.inventory_item_id)
+            .order_by(InventoryLot.updated_at.desc(), InventoryLot.id.desc())
+        )
+
+        if not include_inactive:
+            query = query.where(InventoryLot.deleted_at.is_(None))
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        today = date.today()
+        lots: List[InventoryLotOut] = []
+        for lot, item_name in rows:
+            if lot.deleted_at is not None:
+                lot_status = "wasted"
+            elif lot.expiry_date < today:
+                lot_status = "expired"
+            else:
+                lot_status = "active"
+
+            lots.append(
+                InventoryLotOut(
+                    id=lot.id,
+                    inventory_item_id=lot.inventory_item_id,
+                    item_name=item_name,
+                    quantity=lot.quantity,
+                    expiry_date=lot.expiry_date,
+                    received_date=lot.received_date,
+                    batch_reference=lot.batch_reference,
+                    status=lot_status,
+                    deleted_at=lot.deleted_at,
+                )
+            )
+
+        return lots
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve inventory lots",
+        ) from exc
+
+
+@router.patch("/lots/{lot_id}", response_model=InventoryLotOut)
+async def adjust_inventory_lot(
+    lot_id: int,
+    adjustment_in: InventoryLotAdjustRequest,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Adjust an inventory lot (damage, expiry date, status, quantity)."""
+    _ = admin_user
+
+    if adjustment_in.model_dump(exclude_unset=True) == {}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields provided to adjust",
+        )
+
+    try:
+        async with db.begin():
+            lot = await db.scalar(select(InventoryLot).where(InventoryLot.id == lot_id))
+            if lot is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Inventory lot not found",
+                )
+
+            if adjustment_in.expiry_date is not None:
+                lot.expiry_date = adjustment_in.expiry_date
+
+            if adjustment_in.batch_reference is not None:
+                lot.batch_reference = adjustment_in.batch_reference
+
+            if adjustment_in.quantity is not None:
+                lot.quantity = adjustment_in.quantity
+
+            if adjustment_in.damage_quantity is not None:
+                if lot.quantity < adjustment_in.damage_quantity:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Damage quantity exceeds lot quantity",
+                    )
+
+                remaining = lot.quantity - adjustment_in.damage_quantity
+                if remaining == 0:
+                    lot.deleted_at = datetime.now(timezone.utc)
+                else:
+                    lot.quantity = remaining
+
+            if adjustment_in.status == "wasted":
+                lot.deleted_at = datetime.now(timezone.utc)
+            elif adjustment_in.status == "active":
+                lot.deleted_at = None
+
+            await db.flush()
+
+            item_name = await db.scalar(
+                select(InventoryItem.name).where(InventoryItem.id == lot.inventory_item_id)
+            )
+
+            today = date.today()
+            if lot.deleted_at is not None:
+                lot_status = "wasted"
+            elif lot.expiry_date < today:
+                lot_status = "expired"
+            else:
+                lot_status = "active"
+
+            return InventoryLotOut(
+                id=lot.id,
+                inventory_item_id=lot.inventory_item_id,
+                item_name=item_name or f"Item #{lot.inventory_item_id}",
+                quantity=lot.quantity,
+                expiry_date=lot.expiry_date,
+                received_date=lot.received_date,
+                batch_reference=lot.batch_reference,
+                status=lot_status,
+                deleted_at=lot.deleted_at,
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to adjust inventory lot",
         ) from exc
 
 

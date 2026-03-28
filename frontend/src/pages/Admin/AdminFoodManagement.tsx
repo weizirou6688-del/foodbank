@@ -3,9 +3,32 @@ import AddItemModal from '@/components/admin/AddItemModal'
 import AddPackageModal from '@/components/admin/AddPackageModal'
 import AdjustStockModal from '@/components/admin/AdjustStockModal'
 import EditNameThresholdModal from '@/components/admin/EditNameThresholdModal'
+import { useAuthStore } from '@/store/authStore'
 import { useFoodBankStore } from '@/store/foodBankStore'
+import { adminAPI } from '@/services/api'
 
-type Tab = 'packages' | 'items'
+type Tab = 'packages' | 'items' | 'packaging' | 'lots' | 'low-stock'
+
+interface InventoryLotRow {
+  id: number
+  inventory_item_id: number
+  item_name: string
+  quantity: number
+  expiry_date: string
+  received_date: string
+  batch_reference?: string | null
+  status: 'active' | 'wasted' | 'expired'
+}
+
+interface LowStockRow {
+  id: number
+  name: string
+  category: string
+  unit: string
+  current_stock: number
+  threshold: number
+  stock_deficit: number
+}
 
 interface Props {
   onSwitch: (s: 'statistics' | 'food') => void
@@ -38,6 +61,7 @@ const ActionBtns = ({
 )
 
 export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
+  const accessToken = useAuthStore((state) => state.accessToken)
   const inventory = useFoodBankStore((state) => state.inventory)
   const packages = useFoodBankStore((state) => state.packages)
   const loadPackages = useFoodBankStore((state) => state.loadPackages)
@@ -58,6 +82,55 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
   const [packageEditTarget, setPackageEditTarget] = useState<{ id: number; name: string; threshold: number } | null>(null)
   const [itemAdjustTarget, setItemAdjustTarget] = useState<{ id: number; direction: 'in' | 'out' } | null>(null)
   const [packageAdjustTarget, setPackageAdjustTarget] = useState<{ id: number; stock: number; direction: 'in' | 'out' } | null>(null)
+  const [packPackageId, setPackPackageId] = useState<number | ''>('')
+  const [packQuantity, setPackQuantity] = useState('1')
+  const [isPacking, setIsPacking] = useState(false)
+  const [packFeedback, setPackFeedback] = useState('')
+  const [lotRows, setLotRows] = useState<InventoryLotRow[]>([])
+  const [isLoadingLots, setIsLoadingLots] = useState(false)
+  const [lotError, setLotError] = useState('')
+  const [lowStockRows, setLowStockRows] = useState<LowStockRow[]>([])
+  const [isLoadingLowStock, setIsLoadingLowStock] = useState(false)
+  const [lowStockError, setLowStockError] = useState('')
+  const [lowStockThreshold, setLowStockThreshold] = useState('')
+
+  const loadLots = async () => {
+    if (!accessToken) {
+      return
+    }
+
+    setIsLoadingLots(true)
+    setLotError('')
+
+    try {
+      const data = await adminAPI.getInventoryLots(accessToken, true)
+      setLotRows(Array.isArray(data) ? (data as InventoryLotRow[]) : [])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load inventory lots.'
+      setLotError(message)
+    } finally {
+      setIsLoadingLots(false)
+    }
+  }
+
+  const loadLowStock = async (overrideThreshold?: number) => {
+    if (!accessToken) {
+      return
+    }
+
+    setIsLoadingLowStock(true)
+    setLowStockError('')
+
+    try {
+      const data = await adminAPI.getLowStockItems(accessToken, overrideThreshold)
+      setLowStockRows(Array.isArray(data) ? (data as LowStockRow[]) : [])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load low stock items.'
+      setLowStockError(message)
+    } finally {
+      setIsLoadingLowStock(false)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -74,6 +147,12 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
         loadInventory().catch((error) => {
           errors.push(error instanceof Error ? error.message : 'Failed to load inventory.')
         }),
+        loadLots().catch((error) => {
+          errors.push(error instanceof Error ? error.message : 'Failed to load inventory lots.')
+        }),
+        loadLowStock().catch((error) => {
+          errors.push(error instanceof Error ? error.message : 'Failed to load low stock items.')
+        }),
       ])
 
       if (!active) {
@@ -88,7 +167,7 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
     return () => {
       active = false
     }
-  }, [loadPackages, loadInventory])
+  }, [accessToken, loadPackages, loadInventory])
 
   const packageRows = useMemo(() => {
     const mappedStorePackages = packages.map((pkg) => ({
@@ -186,7 +265,132 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
     }
 
     await updatePackage(packageAdjustTarget.id, { stock: nextStock })
+    await loadLowStock()
     setPackageAdjustTarget(null)
+  }
+
+  const handlePackPackage = async () => {
+    if (!accessToken) {
+      setPackFeedback('Please login again and retry.')
+      return
+    }
+
+    if (packPackageId === '') {
+      setPackFeedback('Please select a package first.')
+      return
+    }
+
+    const quantity = Number(packQuantity)
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      setPackFeedback('Quantity must be a positive integer.')
+      return
+    }
+
+    setIsPacking(true)
+    setPackFeedback('')
+
+    try {
+      await adminAPI.packPackage(packPackageId, quantity, accessToken)
+      await Promise.all([loadPackages(), loadInventory(), loadLots(), loadLowStock()])
+      setPackFeedback('Package packed successfully.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to pack package.'
+      setPackFeedback(message)
+    } finally {
+      setIsPacking(false)
+    }
+  }
+
+  const handleLotDamage = async (lotId: number) => {
+    if (!accessToken) {
+      window.alert('Please login again and retry.')
+      return
+    }
+
+    const input = window.prompt('Damage quantity', '1')
+    if (input === null) {
+      return
+    }
+
+    const damageQuantity = Number(input)
+    if (!Number.isInteger(damageQuantity) || damageQuantity <= 0) {
+      window.alert('Damage quantity must be a positive integer.')
+      return
+    }
+
+    try {
+      await adminAPI.adjustInventoryLot(lotId, { damage_quantity: damageQuantity }, accessToken)
+      await Promise.all([loadLots(), loadLowStock(), loadInventory()])
+      window.alert('Lot damaged quantity updated.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to report damage.'
+      window.alert(message)
+    }
+  }
+
+  const handleLotExpiryEdit = async (lotId: number, currentExpiryDate: string) => {
+    if (!accessToken) {
+      window.alert('Please login again and retry.')
+      return
+    }
+
+    const input = window.prompt('New expiry date (YYYY-MM-DD)', currentExpiryDate)
+    if (input === null) {
+      return
+    }
+
+    const trimmed = input.trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      window.alert('Expiry date format must be YYYY-MM-DD.')
+      return
+    }
+
+    try {
+      await adminAPI.adjustInventoryLot(lotId, { expiry_date: trimmed }, accessToken)
+      await Promise.all([loadLots(), loadLowStock()])
+      window.alert('Lot expiry date updated.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update expiry date.'
+      window.alert(message)
+    }
+  }
+
+  const handleLotStatusToggle = async (lotId: number, currentStatus: InventoryLotRow['status']) => {
+    if (!accessToken) {
+      window.alert('Please login again and retry.')
+      return
+    }
+
+    if (currentStatus === 'expired') {
+      window.alert('Expired lots cannot be reactivated. Please adjust expiry date first.')
+      return
+    }
+
+    const nextStatus = currentStatus === 'active' ? 'wasted' : 'active'
+    try {
+      await adminAPI.adjustInventoryLot(lotId, { status: nextStatus }, accessToken)
+      await Promise.all([loadLots(), loadLowStock()])
+      window.alert('Lot status updated.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update lot status.'
+      window.alert(message)
+    }
+  }
+
+  const handleRefreshLowStock = async () => {
+    const trimmed = lowStockThreshold.trim()
+    if (!trimmed) {
+      await loadLowStock()
+      return
+    }
+
+    const threshold = Number(trimmed)
+    if (!Number.isInteger(threshold) || threshold < 0) {
+      setLowStockError('Threshold must be a non-negative integer.')
+      return
+    }
+
+    await loadLowStock(threshold)
   }
 
   const handleDeleteItem = async (itemId: number, itemName: string) => {
@@ -259,6 +463,30 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
             <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
           </svg>
           Single Items
+        </button>
+        <button
+          onClick={() => setTab('packaging')}
+          className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+            tab === 'packaging' ? 'bg-[#F7DC6F] text-[#1A1A1A]' : 'text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          Package Packing
+        </button>
+        <button
+          onClick={() => setTab('lots')}
+          className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+            tab === 'lots' ? 'bg-[#F7DC6F] text-[#1A1A1A]' : 'text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          Lot Management
+        </button>
+        <button
+          onClick={() => setTab('low-stock')}
+          className={`px-5 py-2 rounded-full font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+            tab === 'low-stock' ? 'bg-[#F7DC6F] text-[#1A1A1A]' : 'text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          Low Stock
         </button>
       </div>
 
@@ -410,6 +638,198 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
               No inventory items found.
             </div>
           )}
+        </div>
+      )}
+
+      {tab === 'packaging' && (
+        <div className="fade-in">
+          <div className="bg-white border-[1.5px] border-[#E8E8E8] rounded-xl shadow-sm p-6">
+            <h3 className="text-xl font-bold text-[#1A1A1A] mb-6">Pack Food Package</h3>
+
+            <div className="grid md:grid-cols-[1fr_180px_160px] gap-4 items-end">
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-600 mb-2">Package</span>
+                <select
+                  className="w-full h-11 px-4 border-[1.5px] border-[#E8E8E8] rounded-full bg-white text-[#1A1A1A]"
+                  value={packPackageId}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    setPackPackageId(Number.isNaN(value) ? '' : value)
+                  }}
+                >
+                  <option value="">Select package</option>
+                  {packages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>{pkg.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-600 mb-2">Quantity</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={packQuantity}
+                  onChange={(event) => setPackQuantity(event.target.value)}
+                  className="w-full h-11 px-4 border-[1.5px] border-[#E8E8E8] rounded-full bg-white text-[#1A1A1A]"
+                />
+              </label>
+
+              <button
+                onClick={() => void handlePackPackage()}
+                disabled={isPacking}
+                className="h-11 px-5 rounded-full bg-[#F7DC6F] border-[1.5px] border-[#F7DC6F] text-[#1A1A1A] font-semibold hover:bg-[#F0C419] disabled:opacity-60"
+              >
+                {isPacking ? 'Packing...' : 'Pack'}
+              </button>
+            </div>
+
+            {packFeedback && (
+              <div className="mt-4 rounded-xl border border-[#E8E8E8] bg-[#F5F5F5] px-4 py-3 text-sm text-[#1A1A1A]">
+                {packFeedback}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'lots' && (
+        <div className="fade-in">
+          {lotError && (
+            <div className="mb-6 rounded-xl border border-[#E63946]/30 bg-[#E63946]/[0.08] px-4 py-3 text-sm text-[#E63946]">
+              {lotError}
+            </div>
+          )}
+
+          <div className="overflow-x-auto bg-white border-[1.5px] border-[#E8E8E8] rounded-xl shadow-sm">
+            <table className="w-full text-left border-collapse min-w-[980px]">
+              <thead>
+                <tr className="bg-[#F5F5F5]">
+                  {['Lot ID', 'Item', 'Quantity', 'Expiry', 'Received', 'Status', 'Actions'].map((h) => (
+                    <th key={h} className="p-4 font-semibold text-gray-600 border-b-[1.5px] border-[#E8E8E8] text-sm">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lotRows.map((lot) => (
+                  <tr
+                    key={lot.id}
+                    className={`border-b border-[#E8E8E8] ${lot.status !== 'active' ? 'bg-[#E63946]/[0.08]' : ''}`}
+                  >
+                    <td className="p-4">#{lot.id}</td>
+                    <td className="p-4">{lot.item_name}</td>
+                    <td className="p-4">{lot.quantity}</td>
+                    <td className="p-4">{lot.expiry_date}</td>
+                    <td className="p-4">{lot.received_date}</td>
+                    <td className="p-4 capitalize">{lot.status}</td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => void handleLotDamage(lot.id)}
+                          className="px-3 py-1.5 border-[1.5px] border-[#E63946] text-[#E63946] rounded-full text-xs font-medium hover:bg-[#E63946]/5 bg-transparent"
+                        >
+                          Report Loss
+                        </button>
+                        <button
+                          onClick={() => void handleLotExpiryEdit(lot.id, lot.expiry_date)}
+                          className="px-3 py-1.5 border-[1.5px] border-[#E8E8E8] rounded-full text-xs font-medium text-[#1A1A1A] hover:bg-gray-50 bg-transparent"
+                        >
+                          Edit Expiry
+                        </button>
+                        <button
+                          onClick={() => void handleLotStatusToggle(lot.id, lot.status)}
+                          className="px-3 py-1.5 border-[1.5px] border-[#E8E8E8] rounded-full text-xs font-medium text-[#1A1A1A] hover:bg-gray-50 bg-transparent"
+                        >
+                          {lot.status === 'active' ? 'Mark Wasted' : 'Mark Active'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {isLoadingLots && lotRows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-sm text-gray-500">
+                      Loading inventory lots...
+                    </td>
+                  </tr>
+                )}
+                {!isLoadingLots && lotRows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-sm text-gray-500">
+                      No inventory lots available.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'low-stock' && (
+        <div className="fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+            <input
+              type="number"
+              min={0}
+              placeholder="Optional threshold"
+              value={lowStockThreshold}
+              onChange={(event) => setLowStockThreshold(event.target.value)}
+              className="h-11 px-4 border-[1.5px] border-[#E8E8E8] rounded-full bg-white text-[#1A1A1A] w-full sm:w-[220px]"
+            />
+            <button
+              onClick={() => void handleRefreshLowStock()}
+              disabled={isLoadingLowStock}
+              className="h-11 px-5 rounded-full bg-[#F7DC6F] border-[1.5px] border-[#F7DC6F] text-[#1A1A1A] font-semibold hover:bg-[#F0C419] disabled:opacity-60"
+            >
+              {isLoadingLowStock ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+
+          {lowStockError && (
+            <div className="mb-6 rounded-xl border border-[#E63946]/30 bg-[#E63946]/[0.08] px-4 py-3 text-sm text-[#E63946]">
+              {lowStockError}
+            </div>
+          )}
+
+          <div className="overflow-x-auto bg-white border-[1.5px] border-[#E8E8E8] rounded-xl shadow-sm">
+            <table className="w-full text-left border-collapse min-w-[840px]">
+              <thead>
+                <tr className="bg-[#F5F5F5]">
+                  {['Item', 'Category', 'Current', 'Threshold', 'Deficit', 'Unit'].map((h) => (
+                    <th key={h} className="p-4 font-semibold text-gray-600 border-b-[1.5px] border-[#E8E8E8] text-sm">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lowStockRows.map((item) => (
+                  <tr key={item.id} className="border-b border-[#E8E8E8] bg-[#E63946]/[0.08]">
+                    <td className="p-4">{item.name}</td>
+                    <td className="p-4">{item.category}</td>
+                    <td className="p-4">{item.current_stock}</td>
+                    <td className="p-4">{item.threshold}</td>
+                    <td className="p-4 text-[#E63946] font-semibold">{item.stock_deficit}</td>
+                    <td className="p-4">{item.unit}</td>
+                  </tr>
+                ))}
+                {isLoadingLowStock && lowStockRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-sm text-gray-500">
+                      Loading low stock items...
+                    </td>
+                  </tr>
+                )}
+                {!isLoadingLowStock && lowStockRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-sm text-gray-500">
+                      No low stock items found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
