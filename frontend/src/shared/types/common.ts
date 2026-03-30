@@ -17,6 +17,9 @@ export interface FoodBank {
   hours?: string[]
   lat: number
   lng: number
+  phone?: string
+  email?: string
+  url?: string
   systemMatched?: boolean
 }
 

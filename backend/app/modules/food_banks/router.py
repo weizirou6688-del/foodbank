@@ -4,7 +4,10 @@ Food Bank location management routes.
 Spec § 2.2: GET /food-banks, GET /food-banks/:id, POST, PATCH, DELETE
 """
 
+from html import unescape
+import re
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -25,6 +28,70 @@ from app.modules.food_banks.schema import (
 
 
 router = APIRouter(tags=["Food Banks"])
+
+DAY_LINE_PATTERN = re.compile(
+    r"^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*\|?\s*(Closed|\d{1,2}[:.]\d{2}\s*-\s*\d{1,2}[:.]\d{2})$",
+    re.IGNORECASE,
+)
+DAY_TEXT_PATTERN = re.compile(
+    r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)s?\s*[:|-]\s*(.+)$",
+    re.IGNORECASE,
+)
+
+
+def _strip_html_to_lines(value: str) -> list[str]:
+    text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", value, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</(p|div|li|h1|h2|h3|h4|h5|h6|section|article|tr)>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = unescape(text).replace("\xa0", " ")
+    return [re.sub(r"\s+", " ", line).strip() for line in text.splitlines() if line.strip()]
+
+
+def _extract_opening_hours_from_html(value: str) -> list[str]:
+    table_match = re.search(
+        r'<table[^>]*location__opening-times[^>]*>(.*?)</table>',
+        value,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if table_match:
+        hours: list[str] = []
+        row_matches = re.findall(
+            r"<tr[^>]*>\s*<td[^>]*>\s*([A-Za-z]{3,9})\s*</td>\s*<td[^>]*>\s*(.*?)\s*</td>\s*</tr>",
+            table_match.group(1),
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        for day, time_value in row_matches:
+            cleaned_time = re.sub(r"<[^>]+>", " ", time_value)
+            cleaned_time = re.sub(r"\s+", " ", unescape(cleaned_time)).strip()
+            if not cleaned_time:
+                continue
+            hours.append(f"{day.title()} | {cleaned_time}")
+        if hours:
+            return hours[:7]
+
+    lines = _strip_html_to_lines(value)
+    hours: list[str] = []
+    seen: set[str] = set()
+
+    for line in lines:
+        normalized = line.replace("–", "-").replace("—", "-")
+        day_line_match = DAY_LINE_PATTERN.match(normalized)
+        if day_line_match:
+            entry = f"{day_line_match.group(1).title()} | {day_line_match.group(2).strip()}"
+            if entry not in seen:
+                seen.add(entry)
+                hours.append(entry)
+            continue
+
+        day_text_match = DAY_TEXT_PATTERN.match(normalized)
+        if day_text_match:
+            entry = f"{day_text_match.group(1).title()} | {day_text_match.group(2).strip()}"
+            if entry not in seen:
+                seen.add(entry)
+                hours.append(entry)
+
+    return hours[:7]
 
 
 @router.get("/geocode")
@@ -116,7 +183,12 @@ async def get_external_food_banks_feed():
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.get(upstream_url)
+            response = await client.get(
+                upstream_url,
+                headers={
+                    "User-Agent": "foodbank-app/1.0",
+                },
+            )
             response.raise_for_status()
             payload = response.json()
 
@@ -134,6 +206,44 @@ async def get_external_food_banks_feed():
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to fetch external food bank feed: {exc}",
         )
+
+
+@router.get("/trussell-hours")
+async def get_trussell_opening_hours(foodbank_url: str = Query(..., min_length=8, max_length=512)):
+    parsed = urlparse(foodbank_url.strip())
+    hostname = (parsed.hostname or "").lower()
+    if not hostname.endswith("foodbank.org.uk"):
+        return {"hours": [], "source_url": None}
+
+    base_url = foodbank_url.rstrip("/")
+    candidate_urls = [
+        f"{base_url}/locations/",
+        f"{base_url}/locations",
+        base_url,
+    ]
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            for candidate_url in candidate_urls:
+                response = await client.get(
+                    candidate_url,
+                    headers={
+                        "User-Agent": "foodbank-app/1.0",
+                    },
+                )
+                if response.status_code != status.HTTP_200_OK:
+                    continue
+
+                hours = _extract_opening_hours_from_html(response.text)
+                if hours:
+                    return {"hours": hours, "source_url": candidate_url}
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch Trussell opening hours: {exc}",
+        )
+
+    return {"hours": [], "source_url": None}
 
 
 @router.get("", response_model=FoodBankListResponse)

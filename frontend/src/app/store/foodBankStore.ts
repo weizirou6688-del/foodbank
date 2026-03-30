@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { FoodBank, FoodPackage, InventoryItem } from '@/shared/types/common'
 import { useAuthStore } from './authStore'
 import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
-import { getNearbyFoodbanks } from '@/utils/foodbankApi'
+import { getCoordinatesFromPostcode, getNearbyFoodbanks, getRankedFoodbanks } from '@/utils/foodbankApi'
 
 const fetchWithAuthRetry = async (url: string, init: RequestInit = {}) => {
   const withToken = async (token: string) =>
@@ -10,7 +10,7 @@ const fetchWithAuthRetry = async (url: string, init: RequestInit = {}) => {
       ...init,
       headers: new Headers({
         ...(init.headers instanceof Headers ? Object.fromEntries(init.headers.entries()) : (init.headers as Record<string, string> | undefined)),
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       }),
     })
 
@@ -38,11 +38,68 @@ const fetchWithAuthRetry = async (url: string, init: RequestInit = {}) => {
   return response
 }
 
+interface InternalFoodBankRecord {
+  id: number
+  name: string
+  address: string
+  lat?: number
+  lng?: number
+  systemMatched?: boolean
+}
+
+interface SearchableInternalFoodBank extends FoodBank {
+  packageCount: number
+}
+
+const normalizeText = (value: string): string =>
+  value.trim().toLowerCase().replace(/\s+/g, ' ')
+
+const findInternalFoodBankMatch = (
+  candidate: { name: string; address: string },
+  internalBanks: InternalFoodBankRecord[],
+): InternalFoodBankRecord | null => {
+  const normalizedName = normalizeText(candidate.name)
+  const normalizedAddress = normalizeText(candidate.address)
+
+  return internalBanks.find((bank) => {
+    const bankName = normalizeText(bank.name)
+    const bankAddress = normalizeText(bank.address)
+
+    return bankName === normalizedName
+      || bankAddress === normalizedAddress
+      || (bankName.includes(normalizedName) || normalizedName.includes(bankName))
+      || (bankAddress.includes(normalizedAddress) || normalizedAddress.includes(bankAddress))
+  }) ?? null
+}
+
+const getCurrentWeekMonday = (): string => {
+  const today = new Date()
+  const date = new Date(today)
+  const day = date.getDay()
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+  date.setDate(diff)
+  return date.toISOString().split('T')[0]
+}
+
+const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const earthRadiusKm = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLon = ((lon2 - lon1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2)
+    + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180)
+    * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return earthRadiusKm * c
+}
+
 interface FoodBankState {
   searchPostcode: string
   searchResults: FoodBank[]
+  searchedLocation: { lat: number; lng: number } | null
   hasSearched: boolean
   isSearching: boolean
+  searchError: string | null
   selectedFoodBank: FoodBank | null
 
   packages: FoodPackage[]
@@ -55,10 +112,10 @@ interface FoodBankState {
   applyPackages: (
     userEmail: string,
     selections: { packageId: number; qty: number }[],
-    weekStart?: string // Optional: YYYY-MM-DD format. If not provided, uses Monday of current week
+    weekStart?: string
   ) => Promise<{ success: boolean; message: string; code?: string }>
   resetSearch: () => void
-  loadUserCollections: (email: string) => Promise<void>
+  loadUserCollections: (email: string, weekStart?: string) => Promise<void>
   loadPackages: () => Promise<void>
   loadInventory: () => Promise<void>
   addItem: (data: { name: string; category: string; initial_stock: number }) => Promise<void>
@@ -70,6 +127,7 @@ interface FoodBankState {
     name: string
     category: string
     threshold: number
+    food_bank_id?: number
     contents: Array<{ item_id: number; quantity: number }>
   }) => Promise<void>
   updatePackage: (packageId: number, data: Partial<Pick<FoodPackage, 'name' | 'category' | 'description' | 'stock' | 'threshold' | 'appliedCount'>>) => Promise<void>
@@ -78,8 +136,10 @@ interface FoodBankState {
 export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   searchPostcode: '',
   searchResults: [],
+  searchedLocation: null,
   hasSearched: false,
   isSearching: false,
+  searchError: null,
   selectedFoodBank: null,
   packages: [],
   inventory: [],
@@ -160,11 +220,11 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
             description: pkg.description ?? '',
             items: detailItemsById.get(Number(pkg.id))
               ?? (Array.isArray(pkg.items)
-              ? pkg.items.map((item: { name: string; qty: number }) => ({
-                  name: item.name,
-                  qty: Number(item.qty ?? 0),
-                }))
-              : []),
+                ? pkg.items.map((item: { name: string; qty: number }) => ({
+                    name: item.name,
+                    qty: Number(item.qty ?? 0),
+                  }))
+                : []),
             stock: Number(pkg.stock ?? 0),
             threshold: Number(pkg.threshold ?? 0),
             appliedCount: Number(pkg.applied_count ?? pkg.appliedCount ?? 0),
@@ -193,6 +253,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         name: string
         category: string
         stock?: number
+        total_stock?: number
         unit: string
         threshold?: number
       }> = Array.isArray(data)
@@ -202,13 +263,13 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           : []
 
       const normalizedInventory: InventoryItem[] = inventoryItems.map((item) => ({
-            id: Number(item.id),
-            name: item.name,
-            category: item.category,
-            stock: Number(item.stock ?? 0),
-            unit: item.unit,
-            threshold: Number(item.threshold ?? 0),
-          }))
+        id: Number(item.id),
+        name: item.name,
+        category: item.category,
+        stock: Number(item.total_stock ?? item.stock ?? 0),
+        unit: item.unit,
+        threshold: Number(item.threshold ?? 0),
+      }))
 
       set({ inventory: normalizedInventory })
     } catch (error) {
@@ -242,7 +303,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       id: Number(createdItem.id),
       name: createdItem.name,
       category: createdItem.category,
-      stock: Number(createdItem.stock ?? 0),
+      stock: Number(createdItem.total_stock ?? createdItem.stock ?? 0),
       unit: createdItem.unit,
       threshold: Number(createdItem.threshold ?? 0),
     }
@@ -250,11 +311,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
     set((state) => ({
       inventory: [normalizedItem, ...state.inventory],
     }))
-
-    const maybeFetchStats = (get() as FoodBankState & { fetchStats?: () => Promise<void> }).fetchStats
-    if (maybeFetchStats) {
-      await maybeFetchStats()
-    }
   },
 
   updateItem: async (itemId, data) => {
@@ -276,7 +332,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       id: Number(updatedItem.id),
       name: updatedItem.name,
       category: updatedItem.category,
-      stock: Number(updatedItem.stock ?? 0),
+      stock: Number(updatedItem.total_stock ?? updatedItem.stock ?? 0),
       unit: updatedItem.unit,
       threshold: Number(updatedItem.threshold ?? 0),
     }
@@ -305,7 +361,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       id: Number(updatedItem.id),
       name: updatedItem.name,
       category: updatedItem.category,
-      stock: Number(updatedItem.stock ?? 0),
+      stock: Number(updatedItem.total_stock ?? updatedItem.stock ?? 0),
       unit: updatedItem.unit,
       threshold: Number(updatedItem.threshold ?? 0),
     }
@@ -334,7 +390,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       id: Number(updatedItem.id),
       name: updatedItem.name,
       category: updatedItem.category,
-      stock: Number(updatedItem.stock ?? 0),
+      stock: Number(updatedItem.total_stock ?? updatedItem.stock ?? 0),
       unit: updatedItem.unit,
       threshold: Number(updatedItem.threshold ?? 0),
     }
@@ -357,20 +413,40 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
     set((state) => ({
       inventory: state.inventory.filter((item) => item.id !== itemId),
     }))
-
-    const maybeFetchStats = (get() as FoodBankState & { fetchStats?: () => Promise<void> }).fetchStats
-    if (maybeFetchStats) {
-      await maybeFetchStats()
-    }
   },
 
   addPackage: async (data) => {
+    let foodBankId = data.food_bank_id ?? get().selectedFoodBank?.id
+
+    if (!foodBankId || foodBankId <= 0) {
+      const foodBanksResponse = await fetch(`${API_BASE_URL}/api/v1/food-banks`)
+      if (!foodBanksResponse.ok) {
+        throw new Error('Failed to resolve food bank for new package')
+      }
+
+      const foodBanksPayload = await foodBanksResponse.json()
+      const foodBanks = Array.isArray(foodBanksPayload)
+        ? foodBanksPayload
+        : Array.isArray(foodBanksPayload?.items)
+          ? foodBanksPayload.items
+          : []
+
+      if (foodBanks.length === 0) {
+        throw new Error('No food banks available. Create a food bank before adding packages.')
+      }
+
+      foodBankId = Number(foodBanks[0].id)
+    }
+
     const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/packages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        food_bank_id: foodBankId,
+      }),
     })
 
     if (!response.ok) {
@@ -399,11 +475,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
     set((state) => ({
       packages: [normalizedPackage, ...state.packages],
     }))
-
-    const maybeFetchStats = (get() as FoodBankState & { fetchStats?: () => Promise<void> }).fetchStats
-    if (maybeFetchStats) {
-      await maybeFetchStats()
-    }
   },
 
   updatePackage: async (packageId, data) => {
@@ -444,49 +515,168 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
 
   searchFoodBanks: async (postcode) => {
     if (!postcode.trim()) return
-    set({ isSearching: true })
+    set({ isSearching: true, searchError: null })
     try {
-      const nearby = await getNearbyFoodbanks(postcode)
-      const normalizedResults: FoodBank[] = nearby.map((fb, index) => ({
-        id: index + 1,
-        name: fb.name,
-        address: `${fb.address}, ${fb.postcode}`,
-        distance: fb.distance,
-        hours: [],
-        lat: fb.lat,
-        lng: fb.lng,
-      }))
+      const [userCoords, internalResponse, nearby, rankedNearby] = await Promise.all([
+        getCoordinatesFromPostcode(postcode),
+        fetch(`${API_BASE_URL}/api/v1/food-banks`),
+        getNearbyFoodbanks(postcode),
+        getRankedFoodbanks(postcode),
+      ])
+
+      console.info('[FindFoodBank] search start', {
+        postcode,
+        searchedLocation: userCoords,
+        externalNearbyCount: nearby.length,
+      })
+
+      const internalPayload = internalResponse.ok ? await internalResponse.json() : []
+      const internalBanks: InternalFoodBankRecord[] = Array.isArray(internalPayload)
+        ? internalPayload
+        : Array.isArray(internalPayload?.items)
+          ? internalPayload.items
+          : []
+
+      const rankedInternalBanks = internalBanks
+        .flatMap((bank) => {
+          if (typeof bank.lat !== 'number' || typeof bank.lng !== 'number') {
+            return []
+          }
+
+          return [{
+            id: bank.id,
+            name: bank.name,
+            address: bank.address,
+            distance: haversineDistance(userCoords.lat, userCoords.lng, bank.lat, bank.lng),
+            hours: [],
+            lat: bank.lat,
+            lng: bank.lng,
+            systemMatched: false,
+            packageCount: 0,
+          } satisfies SearchableInternalFoodBank]
+        })
+        .sort((a, b) => a.distance - b.distance)
+
+      const internalBanksWithPackages = await Promise.all(
+        rankedInternalBanks.map(async (bank) => {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/${bank.id}/packages`)
+            if (!response.ok) {
+              return bank
+            }
+
+            const packagesPayload = await response.json()
+            const packageCount = Array.isArray(packagesPayload) ? packagesPayload.length : 0
+            return {
+              ...bank,
+              packageCount,
+              systemMatched: packageCount > 0,
+            }
+          } catch {
+            return bank
+          }
+        }),
+      )
+
+      const onlineInternalBanks = internalBanksWithPackages.filter((bank) => bank.systemMatched)
+      const defaultOnlineBank = onlineInternalBanks[0] ?? null
+      const externalResults: FoodBank[] = nearby.map((fb) => {
+        const mapped = findInternalFoodBankMatch(
+          { name: fb.name, address: `${fb.address}, ${fb.postcode}` },
+          internalBanksWithPackages,
+        )
+        const packageSourceBank = mapped?.systemMatched
+          ? mapped
+          : defaultOnlineBank
+        const isOnline = Boolean(packageSourceBank)
+
+        return {
+          id: packageSourceBank?.id ?? -1,
+          name: fb.name,
+          address: `${fb.address}, ${fb.postcode}`,
+          distance: fb.distance,
+          hours: fb.hours ?? [],
+          lat: fb.lat,
+          lng: fb.lng,
+          phone: fb.phone,
+          email: fb.email,
+          url: fb.url,
+          systemMatched: isOnline,
+        }
+      })
+
+      if (externalResults.length > 0) {
+        console.info('[FindFoodBank] search results ready', {
+          postcode,
+          externalResults: externalResults.length,
+        })
+
+        set({
+          searchResults: [...externalResults].sort((a, b) => (a.distance ?? Number.MAX_SAFE_INTEGER) - (b.distance ?? Number.MAX_SAFE_INTEGER)),
+          searchedLocation: userCoords,
+          hasSearched: true,
+          isSearching: false,
+          searchError: null,
+        })
+        return
+      }
+
+      console.warn(
+        `[FindFoodBank] no results within configured radius for "${postcode}" at ${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}. Closest matches: ${
+          rankedNearby
+            .slice(0, 3)
+            .map((item) => `${item.name} (${item.distance.toFixed(2)} km)`)
+            .join(', ') || 'none'
+        }`,
+      )
 
       set({
-        searchResults: normalizedResults,
+        searchResults: [],
+        searchedLocation: userCoords,
         hasSearched: true,
         isSearching: false,
+        searchError: null,
       })
     } catch (error) {
       console.error('Search failed:', error)
+      const message = error instanceof Error ? error.message : 'Search failed'
       set({
         searchResults: [],
+        searchedLocation: null,
         hasSearched: true,
         isSearching: false,
+        searchError: message,
       })
     }
   },
 
   selectFoodBank: (fb) => set({ selectedFoodBank: fb }),
 
-  loadUserCollections: async (email) => {
+  loadUserCollections: async (_email, weekStart) => {
     try {
       const authStore = useAuthStore.getState()
       if (!authStore.accessToken) return
-      
-      const response = await fetch(`${API_BASE_URL}/api/v1/applications?filter_by=email&value=${encodeURIComponent(email)}`, {
-        headers: { 'Authorization': `Bearer ${authStore.accessToken}` },
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/applications/my`, {
+        headers: { Authorization: `Bearer ${authStore.accessToken}` },
       })
-      if (response.ok) {
-        const applications = await response.json()
-        const totalCollected = Array.isArray(applications) ? applications.length : 0
-        set({ weeklyCollected: totalCollected })
+
+      if (!response.ok) {
+        return
       }
+
+      const payload = await response.json()
+      const items = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : []
+      const targetWeek = weekStart || getCurrentWeekMonday()
+      const totalCollected = items
+        .filter((application: { week_start?: string }) => application.week_start === targetWeek)
+        .reduce((sum: number, application: { total_quantity?: number }) => sum + Number(application.total_quantity ?? 0), 0)
+
+      set({ weeklyCollected: totalCollected })
     } catch (error) {
       console.error('Failed to load collections:', error)
     }
@@ -499,25 +689,24 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         return { success: false, message: 'Not authenticated' }
       }
 
-      // Generate week_start as Monday of current week if not provided (YYYY-MM-DD format)
+      const selectedFoodBank = get().selectedFoodBank
+      if (!selectedFoodBank || selectedFoodBank.id <= 0) {
+        return { success: false, message: 'This food bank is not connected to online applications yet.' }
+      }
+
       let finalWeekStart = weekStart
       if (!finalWeekStart) {
-        const today = new Date()
-        const date = new Date(today)
-        const day = date.getDay()
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is Sunday
-        date.setDate(diff)
-        finalWeekStart = date.toISOString().split('T')[0]
+        finalWeekStart = getCurrentWeekMonday()
       }
 
       const response = await fetch(`${API_BASE_URL}/api/v1/applications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authStore.accessToken}`,
+          Authorization: `Bearer ${authStore.accessToken}`,
         },
         body: JSON.stringify({
-          food_bank_id: (get().selectedFoodBank as any)?.id || '',
+          food_bank_id: selectedFoodBank.id,
           week_start: finalWeekStart,
           items: selections.map((sel) => ({
             package_id: sel.packageId,
@@ -527,22 +716,26 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       })
 
       if (!response.ok) {
-        const error = await response.json()
+        const error = await response.json().catch(() => ({ detail: 'Application failed' }))
         return { success: false, message: error.detail || 'Application failed' }
       }
 
       const result = await response.json()
-      const code = result.redemption_code || result.id || 'APP-' + Math.random().toString(36).substring(2, 8).toUpperCase()
-      
-      const currentWeekly = get().weeklyCollected + selections.reduce((s, sel) => s + sel.qty, 0)
-      set({ weeklyCollected: currentWeekly })
+      await Promise.allSettled([
+        get().loadUserCollections(_userEmail, finalWeekStart),
+        get().loadPackages(),
+      ])
 
-      return { success: true, message: 'Application successful!', code }
-    } catch (error) {
+      return {
+        success: true,
+        message: 'Application successful!',
+        code: result.redemption_code || result.id,
+      }
+    } catch {
       return { success: false, message: 'Network error during application' }
     }
   },
 
   resetSearch: () =>
-    set({ searchPostcode: '', searchResults: [], hasSearched: false, selectedFoodBank: null }),
+    set({ searchPostcode: '', searchResults: [], searchedLocation: null, hasSearched: false, searchError: null, selectedFoodBank: null }),
 }))
