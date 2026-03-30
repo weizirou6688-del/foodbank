@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.database_errors import raise_database_unavailable_http_exception
 from app.core.security import require_admin
 from app.models.food_bank import FoodBank
 from app.modules.food_banks.schema import (
@@ -148,17 +149,21 @@ async def list_food_banks(
     
     Note: proximity filtering not implemented in basic version.
     """
-    result = await db.execute(select(FoodBank))
-    items = list(result.scalars().all())
-    total = len(items)
-    # TODO: 实现真实分页
-    return {
-        "items": items,
-        "total": total,
-        "page": 1,
-        "size": total,
-        "pages": 1,
-    }
+    _ = postcode
+    try:
+        result = await db.execute(select(FoodBank))
+        items = list(result.scalars().all())
+        total = len(items)
+        return {
+            "items": items,
+            "total": total,
+            "page": 1,
+            "size": total,
+            "pages": 1,
+        }
+    except Exception as exc:
+        _ = exc
+        raise_database_unavailable_http_exception()
 
 
 @router.get("/{food_bank_id}", response_model=FoodBankDetailOut)
@@ -171,16 +176,22 @@ async def get_food_bank(
     
     Spec § 2.2: GET /food-banks/:id (no auth).
     """
-    result = await db.execute(select(FoodBank).where(FoodBank.id == food_bank_id))
-    bank = result.scalar_one_or_none()
-    
-    if not bank:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Food bank not found",
-        )
-    
-    return bank
+    try:
+        result = await db.execute(select(FoodBank).where(FoodBank.id == food_bank_id))
+        bank = result.scalar_one_or_none()
+
+        if not bank:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Food bank not found",
+            )
+
+        return bank
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _ = exc
+        raise_database_unavailable_http_exception()
 
 
 @router.post("", response_model=FoodBankOut, status_code=status.HTTP_201_CREATED)

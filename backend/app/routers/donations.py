@@ -13,6 +13,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.database_errors import (
+    is_database_unavailable_exception,
+    raise_database_unavailable_http_exception,
+)
 from app.core.security import require_admin
 from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
@@ -29,7 +33,7 @@ logger = logging.getLogger("uvicorn.error")
 @router.post("/cash", response_model=DonationCashOut, status_code=status.HTTP_201_CREATED)
 async def submit_cash_donation(
     donation_in: DonationCashCreate,
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -74,6 +78,8 @@ async def submit_cash_donation(
     except HTTPException:
         raise
     except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit cash donation",
@@ -83,7 +89,7 @@ async def submit_cash_donation(
 @router.post("/goods", response_model=DonationGoodsOut, status_code=status.HTTP_201_CREATED)
 async def submit_goods_donation(
     donation_in: DonationGoodsCreate,
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -143,6 +149,8 @@ async def submit_goods_donation(
     except HTTPException:
         raise
     except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit goods donation",

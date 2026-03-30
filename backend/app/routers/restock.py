@@ -1,8 +1,8 @@
 """
 Restock request management routes.
-
-Spec § 2.7: GET (list), POST (create), DELETE /:id (decline), POST /:id/fulfil
 """
+
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -10,8 +10,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import require_admin
+from app.core.database_errors import (
+    is_database_unavailable_exception,
+    raise_database_unavailable_http_exception,
+)
+from app.core.security import require_admin, require_admin_or_supermarket
 from app.models.inventory_item import InventoryItem
+from app.models.inventory_lot import InventoryLot
 from app.models.restock_request import RestockRequest
 from app.schemas.restock_request import (
     RestockRequestCreate,
@@ -26,25 +31,15 @@ router = APIRouter(tags=["Restock Requests"])
 
 @router.get("", response_model=RestockRequestListResponse)
 async def list_restock_requests(
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_admin_or_supermarket),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    List all restock requests (admin only).
-    
-    Spec § 2.7: GET /restock-requests (requires admin).
-    
-    Returns: All requests with status (pending, fulfilled, declined)
-    
-    TODO: Query all RestockRequest records, ordered by created date
-    """
     _ = admin_user
     result = await db.execute(
         select(RestockRequest).order_by(RestockRequest.created_at.desc())
     )
     items = list(result.scalars().all())
     total = len(items)
-    # TODO: 实现真实分页
     return {
         "items": items,
         "total": total,
@@ -57,22 +52,9 @@ async def list_restock_requests(
 @router.post("", response_model=RestockRequestOut, status_code=status.HTTP_201_CREATED)
 async def create_restock_request(
     request_in: RestockRequestCreate,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_admin_or_supermarket),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Submit restock request (admin only).
-    
-    Spec § 2.7: POST /restock-requests (requires admin).
-    
-    RestockRequestCreate includes:
-    - inventory_item_id: int
-    - requested_quantity: int (target stock level)
-    - priority: str ("low", "medium", "high")
-    - notes: Optional
-    
-    TODO: Create RestockRequest with status=pending
-    """
     _ = admin_user
     try:
         async with db.begin():
@@ -83,6 +65,18 @@ async def create_restock_request(
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Inventory item not found",
+                )
+
+            existing_open_request = await db.scalar(
+                select(RestockRequest).where(
+                    RestockRequest.inventory_item_id == request_in.inventory_item_id,
+                    RestockRequest.status == "open",
+                )
+            )
+            if existing_open_request is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="An open restock request already exists for this inventory item",
                 )
 
             request = RestockRequest(
@@ -105,6 +99,8 @@ async def create_restock_request(
             detail="Restock request conflict detected",
         ) from exc
     except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create restock request",
@@ -117,15 +113,6 @@ async def decline_restock_request(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Decline restock request (admin only).
-    
-    Spec § 2.7: DELETE /restock-requests/:id (requires admin).
-    
-    Sets status=declined.
-    
-    TODO: Mark request as declined
-    """
     _ = admin_user
     try:
         async with db.begin():
@@ -150,6 +137,8 @@ async def decline_restock_request(
     except HTTPException:
         raise
     except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to cancel restock request",
@@ -163,18 +152,6 @@ async def fulfil_restock_request(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Mark restock request as fulfilled (admin only).
-    
-    Spec § 2.7: POST /restock-requests/:id/fulfil (requires admin).
-    
-    RestockRequestFulfil includes:
-    - notes: Optional (confirmation notes)
-    
-    Sets status=fulfilled and updates fulfil_date=now().
-    
-    TODO: Mark request fulfilled, optionally update inventory
-    """
     _ = admin_user
     _ = fulfil_in.notes
     try:
@@ -203,8 +180,16 @@ async def fulfil_restock_request(
                     detail="Inventory item not found",
                 )
 
-            if item.stock < request.threshold:
-                item.stock = request.threshold
+            replenish_quantity = max(request.threshold - request.current_stock, 1)
+            db.add(
+                InventoryLot(
+                    inventory_item_id=item.id,
+                    quantity=replenish_quantity,
+                    received_date=date.today(),
+                    expiry_date=date.today() + timedelta(days=365),
+                    batch_reference=f"restock-request-{request.id}",
+                )
+            )
 
             request.status = "fulfilled"
             await db.flush()
@@ -213,6 +198,8 @@ async def fulfil_restock_request(
     except HTTPException:
         raise
     except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fulfil restock request",

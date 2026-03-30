@@ -66,7 +66,8 @@ class FakeSession:
 async def test_list_food_banks_empty():
     db = FakeSession()
     result = await list_food_banks(db=db)
-    assert result == []
+    assert result["items"] == []
+    assert result["total"] == 0
 
 
 @pytest.mark.asyncio
@@ -82,8 +83,8 @@ async def test_list_food_banks_returns_rows():
 
     result = await list_food_banks(db=db)
 
-    assert len(result) == 1
-    assert result[0].name == "Main Center"
+    assert len(result["items"]) == 1
+    assert result["items"][0].name == "Main Center"
 
 
 @pytest.mark.asyncio

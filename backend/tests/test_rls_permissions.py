@@ -9,7 +9,7 @@ RLS 权限测试：验证行级安全策略
 """
 
 import pytest
-import requests
+requests = pytest.importorskip("requests")
 import json
 from datetime import datetime, timedelta
 from typing import Tuple, Dict

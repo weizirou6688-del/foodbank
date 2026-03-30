@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, date
+from datetime import date
 from pathlib import Path
 import sys
 
@@ -24,28 +24,30 @@ class _Begin:
 
 
 class _ScalarResult:
-    def __init__(self, packages):
-        self._packages = packages
+    def __init__(self, rows):
+        self._rows = rows
 
     def all(self):
-        return self._packages
+        return self._rows
 
 
 class _ExecuteResult:
-    def __init__(self, packages):
-        self._packages = packages
+    def __init__(self, rows):
+        self._rows = rows
 
     def scalars(self):
-        return _ScalarResult(self._packages)
+        return _ScalarResult(self._rows)
 
 
 class FakeSession:
-    def __init__(self, *, existing_week_total, packages, unique_code_exists=False):
+    def __init__(self, *, existing_week_total, packages, recipe_package_ids=None, unique_code_exists=False):
         self._existing_week_total = existing_week_total
         self._packages = packages
+        self._recipe_package_ids = list(recipe_package_ids or [])
         self._unique_code_exists = unique_code_exists
         self.added = []
         self._scalar_calls = 0
+        self._execute_calls = 0
 
     def begin(self):
         return _Begin()
@@ -60,7 +62,12 @@ class FakeSession:
         return None
 
     async def execute(self, _query):
-        return _ExecuteResult(list(self._packages.values()))
+        self._execute_calls += 1
+        if self._execute_calls == 1:
+            return _ExecuteResult(list(self._packages.values()))
+        if self._execute_calls == 2:
+            return _ExecuteResult(self._recipe_package_ids)
+        return _ExecuteResult([])
 
     def add(self, obj):
         self.added.append(obj)
@@ -86,18 +93,18 @@ async def test_submit_application_success_deducts_stock_and_creates_rows():
     package = FoodPackage(
         id=1,
         name="Basic",
-        category="General",
+        category="Emergency Pack",
         stock=5,
         threshold=1,
         applied_count=0,
         food_bank_id=10,
         is_active=True,
     )
-    db = FakeSession(existing_week_total=1, packages={1: package})
+    db = FakeSession(existing_week_total=1, packages={1: package}, recipe_package_ids=[1])
 
     application_in = ApplicationCreate(
         food_bank_id=10,
-        week_start=None,  # endpoint should ignore this and use current week Monday
+        week_start=None,
         items=[
             ApplicationItemCreatePayload(package_id=1, quantity=1),
             ApplicationItemCreatePayload(package_id=1, quantity=1),
@@ -133,14 +140,14 @@ async def test_submit_application_weekly_limit_exceeded():
     package = FoodPackage(
         id=1,
         name="Basic",
-        category="General",
+        category="Emergency Pack",
         stock=10,
         threshold=1,
         applied_count=0,
         food_bank_id=10,
         is_active=True,
     )
-    db = FakeSession(existing_week_total=3, packages={1: package})
+    db = FakeSession(existing_week_total=3, packages={1: package}, recipe_package_ids=[1])
 
     application_in = ApplicationCreate(
         food_bank_id=10,
@@ -164,14 +171,14 @@ async def test_submit_application_insufficient_stock():
     package = FoodPackage(
         id=1,
         name="Basic",
-        category="General",
+        category="Emergency Pack",
         stock=1,
         threshold=1,
         applied_count=0,
         food_bank_id=10,
         is_active=True,
     )
-    db = FakeSession(existing_week_total=0, packages={1: package})
+    db = FakeSession(existing_week_total=0, packages={1: package}, recipe_package_ids=[1])
 
     application_in = ApplicationCreate(
         food_bank_id=10,
@@ -195,7 +202,7 @@ async def test_submit_application_rejects_mixed_food_banks():
     package1 = FoodPackage(
         id=1,
         name="A",
-        category="General",
+        category="Emergency Pack",
         stock=10,
         threshold=1,
         applied_count=0,
@@ -205,14 +212,14 @@ async def test_submit_application_rejects_mixed_food_banks():
     package2 = FoodPackage(
         id=2,
         name="B",
-        category="General",
+        category="Breakfast",
         stock=10,
         threshold=1,
         applied_count=0,
         food_bank_id=20,
         is_active=True,
     )
-    db = FakeSession(existing_week_total=0, packages={1: package1, 2: package2})
+    db = FakeSession(existing_week_total=0, packages={1: package1, 2: package2}, recipe_package_ids=[1, 2])
 
     application_in = ApplicationCreate(
         food_bank_id=10,
@@ -236,7 +243,7 @@ async def test_submit_application_rejects_mixed_food_banks():
 
 @pytest.mark.asyncio
 async def test_submit_application_package_not_found():
-    db = FakeSession(existing_week_total=0, packages={})
+    db = FakeSession(existing_week_total=0, packages={}, recipe_package_ids=[])
 
     application_in = ApplicationCreate(
         food_bank_id=10,
@@ -253,3 +260,34 @@ async def test_submit_application_package_not_found():
 
     assert exc.value.status_code == 404
     assert "Package(s) not found" in str(exc.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_submit_application_rejects_package_without_recipe():
+    package = FoodPackage(
+        id=1,
+        name="Basic",
+        category="Emergency Pack",
+        stock=5,
+        threshold=1,
+        applied_count=0,
+        food_bank_id=10,
+        is_active=True,
+    )
+    db = FakeSession(existing_week_total=0, packages={1: package}, recipe_package_ids=[])
+
+    application_in = ApplicationCreate(
+        food_bank_id=10,
+        week_start=date(2026, 3, 16),
+        items=[ApplicationItemCreatePayload(package_id=1, quantity=1)],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await submit_application(
+            application_in=application_in,
+            current_user={"sub": str(uuid.uuid4())},
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Package 1 cannot be applied for because it has no configured contents"

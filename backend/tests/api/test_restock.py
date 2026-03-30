@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 import sys
 
@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.inventory_item import InventoryItem
+from app.models.inventory_lot import InventoryLot
 from app.models.restock_request import RestockRequest
 from app.routers.restock import (
     create_restock_request,
@@ -41,11 +42,14 @@ class _ExecuteResult:
     def scalars(self):
         return _ScalarResult(self._rows)
 
+    def all(self):
+        return self._rows
+
 
 class FakeSession:
-    def __init__(self, *, scalar_values=None, execute_rows=None):
+    def __init__(self, *, scalar_values=None, execute_rows_seq=None):
         self.scalar_values = list(scalar_values or [])
-        self.execute_rows = list(execute_rows or [])
+        self.execute_rows_seq = list(execute_rows_seq or [])
         self.added = []
 
     def begin(self):
@@ -57,13 +61,17 @@ class FakeSession:
         return None
 
     async def execute(self, _query):
-        return _ExecuteResult(self.execute_rows)
+        if self.execute_rows_seq:
+            return _ExecuteResult(self.execute_rows_seq.pop(0))
+        return _ExecuteResult([])
 
     def add(self, obj):
         self.added.append(obj)
         if isinstance(obj, RestockRequest) and getattr(obj, "id", None) is None:
             obj.id = 77
             obj.created_at = datetime.utcnow()
+        if isinstance(obj, InventoryLot) and getattr(obj, "id", None) is None:
+            obj.id = 88
 
     async def flush(self):
         return None
@@ -82,12 +90,13 @@ async def test_list_restock_requests_returns_rows():
         urgency="Critical",
         status="open",
     )
-    db = FakeSession(execute_rows=[request])
+    db = FakeSession(execute_rows_seq=[[request]])
 
     result = await list_restock_requests(admin_user={"role": "admin"}, db=db)
 
-    assert len(result) == 1
-    assert result[0].id == 1
+    assert result["total"] == 1
+    assert len(result["items"]) == 1
+    assert result["items"][0].id == 1
 
 
 @pytest.mark.asyncio
@@ -112,8 +121,7 @@ async def test_create_restock_request_success():
     item = InventoryItem(
         id=10,
         name="Rice",
-        category="Grains",
-        stock=1,
+        category="Grains & Pasta",
         unit="kg",
         threshold=5,
     )
@@ -204,8 +212,7 @@ async def test_fulfil_restock_request_success_updates_stock_to_threshold():
     item = InventoryItem(
         id=2,
         name="Beans",
-        category="Protein",
-        stock=2,
+        category="Proteins & Meat",
         unit="can",
         threshold=5,
     )
@@ -219,4 +226,9 @@ async def test_fulfil_restock_request_success_updates_stock_to_threshold():
     )
 
     assert result.status == "fulfilled"
-    assert item.stock == 5
+    lots = [row for row in db.added if isinstance(row, InventoryLot)]
+    assert len(lots) == 1
+    assert lots[0].inventory_item_id == 2
+    assert lots[0].quantity == 4
+    assert lots[0].received_date == date.today()
+    assert lots[0].batch_reference == "restock-request-1"
