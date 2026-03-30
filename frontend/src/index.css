@@ -53,6 +53,20 @@
   }
 }
 
+.home-figma-font,
+.home-figma-font h1,
+.home-figma-font h2,
+.home-figma-font h3,
+.home-figma-font h4,
+.home-figma-font p,
+.home-figma-font span,
+.home-figma-font div,
+.home-figma-font button,
+.home-figma-font a,
+.home-figma-font input {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
 /* Fade-in animation used by Admin sections */
 .fade-in {
   animation: fadeIn 0.3s ease-in-out;
@@ -66,4 +80,12 @@
   background: rgba(17, 17, 17, 0.38);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+}
+
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control {
+  z-index: 1 !important;
 }

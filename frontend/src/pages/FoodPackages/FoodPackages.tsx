@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useFoodBankStore } from '@/store/foodBankStore'
-import { useAuthStore } from '@/store/authStore'
-import { WEEKLY_COLLECTION_LIMIT } from '@/data/mockData'
-import Button from '@/components/ui/Button'
-import Modal from '@/components/ui/Modal'
+import { useFoodBankStore } from '@/app/store/foodBankStore'
+import { useAuthStore } from '@/app/store/authStore'
+import { WEEKLY_COLLECTION_LIMIT } from '@/shared/config/businessRules'
+import Button from '@/shared/ui/Button'
+import Modal from '@/shared/ui/Modal'
 import styles from './FoodPackages.module.css'
 
 interface Selection {
@@ -22,7 +22,9 @@ export default function FoodPackages() {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (user) loadUserCollections(user.email)
+    if (user) {
+      loadUserCollections(user.email)
+    }
   }, [user, loadUserCollections])
 
   useEffect(() => {
@@ -72,7 +74,11 @@ export default function FoodPackages() {
 
   const handleApply = async () => {
     setErrorMsg('')
-    if (selectedCount === 0) { setErrorMsg('Please select at least one package.'); return }
+    if (selectedCount === 0) {
+      setErrorMsg('Please select at least one package.')
+      return
+    }
+
     const selArray: Selection[] = Object.entries(selections).map(([id, qty]) => ({
       packageId: Number(id), qty,
     }))
@@ -87,14 +93,12 @@ export default function FoodPackages() {
 
   return (
     <div className={styles.page}>
-      {/* Hero */}
       <div className={styles.hero}>
         <h1 className={styles.heroTitle}>Food Packages</h1>
         <p className={styles.heroSub}>Select the packages you need and apply. Up to 3 packages per week.</p>
       </div>
 
       <div className={styles.main}>
-        {/* Food bank info bar */}
         <div className={styles.infoBar}>
           <div>
             <h3 className={styles.fbName}>{selectedFoodBank.name}</h3>
@@ -106,15 +110,12 @@ export default function FoodPackages() {
           </div>
         </div>
 
-        {/* Notice */}
         <div className={styles.notice}>
           Maximum <strong>3 packages</strong> per week. This week: <strong>{weeklyCollected}</strong>/3 used.
         </div>
 
-        {/* Error */}
         {errorMsg && <div className={styles.errorBanner}>{errorMsg}</div>}
 
-        {/* Package grid */}
         <div className={styles.pkgGrid}>
           {packages.map((pkg) => {
             const isSelected = selections[pkg.id] !== undefined
@@ -161,7 +162,6 @@ export default function FoodPackages() {
         </div>
       </div>
 
-      {/* Sticky apply bar */}
       <div className={styles.applyBar}>
         <div className={styles.applySummary}>
           {selectedCount === 0
@@ -174,7 +174,6 @@ export default function FoodPackages() {
         </Button>
       </div>
 
-      {/* Success modal */}
       <Modal isOpen={codeModal.open} onClose={() => { setCodeModal({ open: false, code: '' }); navigate('/find-foodbank') }} title="Application Successful! ">
         <div className={styles.codeModalContent}>
           <p className={styles.codeLabel}>Your Redemption Code</p>

@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import Layout from '@/widgets/layout/Layout'
+import Layout from '@/app/layout/Layout'
 import Home from '@/pages/Home/Home'
 import FindFoodBank from '@/pages/FindFoodBank/FindFoodBank'
 import FoodPackages from '@/pages/FoodPackages/FoodPackages'
