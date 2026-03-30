@@ -12,7 +12,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.database_errors import (
+    is_database_unavailable_exception,
+    raise_database_unavailable_http_exception,
+)
 from app.core.security import require_admin
+from app.models.food_bank import FoodBank
 from app.models.food_package import FoodPackage
 from app.models.inventory_item import InventoryItem
 from app.models.package_item import PackageItem
@@ -82,6 +87,21 @@ async def create_package(
         )
 
     try:
+        if package_in.food_bank_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="food_bank_id is required for package creation",
+            )
+
+        food_bank_exists = await db.scalar(
+            select(FoodBank.id).where(FoodBank.id == package_in.food_bank_id)
+        )
+        if food_bank_exists is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Food bank not found",
+            )
+
         inventory_rows = (
             await db.execute(
                 select(InventoryItem.id).where(InventoryItem.id.in_(item_ids))
@@ -147,6 +167,8 @@ async def create_package(
         ) from exc
     except Exception as exc:
         await db.rollback()
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create package",
@@ -267,6 +289,8 @@ async def pack_package(
             detail=str(exc),
         )
     except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),

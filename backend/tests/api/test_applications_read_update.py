@@ -92,8 +92,9 @@ async def test_get_my_applications_returns_rows():
     db = FakeReadSession([app1, app2])
     result = await get_my_applications(current_user={"sub": str(user_id)}, db=db)
 
-    assert len(result) == 2
-    assert result[0].redemption_code == "FB-ABC123"
+    assert result["total"] == 2
+    assert len(result["items"]) == 2
+    assert result["items"][0].redemption_code == "FB-ABC123"
 
 
 @pytest.mark.asyncio

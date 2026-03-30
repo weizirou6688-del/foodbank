@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 import sys
 
@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.inventory_item import InventoryItem
+from app.models.inventory_lot import InventoryLot
 from app.routers.inventory import (
     create_inventory_item,
     delete_inventory_item,
@@ -16,7 +17,7 @@ from app.routers.inventory import (
     stock_out,
     update_inventory_item,
 )
-from app.schemas.inventory_item import InventoryItemCreate, InventoryItemUpdate, StockAdjustment
+from app.schemas.inventory_item import InventoryItemUpdate, StockAdjustment
 from app.schemas.inventory_item import InventoryItemCreateRequest
 
 
@@ -43,11 +44,14 @@ class _ExecuteResult:
     def scalars(self):
         return _ScalarResult(self._rows)
 
+    def all(self):
+        return self._rows
+
 
 class FakeSession:
-    def __init__(self, *, scalar_values=None, execute_rows=None):
+    def __init__(self, *, scalar_values=None, execute_rows_seq=None):
         self.scalar_values = list(scalar_values or [])
-        self.execute_rows = list(execute_rows or [])
+        self.execute_rows_seq = list(execute_rows_seq or [])
         self.added = []
         self.deleted = []
         self.did_commit = False
@@ -62,13 +66,17 @@ class FakeSession:
         return None
 
     async def execute(self, _query):
-        return _ExecuteResult(self.execute_rows)
+        if self.execute_rows_seq:
+            return _ExecuteResult(self.execute_rows_seq.pop(0))
+        return _ExecuteResult([])
 
     def add(self, obj):
         self.added.append(obj)
         if isinstance(obj, InventoryItem) and getattr(obj, "id", None) is None:
             obj.id = 99
             obj.updated_at = datetime.utcnow()
+        if isinstance(obj, InventoryLot) and getattr(obj, "id", None) is None:
+            obj.id = 199
 
     async def flush(self):
         return None
@@ -92,21 +100,21 @@ async def test_list_inventory_returns_rows():
         id=1,
         name="Rice",
         category="Grains & Pasta",
-        stock=10,
         unit="kg",
         threshold=2,
     )
-    db = FakeSession(execute_rows=[item])
+    db = FakeSession(execute_rows_seq=[[item]], scalar_values=[10])
 
     result = await list_inventory(food_bank_id=1, admin_user={"role": "admin"}, db=db)
 
-    assert len(result) == 1
-    assert result[0].name == "Rice"
+    assert len(result["items"]) == 1
+    assert result["items"][0].name == "Rice"
+    assert result["items"][0].total_stock == 10
 
 
 @pytest.mark.asyncio
 async def test_create_inventory_item_success():
-    db = FakeSession()
+    db = FakeSession(scalar_values=[None, 4])
     payload = InventoryItemCreateRequest(
         name="Beans",
         category="Proteins & Meat",
@@ -117,9 +125,50 @@ async def test_create_inventory_item_success():
 
     result = await create_inventory_item(item_in=payload, admin_user={"role": "admin"}, db=db)
 
-    assert isinstance(result, InventoryItem)
     assert result.name == "Beans"
-    assert result.stock == 4
+    assert result.total_stock == 4
+    assert any(isinstance(obj, InventoryLot) for obj in db.added)
+
+
+@pytest.mark.asyncio
+async def test_create_inventory_item_conflict_when_name_exists():
+    db = FakeSession(scalar_values=[1])
+    payload = InventoryItemCreateRequest(
+        name="Beans",
+        category="Proteins & Meat",
+        initial_stock=4,
+        unit="can",
+        threshold=1,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await create_inventory_item(item_in=payload, admin_user={"role": "admin"}, db=db)
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail == "Inventory item name already exists"
+
+
+@pytest.mark.asyncio
+async def test_update_inventory_item_ignores_legacy_stock_field():
+    item = InventoryItem(
+        id=1,
+        name="Rice",
+        category="Grains & Pasta",
+        unit="kg",
+        threshold=1,
+    )
+    db = FakeSession(scalar_values=[item, 3])
+
+    result = await update_inventory_item(
+        item_id=1,
+        item_in=InventoryItemUpdate(stock=8, threshold=5),
+        admin_user={"role": "admin"},
+        db=db,
+    )
+
+    assert result.name == "Rice"
+    assert item.threshold == 5
+    assert result.total_stock == 3
 
 
 @pytest.mark.asyncio
@@ -142,21 +191,21 @@ async def test_update_inventory_item_success():
     item = InventoryItem(
         id=1,
         name="Rice",
-        category="Grains",
-        stock=3,
+        category="Grains & Pasta",
         unit="kg",
         threshold=1,
     )
-    db = FakeSession(scalar_values=[item])
+    db = FakeSession(scalar_values=[item, 3])
 
     result = await update_inventory_item(
         item_id=1,
-        item_in=InventoryItemUpdate(stock=8),
+        item_in=InventoryItemUpdate(name="Brown Rice"),
         admin_user={"role": "admin"},
         db=db,
     )
 
-    assert result.stock == 8
+    assert result.name == "Brown Rice"
+    assert result.total_stock == 3
 
 
 @pytest.mark.asyncio
@@ -165,11 +214,10 @@ async def test_stock_in_success():
         id=1,
         name="Milk",
         category="Dairy",
-        stock=2,
         unit="box",
         threshold=1,
     )
-    db = FakeSession(scalar_values=[item])
+    db = FakeSession(scalar_values=[item, 5])
 
     result = await stock_in(
         item_id=1,
@@ -178,7 +226,8 @@ async def test_stock_in_success():
         db=db,
     )
 
-    assert result.stock == 5
+    assert result.total_stock == 5
+    assert any(isinstance(obj, InventoryLot) for obj in db.added)
 
 
 @pytest.mark.asyncio
@@ -186,12 +235,19 @@ async def test_stock_out_insufficient_stock():
     item = InventoryItem(
         id=1,
         name="Oil",
-        category="Cooking",
-        stock=1,
+        category="Beverages",
         unit="bottle",
         threshold=1,
     )
-    db = FakeSession(scalar_values=[item])
+    active_lot = InventoryLot(
+        id=10,
+        inventory_item_id=1,
+        quantity=1,
+        received_date=date.today(),
+        expiry_date=date.today(),
+        batch_reference="lot-1",
+    )
+    db = FakeSession(scalar_values=[item], execute_rows_seq=[[active_lot]])
 
     with pytest.raises(HTTPException) as exc:
         await stock_out(
@@ -210,8 +266,7 @@ async def test_delete_inventory_item_conflict_when_used_in_package():
     item = InventoryItem(
         id=1,
         name="Flour",
-        category="Grains",
-        stock=10,
+        category="Grains & Pasta",
         unit="kg",
         threshold=2,
     )
@@ -228,8 +283,7 @@ async def test_delete_inventory_item_success():
     item = InventoryItem(
         id=1,
         name="Salt",
-        category="Condiment",
-        stock=2,
+        category="Snacks",
         unit="pack",
         threshold=1,
     )

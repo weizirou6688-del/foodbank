@@ -1,4 +1,4 @@
-// ── User & Auth ──────────────────────────────────────────────
+// User and authentication
 export type UserRole = 'public' | 'supermarket' | 'admin'
 
 export interface User {
@@ -8,18 +8,21 @@ export interface User {
   role: UserRole
 }
 
-// ── Food Bank ─────────────────────────────────────────────────
+// Food bank discovery and selection
 export interface FoodBank {
   id: number
   name: string
   address: string
-  distance?: number  // km
+  distance?: number // km
   hours?: string[]
   lat: number
   lng: number
+  systemMatched?: boolean
 }
 
-// ── Food Package ──────────────────────────────────────────────
+export type ApplicationStatus = 'pending' | 'collected' | 'expired'
+
+// Food packages
 export interface PackageItem {
   name: string
   qty: number
@@ -37,12 +40,12 @@ export interface FoodPackage {
   image: string
 }
 
-// ── Cart / Selection ──────────────────────────────────────────
+// Selected package state
 export interface SelectedPackage extends FoodPackage {
   selectedQty: number
 }
 
-// ── Donation ──────────────────────────────────────────────────
+// Donation forms
 export interface CashDonationForm {
   email: string
   amount: number | ''
@@ -66,16 +69,16 @@ export interface GoodsDonationForm {
   notes: string
 }
 
-// ── Restock Request ───────────────────────────────────────────
+// Restock requests used by mock/demo helpers
 export interface RestockRequest {
   id: number
   foodName: string
   currentStock: number
   threshold: number
-  urgency: 'Critical' | 'Urgent' | 'Low'
+  urgency: 'high' | 'medium' | 'low'
 }
 
-// ── Single Inventory Item ─────────────────────────────────────
+// Inventory items
 export interface InventoryItem {
   id: number
   name: string
@@ -85,5 +88,5 @@ export interface InventoryItem {
   threshold: number
 }
 
-// ── Form validation ───────────────────────────────────────────
+// Generic form validation helpers
 export type FormErrors<T> = Partial<Record<keyof T, string>>

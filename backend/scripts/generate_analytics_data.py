@@ -1,0 +1,359 @@
+"""
+Generate synthetic analytics data for local PostgreSQL environments.
+
+This script is designed for coursework/demo usage. It keeps the generated
+dataset modest by default and can be tuned with CLI arguments.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import random
+import sys
+from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
+from pathlib import Path
+
+from sqlalchemy import select
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from app.core.bootstrap import (  # noqa: E402
+    ensure_demo_food_banks,
+    ensure_demo_inventory_and_packages,
+    ensure_demo_users,
+)
+from app.core.database import AsyncSessionLocal  # noqa: E402
+from app.core.security import get_password_hash  # noqa: E402
+from app.models.application import Application  # noqa: E402
+from app.models.application_item import ApplicationItem  # noqa: E402
+from app.models.donation_cash import DonationCash  # noqa: E402
+from app.models.donation_goods import DonationGoods  # noqa: E402
+from app.models.donation_goods_item import DonationGoodsItem  # noqa: E402
+from app.models.food_bank import FoodBank  # noqa: E402
+from app.models.food_package import FoodPackage  # noqa: E402
+from app.models.inventory_item import InventoryItem  # noqa: E402
+from app.models.user import User  # noqa: E402
+
+
+@dataclass(slots=True)
+class GenerationConfig:
+    days: int
+    public_users: int
+    cash_per_day: int
+    goods_per_day: int
+    applications_per_week: int
+    seed: int
+
+
+FIRST_NAMES = [
+    "Alex", "Jamie", "Taylor", "Jordan", "Morgan", "Casey", "Riley", "Avery",
+    "Quinn", "Harper", "Rowan", "Cameron", "Skyler", "Drew", "Parker",
+]
+LAST_NAMES = [
+    "Smith", "Johnson", "Brown", "Wilson", "Evans", "Walker", "Clarke",
+    "Taylor", "Roberts", "Hall", "Young", "King", "Wright", "Scott",
+]
+GOODS_NOTES = [
+    "Drop-off at reception",
+    "Items sorted before arrival",
+    "Mixed pantry donation",
+    "Community collection drive",
+    "Office charity contribution",
+    None,
+]
+GOODS_ITEMS = [
+    "Rice",
+    "Pasta",
+    "Canned Beans",
+    "UHT Milk",
+    "Breakfast Cereal",
+    "Canned Tomatoes",
+    "Soup",
+    "Tea Bags",
+    "Peanut Butter",
+    "Tinned Fruit",
+]
+
+
+def parse_args() -> GenerationConfig:
+    parser = argparse.ArgumentParser(
+        description="Generate synthetic local analytics data for the foodbank project.",
+    )
+    parser.add_argument("--days", type=int, default=180, help="How many past days to generate.")
+    parser.add_argument(
+        "--public-users",
+        type=int,
+        default=24,
+        help="How many additional synthetic public users to create.",
+    )
+    parser.add_argument(
+        "--cash-per-day",
+        type=int,
+        default=3,
+        help="Average number of cash donations per day.",
+    )
+    parser.add_argument(
+        "--goods-per-day",
+        type=int,
+        default=2,
+        help="Average number of goods donations per day.",
+    )
+    parser.add_argument(
+        "--applications-per-week",
+        type=int,
+        default=14,
+        help="Average number of applications per week.",
+    )
+    parser.add_argument("--seed", type=int, default=20260329, help="Random seed.")
+    args = parser.parse_args()
+    return GenerationConfig(
+        days=max(args.days, 1),
+        public_users=max(args.public_users, 1),
+        cash_per_day=max(args.cash_per_day, 0),
+        goods_per_day=max(args.goods_per_day, 0),
+        applications_per_week=max(args.applications_per_week, 0),
+        seed=args.seed,
+    )
+
+
+def random_created_at(rng: random.Random, base_date: date) -> datetime:
+    return datetime.combine(
+        base_date,
+        time(
+            hour=rng.randint(8, 19),
+            minute=rng.randint(0, 59),
+            second=rng.randint(0, 59),
+        ),
+    )
+
+
+def monday_of_week(input_date: date) -> date:
+    return input_date - timedelta(days=input_date.weekday())
+
+
+def make_name(rng: random.Random) -> str:
+    return f"{rng.choice(FIRST_NAMES)} {rng.choice(LAST_NAMES)}"
+
+
+def make_email(name: str, unique_value: str) -> str:
+    local = name.lower().replace(" ", ".")
+    return f"{local}.{unique_value}@example.com"
+
+
+async def ensure_public_users(
+    db,
+    count: int,
+    rng: random.Random,
+) -> list[User]:
+    users: list[User] = []
+    existing = (
+        await db.execute(select(User).where(User.email.like("analytics.user.%@example.com")))
+    ).scalars().all()
+    existing_by_email = {user.email: user for user in existing}
+
+    for index in range(1, count + 1):
+        email = f"analytics.user.{index:03d}@example.com"
+        user = existing_by_email.get(email)
+        if user is None:
+            user = User(
+                name=make_name(rng),
+                email=email,
+                password_hash=get_password_hash("analytics123"),
+                role="public",
+            )
+            db.add(user)
+            await db.flush()
+        users.append(user)
+
+    return users
+
+
+async def generate_cash_donations(db, rng: random.Random, config: GenerationConfig) -> int:
+    created = 0
+    today = date.today()
+
+    for offset in range(config.days):
+        target_day = today - timedelta(days=offset)
+        count = max(0, int(round(config.cash_per_day + rng.choice([-1, 0, 0, 1]))))
+        for donation_index in range(count):
+            donor_name = make_name(rng)
+            donation = DonationCash(
+                donor_email=make_email(donor_name, f"cash{offset:03d}{donation_index:02d}"),
+                amount_pence=rng.randint(300, 15000),
+                payment_reference=f"AN-CASH-{offset:03d}-{donation_index:02d}",
+                status=rng.choices(
+                    ["completed", "completed", "completed", "failed", "refunded"],
+                    weights=[75, 75, 75, 8, 4],
+                    k=1,
+                )[0],
+            )
+            donation.created_at = random_created_at(rng, target_day)
+            db.add(donation)
+            created += 1
+
+    return created
+
+
+async def generate_goods_donations(
+    db,
+    rng: random.Random,
+    config: GenerationConfig,
+    public_users: list[User],
+) -> int:
+    created = 0
+    today = date.today()
+
+    for offset in range(config.days):
+        target_day = today - timedelta(days=offset)
+        count = max(0, int(round(config.goods_per_day + rng.choice([-1, 0, 1]))))
+        for donation_index in range(count):
+            donor_name = make_name(rng)
+            goods = DonationGoods(
+                donor_user_id=rng.choice(public_users).id if rng.random() < 0.35 else None,
+                donor_name=donor_name,
+                donor_email=make_email(donor_name, f"goods{offset:03d}{donation_index:02d}"),
+                donor_phone=f"07{rng.randint(100000000, 999999999)}",
+                notes=rng.choice(GOODS_NOTES),
+                status=rng.choices(
+                    ["pending", "received", "received", "received", "rejected"],
+                    weights=[10, 40, 40, 40, 8],
+                    k=1,
+                )[0],
+            )
+            goods.created_at = random_created_at(rng, target_day)
+            db.add(goods)
+            await db.flush()
+
+            item_count = rng.randint(2, 5)
+            for _ in range(item_count):
+                db.add(
+                    DonationGoodsItem(
+                        donation_id=goods.id,
+                        item_name=rng.choice(GOODS_ITEMS),
+                        quantity=rng.randint(1, 12),
+                    )
+                )
+
+            created += 1
+
+    return created
+
+
+async def generate_applications(
+    db,
+    rng: random.Random,
+    config: GenerationConfig,
+    public_users: list[User],
+    food_banks: list[FoodBank],
+    packages: list[FoodPackage],
+) -> int:
+    created = 0
+    packages_by_bank: dict[int, list[FoodPackage]] = {}
+    for package in packages:
+        if package.food_bank_id is None:
+            continue
+        packages_by_bank.setdefault(package.food_bank_id, []).append(package)
+
+    total_weeks = max(1, (config.days + 6) // 7)
+    for week_offset in range(total_weeks):
+        week_start = monday_of_week(date.today() - timedelta(days=week_offset * 7))
+        count = max(0, int(round(config.applications_per_week + rng.choice([-2, -1, 0, 1, 2]))))
+        for app_index in range(count):
+            bank = rng.choice(food_banks)
+            bank_packages = packages_by_bank.get(bank.id, [])
+            if not bank_packages:
+                continue
+
+            selected_user = rng.choice(public_users)
+            chosen_packages = rng.sample(bank_packages, k=min(len(bank_packages), rng.randint(1, 2)))
+            quantities: list[tuple[FoodPackage, int]] = []
+            remaining_total = 3
+            for package in chosen_packages:
+                if remaining_total <= 0:
+                    break
+                quantity = rng.randint(1, remaining_total)
+                quantities.append((package, quantity))
+                remaining_total -= quantity
+
+            total_quantity = sum(quantity for _, quantity in quantities)
+            if total_quantity <= 0:
+                continue
+
+            application = Application(
+                user_id=selected_user.id,
+                food_bank_id=bank.id,
+                redemption_code=f"AN{week_offset:02d}{app_index:02d}{rng.randint(1000, 9999)}",
+                status=rng.choices(
+                    ["pending", "collected", "expired"],
+                    weights=[55, 30, 15],
+                    k=1,
+                )[0],
+                week_start=week_start,
+                total_quantity=total_quantity,
+            )
+            created_at = random_created_at(rng, week_start + timedelta(days=rng.randint(0, 6)))
+            application.created_at = created_at
+            application.updated_at = created_at
+            db.add(application)
+            await db.flush()
+
+            for package, quantity in quantities:
+                db.add(
+                    ApplicationItem(
+                        application_id=application.id,
+                        package_id=package.id,
+                        quantity=quantity,
+                    )
+                )
+                package.applied_count += quantity
+
+            created += 1
+
+    return created
+
+
+async def main() -> None:
+    config = parse_args()
+    rng = random.Random(config.seed)
+
+    await ensure_demo_users()
+    await ensure_demo_food_banks()
+    await ensure_demo_inventory_and_packages()
+
+    async with AsyncSessionLocal() as db:
+        public_users = await ensure_public_users(db, config.public_users, rng)
+        food_banks = (await db.execute(select(FoodBank).order_by(FoodBank.id))).scalars().all()
+        packages = (
+            await db.execute(
+                select(FoodPackage).where(FoodPackage.is_active.is_(True)).order_by(FoodPackage.id)
+            )
+        ).scalars().all()
+        _ = (await db.execute(select(InventoryItem).order_by(InventoryItem.id))).scalars().all()
+
+        cash_count = await generate_cash_donations(db, rng, config)
+        goods_count = await generate_goods_donations(db, rng, config, public_users)
+        application_count = await generate_applications(
+            db,
+            rng,
+            config,
+            public_users,
+            food_banks,
+            packages,
+        )
+
+        await db.commit()
+
+    print("Synthetic analytics data generation complete.")
+    print(f"Days covered: {config.days}")
+    print(f"Synthetic public users ensured: {config.public_users}")
+    print(f"Cash donations created: {cash_count}")
+    print(f"Goods donations created: {goods_count}")
+    print(f"Applications created: {application_count}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

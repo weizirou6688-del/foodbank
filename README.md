@@ -1,85 +1,99 @@
 # ABC Community Food Bank
 
-A web-based Food Bank Information Management System built with React + TypeScript.
+A Food Bank Information Management System with a React + TypeScript frontend and a FastAPI backend.
 
 ## Tech Stack
 
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **UI Library**: shadcn/ui + Tailwind CSS
-- **State Management**: Zustand
-- **Routing**: React Router v6
-- **Styling**: CSS Modules + Tailwind CSS
+- Frontend: React 18 + TypeScript + Vite
+- State: Zustand
+- Routing: React Router v6
+- Styling: CSS Modules + Tailwind CSS
+- Backend: FastAPI + SQLAlchemy + Alembic
+- Database: PostgreSQL
 
-## Getting Started
+## Quick Start (Windows)
+
+### One-Click Start
+
+Double-click `scripts\quick_start.bat` to start all services automatically.
+
+Or run from command line:
+```batch
+cd scripts
+quick_start.bat
+```
+
+### Stop Services
+
+```batch
+cd scripts
+stop.bat
+```
+
+## Manual Setup
+
+### Prerequisites
+
+- **Node.js 18+** (for frontend)
+- **Python 3.11+** (for backend)
+- **PostgreSQL 14+** (for database)
+
+### Database
+
+Make sure PostgreSQL is running on port 5432.
+
+Project-local database credentials are expected to be:
+
+```text
+Database: foodbank
+User: foodbank
+Password: foodbank
+```
+
+Note:
+
+- These are project database credentials, not the PostgreSQL superuser password.
+- Demo account passwords below are only for application login, not for PostgreSQL admin access.
+
+### Frontend
 
 ```bash
-# Install dependencies
+cd frontend
 npm install
-
-# Start development server
 npm run dev
-
-# Build for production
-npm run build
 ```
+
+Frontend will be available at http://localhost:5173
+
+### Backend
+
+1. Create `.env` file in `backend/` directory:
+```bash
+cd backend
+copy .env.example .env
+```
+
+2. Install dependencies and start:
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+Backend will be available at http://localhost:8000
+API docs at http://localhost:8000/docs
 
 ## Demo Accounts
 
-| Role        | Email                    | Password   |
-|-------------|--------------------------|------------|
-| Admin       | admin@foodbank.com       | admin123   |
-| Supermarket | supermarket@foodbank.com | supermarket123 |
-| Public User | user@example.com         | user123    |
+| Role        | Email                    | Password         |
+|-------------|--------------------------|------------------|
+| Admin       | admin@foodbank.com       | admin123         |
+| Supermarket | supermarket@foodbank.com | supermarket123   |
+| Public User | user@example.com         | user12345        |
 
-## Password Prompts And Where Passwords Are Stored
+## Notes
 
-When the terminal asks for a password, use this mapping:
-
-- If terminal shows `[sudo] password for codespace:`
-- If terminal shows `[sudo] codespace 密码：`
-- Input: `codespace`
-
-- If terminal asks for PostgreSQL user `foodbank` password:
-- Input: `foodbank`
-
-- Frontend demo login passwords:
-- See `src/data/mockData.ts` (line 5 and below)
-
-Password and key locations in this project:
-
-- System sudo password: not stored in project files (system account credential)
-- PostgreSQL connection username/password: `.env` -> `DATABASE_URL`
-- JWT signing key: `.env` -> `SECRET_KEY`
-- Frontend demo account passwords: `src/data/mockData.ts`
-
-## Project Structure
-
-```
-src/
-├── assets/          # Static assets (images, fonts)
-├── components/
-│   ├── ui/          # Reusable UI primitives (Button, Modal, Badge…)
-│   ├── layout/      # Navbar, Footer, Layout wrapper
-│   └── auth/        # LoginModal, ProtectedRoute
-├── pages/
-│   ├── Home/
-│   ├── FindFoodBank/
-│   ├── FoodPackages/
-│   ├── DonateCash/
-│   └── DonateGoods/
-├── store/           # Zustand stores (auth, foodbank)
-├── data/            # Mock data
-├── types/           # TypeScript interfaces
-├── utils/           # Helper functions
-├── router/          # Route definitions
-├── App.tsx
-└── main.tsx
-```
-
-## Future Plans
-
-- [ ] Supermarket dashboard
-- [ ] Admin dashboard (inventory, statistics, package management)
-- [ ] Connect to FastAPI + PostgreSQL backend
-- [ ] Real payment integration
+- The backend seeds demo users and demo food banks on startup.
+- Inventory is tracked with lot-based stock internally, while some frontend screens still use compatibility `stock` fields from the API.
+- Some admin reporting widgets are still demo-style placeholders and do not yet represent complete production analytics.
+- If local PostgreSQL has been used before, prefer running Alembic against a clean project database rather than reusing a half-initialized schema.
+- For the full Windows database setup and analytics-data workflow, see [docs/Windows本地数据库与分析数据生成指南_20260329.md](c:/Users/weicq/Desktop/foodbank/docs/Windows本地数据库与分析数据生成指南_20260329.md).

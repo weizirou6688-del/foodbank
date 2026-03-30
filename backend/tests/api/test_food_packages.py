@@ -39,9 +39,10 @@ class _ScalarResult:
 
 
 class FakeSession:
-    def __init__(self, *, packages=None, execute_rows_seq=None):
+    def __init__(self, *, packages=None, execute_rows_seq=None, scalar_values=None):
         self.packages = packages or {}
         self.execute_rows_seq = list(execute_rows_seq or [])
+        self.scalar_values = list(scalar_values or [])
         self.added = []
         self.updated = []
         self.did_commit = False
@@ -51,6 +52,11 @@ class FakeSession:
         if self.execute_rows_seq:
             return _ExecuteResult(self.execute_rows_seq.pop(0))
         return _ExecuteResult(list(self.packages.values()))
+
+    async def scalar(self, _query):
+        if self.scalar_values:
+            return self.scalar_values.pop(0)
+        return None
 
     def add(self, obj):
         self.added.append(obj)
@@ -132,7 +138,7 @@ async def test_get_package_not_found():
 
 @pytest.mark.asyncio
 async def test_create_package_success():
-    db = FakeSession(execute_rows_seq=[[(1,)]])
+    db = FakeSession(execute_rows_seq=[[1]], scalar_values=[1])
     admin = {"role": "admin"}
 
     payload = FoodPackageCreateRequest(
@@ -149,6 +155,46 @@ async def test_create_package_success():
     assert result.name == "New Pack"
     assert result.category == "Breakfast"
     assert len(db.added) == 2
+
+
+@pytest.mark.asyncio
+async def test_create_package_requires_food_bank():
+    db = FakeSession(execute_rows_seq=[[1]])
+    admin = {"role": "admin"}
+
+    payload = FoodPackageCreateRequest(
+        name="New Pack",
+        category="Breakfast",
+        threshold=4,
+        contents=[{"item_id": 1, "quantity": 1}],
+        food_bank_id=None,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await create_package(package_in=payload, admin_user=admin, db=db)
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "food_bank_id is required for package creation"
+
+
+@pytest.mark.asyncio
+async def test_create_package_rejects_unknown_food_bank():
+    db = FakeSession(scalar_values=[None])
+    admin = {"role": "admin"}
+
+    payload = FoodPackageCreateRequest(
+        name="New Pack",
+        category="Breakfast",
+        threshold=4,
+        contents=[{"item_id": 1, "quantity": 1}],
+        food_bank_id=999,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await create_package(package_in=payload, admin_user=admin, db=db)
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "Food bank not found"
 
 
 @pytest.mark.asyncio
