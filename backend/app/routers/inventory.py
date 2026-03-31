@@ -31,6 +31,7 @@ from app.schemas.inventory_item import (
     LowStockItem,
     StockAdjustment,
 )
+from app.services.inventory_service import consume_inventory_lots
 from app.schemas.inventory_lot import InventoryLotAdjustRequest, InventoryLotOut
 
 
@@ -410,35 +411,12 @@ async def stock_out(
                     detail="Inventory item not found",
                 )
 
-            lots = (
-                await db.execute(
-                    select(InventoryLot)
-                    .where(
-                        and_(
-                            InventoryLot.inventory_item_id == item_id,
-                            InventoryLot.deleted_at.is_(None),
-                            InventoryLot.expiry_date >= date.today(),
-                        )
-                    )
-                    .order_by(InventoryLot.expiry_date.asc(), InventoryLot.id.asc())
-                )
-            ).scalars().all()
-
-            remaining = adjustment_in.quantity
-            for lot in lots:
-                if remaining <= 0:
-                    break
-
-                deduct = min(lot.quantity, remaining)
-                lot.quantity -= deduct
-                remaining -= deduct
-                if lot.quantity == 0:
-                    lot.deleted_at = datetime.now(timezone.utc)
-
-            if remaining > 0:
+            try:
+                await consume_inventory_lots(item.id, adjustment_in.quantity, db)
+            except ValueError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Insufficient stock",
+                    detail=str(exc),
                 )
 
             await db.flush()

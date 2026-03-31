@@ -49,6 +49,11 @@ class InventoryItem(Base):
         cascade="all, delete-orphan",
     )
 
+    # inventory_items -> application_items is one-to-many.
+    application_items: Mapped[list["ApplicationItem"]] = relationship(
+        back_populates="inventory_item",
+    )
+
     # inventory_items -> inventory_lots is one-to-many.
     lots: Mapped[list["InventoryLot"]] = relationship(
         back_populates="inventory_item",

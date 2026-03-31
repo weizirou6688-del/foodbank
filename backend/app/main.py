@@ -15,6 +15,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
+from app.core.bootstrap import (
+    ensure_demo_food_banks,
+    ensure_demo_inventory_and_packages,
+    ensure_demo_users,
+)
 from app.core.database import check_database_connection, close_db, init_db
 from app.core.database_errors import DATABASE_UNAVAILABLE_DETAIL
 
@@ -34,6 +39,12 @@ async def lifespan(app: FastAPI):
         db_ready, db_error = await check_database_connection()
         if not db_ready:
             raise RuntimeError(db_error or "Database connection check failed")
+
+        if settings.seed_demo_data:
+            await ensure_demo_users()
+            await ensure_demo_food_banks()
+            await ensure_demo_inventory_and_packages()
+
         print("Database initialized and connected")
     except Exception as exc:
         db_error = str(exc)

@@ -4,6 +4,7 @@ Food Bank location management routes.
 Spec § 2.2: GET /food-banks, GET /food-banks/:id, POST, PATCH, DELETE
 """
 
+from datetime import date
 from html import unescape
 import re
 from typing import Optional
@@ -11,13 +12,15 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.database_errors import raise_database_unavailable_http_exception
 from app.core.security import require_admin
 from app.models.food_bank import FoodBank
+from app.models.inventory_item import InventoryItem
+from app.models.inventory_lot import InventoryLot
 from app.modules.food_banks.schema import (
     FoodBankCreate,
     FoodBankDetailOut,
@@ -25,6 +28,7 @@ from app.modules.food_banks.schema import (
     FoodBankOut,
     FoodBankUpdate,
 )
+from app.schemas.inventory_item import InventoryItemListResponse, InventoryItemOut
 
 
 router = APIRouter(tags=["Food Banks"])
@@ -40,6 +44,79 @@ DAY_TEXT_PATTERN = re.compile(
     r"^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)s?\s*[:|-]\s*(.+)$",
     re.IGNORECASE,
 )
+
+
+@router.get("/{food_bank_id}/inventory-items", response_model=InventoryItemListResponse)
+async def list_food_bank_inventory_items(
+    food_bank_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """List publicly available individual inventory items for the selected food bank.
+
+    Inventory is currently global in the data model, so the bank id is validated
+    for route consistency and response metadata, while stock is aggregated from
+    active lots across the shared inventory pool.
+    """
+    food_bank = await db.scalar(select(FoodBank).where(FoodBank.id == food_bank_id))
+    if food_bank is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Food bank not found",
+        )
+
+    stock_subquery = (
+        select(
+            InventoryLot.inventory_item_id,
+            func.coalesce(func.sum(InventoryLot.quantity), 0).label("total_stock"),
+        )
+        .where(
+            and_(
+                InventoryLot.deleted_at.is_(None),
+                InventoryLot.expiry_date >= date.today(),
+            )
+        )
+        .group_by(InventoryLot.inventory_item_id)
+        .subquery()
+    )
+
+    query = (
+        select(
+            InventoryItem,
+            func.coalesce(stock_subquery.c.total_stock, 0).label("total_stock"),
+        )
+        .join(
+            stock_subquery,
+            InventoryItem.id == stock_subquery.c.inventory_item_id,
+            isouter=True,
+        )
+        .where(func.coalesce(stock_subquery.c.total_stock, 0) > 0)
+        .order_by(InventoryItem.category.asc(), InventoryItem.name.asc())
+    )
+
+    rows = (await db.execute(query)).all()
+    items = [
+        InventoryItemOut(
+            id=item.id,
+            name=item.name,
+            category=item.category,
+            stock=int(total_stock or 0),
+            total_stock=int(total_stock or 0),
+            unit=item.unit,
+            threshold=item.threshold,
+            food_bank_id=food_bank_id,
+            updated_at=item.updated_at,
+        )
+        for item, total_stock in rows
+    ]
+
+    total = len(items)
+    return {
+        "items": items,
+        "total": total,
+        "page": 1,
+        "size": total,
+        "pages": 1,
+    }
 
 
 def _strip_html_to_lines(value: str) -> list[str]:

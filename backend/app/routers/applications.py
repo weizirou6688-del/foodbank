@@ -5,7 +5,6 @@ Spec § 2.4: POST (submit), GET /my (user's), PATCH/:id (admin status update)
 """
 
 import secrets
-import string
 import uuid
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,7 +20,9 @@ from app.core.database_errors import (
 from app.core.security import get_current_user, require_admin
 from app.models.application import Application
 from app.models.application_item import ApplicationItem
+from app.models.food_bank import FoodBank
 from app.models.food_package import FoodPackage
+from app.models.inventory_item import InventoryItem
 from app.models.package_item import PackageItem
 from app.schemas.application import (
     ApplicationCreate,
@@ -29,14 +30,21 @@ from app.schemas.application import (
     ApplicationOut,
     ApplicationUpdate,
 )
+from app.services.inventory_service import consume_inventory_lots
 
 
 router = APIRouter(tags=["Applications"])
 
+WEEKLY_PACKAGE_LIMIT = 3
+WEEKLY_INDIVIDUAL_ITEM_LIMIT = 5
+MAX_SINGLE_INDIVIDUAL_ITEM_QUANTITY = 5
+
 
 def _new_redemption_code() -> str:
-    alphabet = string.ascii_uppercase + string.digits
-    return "FB-" + "".join(secrets.choice(alphabet) for _ in range(6))
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    left = "".join(secrets.choice(alphabet) for _ in range(4))
+    right = "".join(secrets.choice(alphabet) for _ in range(4))
+    return f"{left}-{right}"
 
 
 async def _generate_unique_redemption_code(db: AsyncSession) -> str:
@@ -102,21 +110,52 @@ async def submit_application(
         days_since_monday = today.weekday()
         week_start = date.fromordinal(today.toordinal() - days_since_monday)
 
-    total_quantity = sum(item.quantity for item in application_in.items)
-    if total_quantity <= 0:
+    package_quantity = sum(
+        item.quantity
+        for item in application_in.items
+        if item.package_id is not None
+    )
+    requested_inventory_quantities: dict[int, int] = {}
+    requested_package_quantities: dict[int, int] = {}
+
+    for item in application_in.items:
+        if item.package_id is not None:
+            requested_package_quantities[item.package_id] = (
+                requested_package_quantities.get(item.package_id, 0) + item.quantity
+            )
+            continue
+
+        if item.inventory_item_id is not None:
+            requested_inventory_quantities[item.inventory_item_id] = (
+                requested_inventory_quantities.get(item.inventory_item_id, 0) + item.quantity
+            )
+
+    if package_quantity <= 0 and not requested_inventory_quantities:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Application must include at least one package quantity",
+            detail="Application must include at least one package or individual item",
         )
 
-    requested_by_package: dict[int, int] = {}
-    for item in application_in.items:
-        requested_by_package[item.package_id] = (
-            requested_by_package.get(item.package_id, 0) + item.quantity
+    if any(
+        quantity > MAX_SINGLE_INDIVIDUAL_ITEM_QUANTITY
+        for quantity in requested_inventory_quantities.values()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Individual item quantity cannot exceed {MAX_SINGLE_INDIVIDUAL_ITEM_QUANTITY}",
         )
 
     try:
         async with db.begin():
+            food_bank_exists = await db.scalar(
+                select(FoodBank.id).where(FoodBank.id == application_in.food_bank_id)
+            )
+            if food_bank_exists is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Food bank not found",
+                )
+
             existing_week_total = await db.scalar(
                 select(func.coalesce(func.sum(Application.total_quantity), 0)).where(
                     Application.user_id == user_id,
@@ -125,91 +164,135 @@ async def submit_application(
             )
             existing_week_total = int(existing_week_total or 0)
 
-            if existing_week_total + total_quantity > 3:
+            if existing_week_total + package_quantity > WEEKLY_PACKAGE_LIMIT:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Weekly limit exceeded",
                 )
 
-            package_ids = list(requested_by_package.keys())
-            packages_result = await db.execute(
-                select(FoodPackage)
-                .where(
-                    FoodPackage.id.in_(package_ids),
-                )
-                .with_for_update()
-            )
-            packages = {pkg.id: pkg for pkg in packages_result.scalars().all()}
+            if requested_inventory_quantities:
+                existing_inventory_item_ids = {
+                    inventory_item_id
+                    for inventory_item_id in (
+                        await db.execute(
+                            select(ApplicationItem.inventory_item_id)
+                            .join(Application, Application.id == ApplicationItem.application_id)
+                            .where(
+                                Application.user_id == user_id,
+                                Application.week_start == week_start,
+                                ApplicationItem.inventory_item_id.is_not(None),
+                            )
+                        )
+                    ).scalars().all()
+                    if inventory_item_id is not None
+                }
 
-            missing_package_ids = [pkg_id for pkg_id in package_ids if pkg_id not in packages]
-            if missing_package_ids:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Package(s) not found: {missing_package_ids}",
-                )
-
-            if any(not pkg.is_active for pkg in packages.values()):
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="One or more selected packages are inactive",
-                )
-
-            food_bank_ids = {pkg.food_bank_id for pkg in packages.values()}
-            if None in food_bank_ids:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Selected package is not bound to a food bank",
-                )
-            if len(food_bank_ids) != 1:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="All selected packages must belong to the same food bank",
-                )
-            food_bank_id = next(iter(food_bank_ids))
-
-            if application_in.food_bank_id != food_bank_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Provided food_bank_id does not match selected packages",
-                )
-
-            recipe_package_ids = (
-                await db.execute(
-                    select(PackageItem.package_id).where(PackageItem.package_id.in_(package_ids))
-                )
-            ).scalars().all()
-            package_ids_with_recipes = set(recipe_package_ids)
-
-            # Applications consume already-packed package stock.
-            for package_id, requested_qty in requested_by_package.items():
-                package = packages[package_id]
-
-                if package.stock < requested_qty:
+                requested_inventory_item_ids = set(requested_inventory_quantities.keys())
+                if len(existing_inventory_item_ids.union(requested_inventory_item_ids)) > WEEKLY_INDIVIDUAL_ITEM_LIMIT:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Insufficient stock for package {package_id}",
+                        detail=f"You can request up to {WEEKLY_INDIVIDUAL_ITEM_LIMIT} different individual items per week",
                     )
-                if package_id not in package_ids_with_recipes:
+
+            packages: dict[int, FoodPackage] = {}
+            if requested_package_quantities:
+                package_ids = list(requested_package_quantities.keys())
+                packages_result = await db.execute(
+                    select(FoodPackage)
+                    .where(
+                        FoodPackage.id.in_(package_ids),
+                    )
+                    .with_for_update()
+                )
+                packages = {pkg.id: pkg for pkg in packages_result.scalars().all()}
+
+                missing_package_ids = [pkg_id for pkg_id in package_ids if pkg_id not in packages]
+                if missing_package_ids:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Package(s) not found: {missing_package_ids}",
+                    )
+
+                if any(not pkg.is_active for pkg in packages.values()):
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="One or more selected packages are inactive",
+                    )
+
+                food_bank_ids = {pkg.food_bank_id for pkg in packages.values()}
+                if None in food_bank_ids:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Package {package_id} cannot be applied for because it has no configured contents",
+                        detail="Selected package is not bound to a food bank",
+                    )
+                if len(food_bank_ids) != 1:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="All selected packages must belong to the same food bank",
+                    )
+                package_food_bank_id = next(iter(food_bank_ids))
+
+                if application_in.food_bank_id != package_food_bank_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Provided food_bank_id does not match selected packages",
+                    )
+
+                recipe_package_ids = (
+                    await db.execute(
+                        select(PackageItem.package_id).where(PackageItem.package_id.in_(package_ids))
+                    )
+                ).scalars().all()
+                package_ids_with_recipes = set(recipe_package_ids)
+
+                # Applications consume already-packed package stock.
+                for package_id, requested_qty in requested_package_quantities.items():
+                    package = packages[package_id]
+
+                    if package.stock < requested_qty:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Insufficient stock for package {package_id}",
+                        )
+                    if package_id not in package_ids_with_recipes:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Package {package_id} cannot be applied for because it has no configured contents",
+                        )
+
+            if requested_inventory_quantities:
+                inventory_item_ids = list(requested_inventory_quantities.keys())
+                inventory_result = await db.execute(
+                    select(InventoryItem)
+                    .where(InventoryItem.id.in_(inventory_item_ids))
+                    .with_for_update()
+                )
+                inventory_items = {item.id: item for item in inventory_result.scalars().all()}
+
+                missing_inventory_item_ids = [
+                    item_id for item_id in inventory_item_ids if item_id not in inventory_items
+                ]
+                if missing_inventory_item_ids:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Inventory item(s) not found: {missing_inventory_item_ids}",
                     )
 
             redemption_code = await _generate_unique_redemption_code(db)
 
             application = Application(
                 user_id=user_id,
-                food_bank_id=food_bank_id,
+                food_bank_id=application_in.food_bank_id,
                 redemption_code=redemption_code,
                 status="pending",
                 week_start=week_start,
-                total_quantity=total_quantity,
+                total_quantity=package_quantity,
             )
             db.add(application)
             await db.flush()
 
             # Deduct package stock and create application items
-            for package_id, requested_qty in requested_by_package.items():
+            for package_id, requested_qty in requested_package_quantities.items():
                 package = packages[package_id]
                 package.stock -= requested_qty
                 package.applied_count += requested_qty
@@ -218,6 +301,23 @@ async def submit_application(
                     ApplicationItem(
                         application_id=application.id,
                         package_id=package_id,
+                        quantity=requested_qty,
+                    )
+                )
+
+            for inventory_item_id, requested_qty in requested_inventory_quantities.items():
+                try:
+                    await consume_inventory_lots(inventory_item_id, requested_qty, db)
+                except ValueError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Insufficient stock for inventory item {inventory_item_id}: {exc}",
+                    ) from exc
+
+                db.add(
+                    ApplicationItem(
+                        application_id=application.id,
+                        inventory_item_id=inventory_item_id,
                         quantity=requested_qty,
                     )
                 )
