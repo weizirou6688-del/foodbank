@@ -53,6 +53,80 @@ interface SearchableInternalFoodBank extends FoodBank {
   packageCount: number
 }
 
+const normalizeFoodBank = (bank: {
+  id: number | string
+  name: string
+  address: string
+  lat?: number | string | null
+  lng?: number | string | null
+  hours?: string[]
+  phone?: string
+  email?: string
+  url?: string
+  systemMatched?: boolean
+}): FoodBank => ({
+  id: Number(bank.id),
+  name: bank.name,
+  address: bank.address,
+  lat: Number(bank.lat ?? 0),
+  lng: Number(bank.lng ?? 0),
+  hours: Array.isArray(bank.hours) ? bank.hours : undefined,
+  phone: bank.phone,
+  email: bank.email,
+  url: bank.url,
+  systemMatched: bank.systemMatched,
+})
+
+const normalizeInventoryItem = (item: {
+  id: number | string
+  name: string
+  category: string
+  stock?: number
+  total_stock?: number
+  unit: string
+  threshold?: number
+  food_bank_id?: number | string | null
+}): InventoryItem => ({
+  id: Number(item.id),
+  name: item.name,
+  category: item.category,
+  stock: Number(item.total_stock ?? item.stock ?? 0),
+  unit: item.unit,
+  threshold: Number(item.threshold ?? 0),
+  foodBankId: item.food_bank_id == null ? undefined : Number(item.food_bank_id),
+})
+
+const resolveSelectedFoodBank = async (
+  get: () => FoodBankState,
+  set: (partial: Partial<FoodBankState>) => void,
+): Promise<FoodBank | null> => {
+  const existing = get().selectedFoodBank
+  if (existing) {
+    return existing
+  }
+
+  const foodBanksResponse = await fetch(`${API_BASE_URL}/api/v1/food-banks`)
+  if (!foodBanksResponse.ok) {
+    throw new Error('Failed to load food banks')
+  }
+
+  const foodBanksPayload = await foodBanksResponse.json()
+  const foodBanks = Array.isArray(foodBanksPayload)
+    ? foodBanksPayload
+    : Array.isArray(foodBanksPayload?.items)
+      ? foodBanksPayload.items
+      : []
+
+  if (foodBanks.length === 0) {
+    set({ selectedFoodBank: null })
+    return null
+  }
+
+  const fallbackBank = normalizeFoodBank(foodBanks[0])
+  set({ selectedFoodBank: fallbackBank })
+  return fallbackBank
+}
+
 const normalizeText = (value: string): string =>
   value.trim().toLowerCase().replace(/\s+/g, ' ')
 
@@ -108,6 +182,7 @@ interface FoodBankState {
 
   packages: FoodPackage[]
   inventory: InventoryItem[]
+  availableItems: InventoryItem[]
   weeklyCollected: number
 
   setSearchPostcode: (postcode: string) => void
@@ -116,11 +191,13 @@ interface FoodBankState {
   applyPackages: (
     userEmail: string,
     selections: { packageId: number; qty: number }[],
-    weekStart?: string
+    weekStart?: string,
+    itemSelections?: { itemId: number; qty: number }[],
   ) => Promise<{ success: boolean; message: string; code?: string }>
   resetSearch: () => void
   loadUserCollections: (email: string, weekStart?: string) => Promise<void>
   loadPackages: () => Promise<void>
+  loadAvailableItems: () => Promise<void>
   loadInventory: () => Promise<void>
   addItem: (data: { name: string; category: string; initial_stock: number }) => Promise<void>
   updateItem: (itemId: number, data: Partial<Pick<InventoryItem, 'name' | 'category' | 'stock' | 'unit' | 'threshold'>>) => Promise<void>
@@ -147,36 +224,20 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   selectedFoodBank: null,
   packages: [],
   inventory: [],
+  availableItems: [],
   weeklyCollected: 0,
 
   setSearchPostcode: (postcode) => set({ searchPostcode: postcode }),
 
   loadPackages: async () => {
     try {
-      // Package browsing is anchored to the selected food bank. The fallback to
-      // the first internal bank keeps the page resilient in demo scenarios.
-      let foodBankId = get().selectedFoodBank?.id
-
-      if (!foodBankId) {
-        const foodBanksResponse = await fetch(`${API_BASE_URL}/api/v1/food-banks`)
-        if (!foodBanksResponse.ok) {
-          throw new Error('Failed to load food banks')
-        }
-        const foodBanksPayload = await foodBanksResponse.json()
-        const foodBanks = Array.isArray(foodBanksPayload)
-          ? foodBanksPayload
-          : Array.isArray(foodBanksPayload?.items)
-            ? foodBanksPayload.items
-            : []
-
-        if (foodBanks.length === 0) {
-          set({ packages: [] })
-          return
-        }
-        foodBankId = Number(foodBanks[0].id)
+      const foodBank = await resolveSelectedFoodBank(get, set)
+      if (!foodBank) {
+        set({ packages: [] })
+        return
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/${foodBankId}/packages`)
+      const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/${foodBank.id}/packages`)
       if (!response.ok) {
         throw new Error('Failed to load packages')
       }
@@ -244,6 +305,35 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
     }
   },
 
+  loadAvailableItems: async () => {
+    try {
+      const foodBank = await resolveSelectedFoodBank(get, set)
+      if (!foodBank) {
+        set({ availableItems: [] })
+        return
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/${foodBank.id}/inventory-items`)
+      if (!response.ok) {
+        throw new Error('Failed to load individual food items')
+      }
+
+      const payload = await response.json()
+      const items = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : []
+
+      set({
+        availableItems: items.map(normalizeInventoryItem),
+      })
+    } catch (error) {
+      console.error('Failed to load available items:', error)
+      throw error instanceof Error ? error : new Error('Failed to load individual food items')
+    }
+  },
+
   loadInventory: async () => {
     try {
       const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/inventory`)
@@ -268,14 +358,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           ? data.items
           : []
 
-      const normalizedInventory: InventoryItem[] = inventoryItems.map((item) => ({
-        id: Number(item.id),
-        name: item.name,
-        category: item.category,
-        stock: Number(item.total_stock ?? item.stock ?? 0),
-        unit: item.unit,
-        threshold: Number(item.threshold ?? 0),
-      }))
+      const normalizedInventory: InventoryItem[] = inventoryItems.map(normalizeInventoryItem)
 
       set({ inventory: normalizedInventory })
     } catch (error) {
@@ -697,7 +780,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
     }
   },
 
-  applyPackages: async (_userEmail, selections, weekStart) => {
+  applyPackages: async (_userEmail, selections, weekStart, itemSelections = []) => {
     try {
       const authStore = useAuthStore.getState()
       if (!authStore.accessToken || !authStore.user) {
@@ -723,10 +806,16 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         body: JSON.stringify({
           food_bank_id: selectedFoodBank.id,
           week_start: finalWeekStart,
-          items: selections.map((sel) => ({
-            package_id: sel.packageId,
-            quantity: sel.qty,
-          })),
+          items: [
+            ...selections.map((sel) => ({
+              package_id: sel.packageId,
+              quantity: sel.qty,
+            })),
+            ...itemSelections.map((sel) => ({
+              inventory_item_id: sel.itemId,
+              quantity: sel.qty,
+            })),
+          ],
         }),
       })
 
@@ -739,6 +828,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       await Promise.allSettled([
         get().loadUserCollections(_userEmail, finalWeekStart),
         get().loadPackages(),
+        get().loadAvailableItems(),
       ])
 
       return {
@@ -752,5 +842,5 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   },
 
   resetSearch: () =>
-    set({ searchPostcode: '', searchResults: [], searchedLocation: null, hasSearched: false, searchError: null, selectedFoodBank: null }),
+    set({ searchPostcode: '', searchResults: [], searchedLocation: null, hasSearched: false, searchError: null, selectedFoodBank: null, packages: [], availableItems: [] }),
 }))

@@ -37,3 +37,15 @@ class PackageItem(Base):
 
     # inventory_items -> package_items is one-to-many.
     inventory_item: Mapped["InventoryItem"] = relationship(back_populates="package_items")
+
+    @property
+    def inventory_item_name(self) -> str:
+        if self.inventory_item is None:
+            return ""
+        return self.inventory_item.name
+
+    @property
+    def inventory_item_unit(self) -> str:
+        if self.inventory_item is None:
+            return ""
+        return self.inventory_item.unit

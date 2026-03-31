@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.database_errors import (
@@ -44,7 +45,12 @@ async def list_packages_for_bank(
 ):
     """List available packages for a specific food bank."""
     result = await db.execute(
-        select(FoodPackage).where(FoodPackage.food_bank_id == food_bank_id)
+        select(FoodPackage)
+        .where(
+            FoodPackage.food_bank_id == food_bank_id,
+            FoodPackage.is_active.is_(True),
+        )
+        .order_by(FoodPackage.id)
     )
     packages = result.scalars().all()
     return packages
@@ -57,7 +63,14 @@ async def get_package_details(
 ):
     """Get package details including package composition items."""
     result = await db.execute(
-        select(FoodPackage).where(FoodPackage.id == package_id)
+        select(FoodPackage)
+        .options(
+            selectinload(FoodPackage.package_items).selectinload(PackageItem.inventory_item)
+        )
+        .where(
+            FoodPackage.id == package_id,
+            FoodPackage.is_active.is_(True),
+        )
     )
     package = result.scalar_one_or_none()
     

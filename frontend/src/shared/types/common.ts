@@ -89,6 +89,7 @@ export interface InventoryItem {
   stock: number
   unit: string
   threshold: number
+  foodBankId?: number
 }
 
 // Generic form validation helpers

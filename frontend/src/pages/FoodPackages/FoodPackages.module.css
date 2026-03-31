@@ -1,112 +1,15 @@
-.page { width: 100%; padding-bottom: 80px; }
-
-.hero {
-  background: linear-gradient(135deg, #0D1B2A 0%, #1B3A4B 100%);
-  padding: 3.75rem 3rem;
-  position: relative; overflow: hidden;
-}
-.hero::before {
-  content:''; position:absolute; top:-80px; right:-60px;
-  width:350px; height:350px;
-  background:radial-gradient(circle,rgba(27,153,139,.3) 0%,transparent 70%);
-  border-radius:50%;
-}
-.heroTitle { font-family:'Playfair Display',serif; font-size:2.5rem; color:#fff; margin-bottom:.625rem; position:relative; }
-.heroSub { font-size:1rem; color:rgba(255,255,255,.65); position:relative; }
-
-.main { max-width:1280px; margin:0 auto; padding:3rem; }
-
-.infoBar {
-  background:#fff; border-radius:16px; padding:1.5rem 1.75rem;
-  box-shadow:0 2px 16px rgba(13,27,42,.06); margin-bottom:.75rem;
-  display:flex; justify-content:space-between; align-items:center; gap:1rem;
-}
-.fbName { font-family:'Playfair Display',serif; font-size:1.25rem; margin-bottom:4px; }
-.fbAddr { font-size:.875rem; color:#5A706B; }
-.weeklyBadge {
-  background:linear-gradient(135deg,#1B998B,#2EC4B6); color:#fff;
-  border-radius:12px; padding:.75rem 1.25rem; text-align:center; flex-shrink:0;
-}
-.weeklyNum { font-family:'Playfair Display',serif; font-size:1.75rem; font-weight:700; display:block; line-height:1; }
-.weeklyLabel { font-size:.7rem; opacity:.85; margin-top:2px; display:block; }
-
-.notice {
-  background:#FFF8E7; border:1px solid rgba(255,159,28,.3); border-radius:10px;
-  padding:.75rem 1.125rem; margin-bottom:1.75rem; font-size:.875rem; color:#8A5700;
+/* Page wrapper — override global Playfair Display font */
+.pageWrap {
+  width: 100%;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #ffffff;
+  padding-bottom: 100px;
 }
 
-.errorBanner {
-  background:#FFEBEE; border:1px solid rgba(230,57,70,.3); border-radius:10px;
-  padding:.75rem 1.125rem; margin-bottom:1.75rem; font-size:.875rem; color:#E63946;
-}
-
-.emptyState {
-  max-width: 720px;
-  margin: 5rem auto;
-  background: #fff;
-  border-radius: 16px;
-  padding: 2rem;
-  text-align: center;
-  box-shadow: 0 2px 16px rgba(13,27,42,.06);
-}
-
-.pkgGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1.5rem; margin-bottom:2.5rem; }
-
-.pkgCard {
-  background:#fff; border-radius:16px; overflow:hidden;
-  box-shadow:0 2px 16px rgba(13,27,42,.06);
-  border:2.5px solid transparent; transition:all .25s; cursor:pointer; position:relative;
-}
-.pkgCard:hover { transform:translateY(-3px); box-shadow:0 8px 30px rgba(27,153,139,.12); }
-.pkgCard.selected { border-color:#1B998B; box-shadow:0 0 0 4px rgba(27,153,139,.12); }
-
-.selectedBadge { position:absolute; top:12px; right:12px; background:#1B998B; color:#fff; font-size:.75rem; font-weight:600; padding:4px 10px; border-radius:6px; z-index:1; }
-.lowBadge      { position:absolute; top:12px; left:12px; background:#E63946; color:#fff; font-size:.75rem; font-weight:600; padding:4px 10px; border-radius:6px; z-index:1; }
-
-.pkgImg { width:100%; height:170px; object-fit:cover; display:block; }
-
-.pkgBody { padding:1.25rem; }
-.pkgName { font-family:'Playfair Display',serif; font-size:1.2rem; margin-bottom:.375rem; }
-.pkgDesc { font-size:.8rem; color:#5A706B; margin-bottom:.875rem; line-height:1.5; }
-.itemList { list-style:none; margin-bottom:.875rem; }
-.itemList li { font-size:.8rem; color:#2D3F3A; margin-bottom:3px; padding-left:1rem; position:relative; }
-.itemList li::before { content:'•'; position:absolute; left:0; color:#1B998B; }
-.itemList li span { color:#9BADA9; }
-
-.stockRow { display:flex; justify-content:space-between; font-size:.8rem; color:#5A706B; margin-bottom:.75rem; }
-.stockOk  { font-weight:600; color:#1B998B; }
-.stockLow { font-weight:600; color:#E63946; }
-
-.qtyRow { display:flex; align-items:center; gap:.75rem; margin-top:.5rem; }
-.qtyLabel { font-size:.8rem; font-weight:600; color:#2D3F3A; }
-.qtyControl { display:flex; align-items:center; gap:.5rem; }
-.qtyControl button {
-  width:28px; height:28px; border-radius:6px; border:1.5px solid #E0E8E6;
-  background:#fff; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
-  transition:all .2s;
-}
-.qtyControl button:hover { border-color:#1B998B; color:#1B998B; }
-.qtyControl span { font-size:.9rem; font-weight:600; min-width:1.5rem; text-align:center; }
-
-.applyBar {
-  position:fixed; bottom:0; left:0; right:0;
-  background:#fff; border-top:1px solid #F0F4F3;
-  padding:1rem 3rem; display:flex; justify-content:space-between; align-items:center;
-  box-shadow:0 -4px 20px rgba(13,27,42,.08); z-index:50;
-}
-.applySummary { font-size:.95rem; color:#5A706B; }
-
-.codeModalContent { text-align:center; padding:.625rem 0; }
-.codeLabel { font-size:.8rem; color:#5A706B; margin-bottom:.75rem; }
-.code {
-  font-family:'Playfair Display',serif; font-size:2rem; font-weight:700; letter-spacing:3px;
-  color:#0D1B2A; background:#F0F4F3; padding:1rem; border-radius:10px; margin-bottom:.75rem;
-}
-.codeHint { font-size:.8rem; color:#5A706B; line-height:1.6; }
-
-@media (max-width:768px) {
-  .hero { padding:3rem 1.5rem; }
-  .main { padding:1.5rem; }
-  .applyBar { padding:1rem 1.5rem; }
-  .infoBar { flex-direction:column; align-items:flex-start; }
+/* Override global h1-h4 Playfair Display */
+.pageWrap h1,
+.pageWrap h2,
+.pageWrap h3,
+.pageWrap h4 {
+  font-family: system-ui, -apple-system, sans-serif;
 }

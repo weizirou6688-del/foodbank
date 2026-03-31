@@ -7,7 +7,7 @@ These schemas handle:
 - ApplicationUpdate: Admin updates status (pending->collected/expired) or regenerates code.
 - ApplicationOut: Response includes all application details with timestamps.
 
-Redemption code format enforced: 'FB-' + 6 alphanumeric characters (per spec).
+Redemption code format enforced as an eight-character collection code in 4-4 format.
 Status lifecycle: pending -> collected (or expired).
 Week start enforces business rule: max 3 packages per user per week.
 """
@@ -16,7 +16,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 ApplicationStatus = Literal["pending", "collected", "expired"]
@@ -26,9 +26,20 @@ ApplicationStatus = Literal["pending", "collected", "expired"]
 # Used only in ApplicationCreate to specify package items
 class ApplicationItemCreatePayload(BaseModel):
     """Inner payload: specifies which package and quantity in an application."""
-    # From spec § 1.8: package_id and quantity per selected package
-    package_id: int = Field(gt=0, description="Package ID to apply for")
+    # One payload row can target either a package or an inventory item.
+    package_id: int | None = Field(default=None, gt=0, description="Package ID to apply for")
+    inventory_item_id: int | None = Field(default=None, gt=0, description="Inventory item ID to apply for directly")
     quantity: int = Field(ge=1, description="Number of this package requested")
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "ApplicationItemCreatePayload":
+        has_package = self.package_id is not None
+        has_inventory_item = self.inventory_item_id is not None
+
+        if has_package == has_inventory_item:
+            raise ValueError("Exactly one of package_id or inventory_item_id must be provided")
+
+        return self
 
 
 # Common fields for application responses and base data.
@@ -42,10 +53,10 @@ class ApplicationBase(BaseModel):
     food_bank_id: int = Field(gt=0)
 
     # From spec: redemption_code: VARCHAR(20), NOT NULL, UNIQUE
-    # Format: 'FB-' + 6 alphanumeric chars (per spec § 3 Business Rules).
-    # Regex: r'^FB-[A-Za-z0-9]{6}$' enforces format.
+    # Local UX uses a 4-4 collection code such as ABCD-EFGH.
+    # Excludes visually ambiguous characters like I, O, 0, and 1.
     # Usually generated server-side; included here for full repr.
-    redemption_code: str = Field(pattern=r"^FB-[A-Za-z0-9]{6}$", max_length=20)
+    redemption_code: str = Field(pattern=r"^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$", max_length=20)
 
     # From spec: status: VARCHAR(20), NOT NULL, DEFAULT 'pending'
     # Lifecycle: pending -> collected | expired.
@@ -62,7 +73,7 @@ class ApplicationBase(BaseModel):
     # From spec: total_quantity: INTEGER, NOT NULL
     # Total number of packages in application. Validation: ge=1 (at least 1).
     # Used for reporting and weekly limit enforcement.
-    total_quantity: int = Field(ge=1)
+    total_quantity: int = Field(ge=0)
 
 
 # Schema for creating applications (clients submitting requests).
@@ -101,8 +112,8 @@ class ApplicationUpdate(BaseModel):
 
     # From spec: redemption_code: VARCHAR(20), UNIQUE
     # Admin can regenerate code if original lost/damaged.
-    # Regex enforces format.
-    redemption_code: str | None = Field(default=None, pattern=r"^FB-[A-Za-z0-9]{6}$", max_length=20)
+    # Regex enforces the 4-4 collection code format.
+    redemption_code: str | None = Field(default=None, pattern=r"^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$", max_length=20)
 
     # Admin approval/rejection comment.
     admin_comment: str | None = None

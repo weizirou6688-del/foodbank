@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, Integer
+from sqlalchemy import CheckConstraint, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,12 @@ from .base import Base
 
 class ApplicationItem(Base):
     __tablename__ = "application_items"
+    __table_args__ = (
+        CheckConstraint(
+            "((package_id IS NOT NULL AND inventory_item_id IS NULL) OR (package_id IS NULL AND inventory_item_id IS NOT NULL))",
+            name="ck_application_items_target",
+        ),
+    )
 
     # From spec: id: SERIAL (PK)
     # Auto-incrementing integer primary key for the junction record.
@@ -40,9 +46,15 @@ class ApplicationItem(Base):
     # Foreign key to FoodPackage. ondelete='RESTRICT' prevents deletion of
     # packages that have been applied for (maintains package history).
     # index=True enables quick lookup of applications requesting a package.
-    package_id: Mapped[int] = mapped_column(
+    package_id: Mapped[int | None] = mapped_column(
         ForeignKey("food_packages.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+
+    inventory_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("inventory_items.id", ondelete="RESTRICT"),
+        nullable=True,
         index=True,
     )
 
@@ -59,4 +71,6 @@ class ApplicationItem(Base):
     # Relationship: ApplicationItem -> FoodPackage (many-to-one)
     # From spec § 2 "food_packages → application_items: one-to-many"
     # back_populates="application_items" establishes bidirectional relationship.
-    package: Mapped["FoodPackage"] = relationship(back_populates="application_items")
+    package: Mapped["FoodPackage | None"] = relationship(back_populates="application_items")
+
+    inventory_item: Mapped["InventoryItem | None"] = relationship(back_populates="application_items")

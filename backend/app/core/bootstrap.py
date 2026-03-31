@@ -56,10 +56,17 @@ DEMO_FOOD_BANKS = [
 
 DEMO_INVENTORY_ITEMS = [
     {
-        "name": "Rice",
+        "name": "Rice (2kg)",
         "category": "Grains & Pasta",
         "unit": "bags",
         "threshold": 20,
+        "quantity": 240,
+    },
+    {
+        "name": "Pasta (500g)",
+        "category": "Grains & Pasta",
+        "unit": "packs",
+        "threshold": 18,
         "quantity": 240,
     },
     {
@@ -70,18 +77,88 @@ DEMO_INVENTORY_ITEMS = [
         "quantity": 360,
     },
     {
-        "name": "UHT Milk",
+        "name": "UHT Milk (1L)",
         "category": "Dairy",
         "unit": "cartons",
         "threshold": 18,
         "quantity": 180,
     },
     {
-        "name": "Breakfast Cereal",
+        "name": "Wholemeal Bread",
+        "category": "Grains & Pasta",
+        "unit": "loaves",
+        "threshold": 12,
+        "quantity": 120,
+    },
+    {
+        "name": "Mixed Vegetables (frozen)",
+        "category": "Vegetables",
+        "unit": "bags",
+        "threshold": 12,
+        "quantity": 120,
+    },
+    {
+        "name": "Tomato Soup (400g)",
+        "category": "Canned Goods",
+        "unit": "cans",
+        "threshold": 18,
+        "quantity": 220,
+    },
+    {
+        "name": "Cornflakes Cereal",
         "category": "Grains & Pasta",
         "unit": "boxes",
         "threshold": 15,
         "quantity": 150,
+    },
+    {
+        "name": "Canned Tuna",
+        "category": "Proteins & Meat",
+        "unit": "cans",
+        "threshold": 18,
+        "quantity": 180,
+    },
+    {
+        "name": "Chicken Breast (canned)",
+        "category": "Proteins & Meat",
+        "unit": "cans",
+        "threshold": 16,
+        "quantity": 160,
+    },
+    {
+        "name": "Lentils (500g)",
+        "category": "Grains & Pasta",
+        "unit": "packs",
+        "threshold": 18,
+        "quantity": 180,
+    },
+    {
+        "name": "Eggs (6-pack)",
+        "category": "Dairy",
+        "unit": "cartons",
+        "threshold": 12,
+        "quantity": 120,
+    },
+    {
+        "name": "Potatoes (1kg)",
+        "category": "Vegetables",
+        "unit": "bags",
+        "threshold": 16,
+        "quantity": 180,
+    },
+    {
+        "name": "Carrots (500g)",
+        "category": "Vegetables",
+        "unit": "bags",
+        "threshold": 16,
+        "quantity": 180,
+    },
+    {
+        "name": "Onions (500g)",
+        "category": "Vegetables",
+        "unit": "bags",
+        "threshold": 16,
+        "quantity": 180,
     },
     {
         "name": "Canned Tomatoes",
@@ -90,53 +167,67 @@ DEMO_INVENTORY_ITEMS = [
         "threshold": 18,
         "quantity": 220,
     },
-    {
-        "name": "Pasta",
-        "category": "Grains & Pasta",
-        "unit": "packs",
-        "threshold": 18,
-        "quantity": 240,
-    },
 ]
 
 DEMO_PACKAGES = [
     {
         "food_bank_name": "Downtown Community Food Bank",
-        "name": "Emergency Pantry Pack",
+        "name": "Basic Essentials Package",
         "category": "Emergency Pack",
-        "description": "Core shelf-stable essentials for urgent support.",
+        "description": "Core staples for individuals or couples.",
         "stock": 18,
         "threshold": 5,
+        "image_url": "https://images.unsplash.com/photo-1559837957-bab8edc53c85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
         "contents": [
-            {"item_name": "Rice", "quantity": 1},
+            {"item_name": "Rice (2kg)", "quantity": 1},
+            {"item_name": "Pasta (500g)", "quantity": 2},
             {"item_name": "Canned Beans", "quantity": 2},
-            {"item_name": "UHT Milk", "quantity": 1},
+            {"item_name": "UHT Milk (1L)", "quantity": 1},
         ],
     },
     {
-        "food_bank_name": "Westside Food Support Centre",
-        "name": "Family Dinner Bundle",
+        "food_bank_name": "Downtown Community Food Bank",
+        "name": "Family Support Package",
         "category": "Family Bundle",
-        "description": "A balanced bundle for households needing a few evening meals.",
-        "stock": 14,
-        "threshold": 4,
+        "description": "Balanced nutrition for families of 3-5.",
+        "stock": 12,
+        "threshold": 5,
+        "image_url": "https://images.unsplash.com/photo-1714224247661-ee250f55a842?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
         "contents": [
-            {"item_name": "Pasta", "quantity": 2},
-            {"item_name": "Canned Tomatoes", "quantity": 2},
-            {"item_name": "Canned Beans", "quantity": 2},
+            {"item_name": "Wholemeal Bread", "quantity": 2},
+            {"item_name": "Mixed Vegetables (frozen)", "quantity": 1},
+            {"item_name": "Tomato Soup (400g)", "quantity": 3},
+            {"item_name": "Cornflakes Cereal", "quantity": 1},
         ],
     },
     {
-        "food_bank_name": "Southbank Foodbank Hub",
-        "name": "Breakfast Starter Pack",
-        "category": "Breakfast",
-        "description": "Simple breakfast support for the week ahead.",
-        "stock": 12,
-        "threshold": 4,
+        "food_bank_name": "Downtown Community Food Bank",
+        "name": "Protein & Meat Package",
+        "category": "Pantry & Spices",
+        "description": "High-protein items including canned meats.",
+        "stock": 4,
+        "threshold": 5,
+        "image_url": "https://images.unsplash.com/photo-1653174577821-9ab410d92d44?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
         "contents": [
-            {"item_name": "Breakfast Cereal", "quantity": 1},
-            {"item_name": "UHT Milk", "quantity": 2},
-            {"item_name": "Canned Beans", "quantity": 1},
+            {"item_name": "Canned Tuna", "quantity": 3},
+            {"item_name": "Chicken Breast (canned)", "quantity": 2},
+            {"item_name": "Lentils (500g)", "quantity": 1},
+            {"item_name": "Eggs (6-pack)", "quantity": 1},
+        ],
+    },
+    {
+        "food_bank_name": "Downtown Community Food Bank",
+        "name": "Fresh Veg & Staples Package",
+        "category": "Lunchbox",
+        "description": "Fresh and dried produce for a healthy diet.",
+        "stock": 9,
+        "threshold": 5,
+        "image_url": "https://images.unsplash.com/photo-1599297914860-1ccd36987a52?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+        "contents": [
+            {"item_name": "Potatoes (1kg)", "quantity": 1},
+            {"item_name": "Carrots (500g)", "quantity": 1},
+            {"item_name": "Onions (500g)", "quantity": 1},
+            {"item_name": "Canned Tomatoes", "quantity": 2},
         ],
     },
 ]
@@ -221,6 +312,7 @@ async def ensure_demo_inventory_and_packages() -> None:
     """Create demo inventory and packages so the search-to-application flow works on a fresh DB."""
     async with AsyncSessionLocal() as db:
         changed = False
+        expected_package_names_by_bank: dict[str, set[str]] = {}
 
         inventory_items_by_name: dict[str, InventoryItem] = {}
         for item_data in DEMO_INVENTORY_ITEMS:
@@ -292,6 +384,11 @@ async def ensure_demo_inventory_and_packages() -> None:
             bank = result.scalar_one_or_none()
             if bank is not None:
                 food_banks_by_name[bank_name] = bank
+                expected_package_names_by_bank[bank_name] = {
+                    package["name"]
+                    for package in DEMO_PACKAGES
+                    if package["food_bank_name"] == bank_name
+                }
 
         for package_data in DEMO_PACKAGES:
             bank = food_banks_by_name.get(package_data["food_bank_name"])
@@ -327,6 +424,7 @@ async def ensure_demo_inventory_and_packages() -> None:
                     or existing_package.description != package_data["description"]
                     or existing_package.stock != package_data["stock"]
                     or existing_package.threshold != package_data["threshold"]
+                    or existing_package.image_url != package_data["image_url"]
                     or existing_package.food_bank_id != bank.id
                     or existing_package.is_active is not True
                 ):
@@ -334,9 +432,14 @@ async def ensure_demo_inventory_and_packages() -> None:
                     existing_package.description = package_data["description"]
                     existing_package.stock = package_data["stock"]
                     existing_package.threshold = package_data["threshold"]
+                    existing_package.image_url = package_data["image_url"]
                     existing_package.food_bank_id = bank.id
                     existing_package.is_active = True
                     changed = True
+
+            if existing_package.image_url != package_data["image_url"]:
+                existing_package.image_url = package_data["image_url"]
+                changed = True
 
             existing_items_result = await db.execute(
                 select(PackageItem).where(PackageItem.package_id == existing_package.id)
@@ -368,6 +471,16 @@ async def ensure_demo_inventory_and_packages() -> None:
             for package_item in existing_items:
                 if package_item.inventory_item_id not in target_inventory_ids:
                     await db.delete(package_item)
+                    changed = True
+
+        for bank_name, bank in food_banks_by_name.items():
+            expected_names = expected_package_names_by_bank.get(bank_name, set())
+            existing_packages_result = await db.execute(
+                select(FoodPackage).where(FoodPackage.food_bank_id == bank.id)
+            )
+            for existing_package in existing_packages_result.scalars().all():
+                if existing_package.name not in expected_names and existing_package.is_active:
+                    existing_package.is_active = False
                     changed = True
 
         if changed:
