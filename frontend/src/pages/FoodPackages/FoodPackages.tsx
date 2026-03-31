@@ -15,6 +15,8 @@ interface Selection {
 export default function FoodPackages() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  // This page is the second half of the locator flow, so it reuses store state
+  // instead of re-requesting "which food bank did the user choose?" from the UI.
   const { selectedFoodBank, packages, weeklyCollected, loadUserCollections, loadPackages, applyPackages } = useFoodBankStore()
 
   const [selections, setSelections] = useState<Record<number, number>>({})
@@ -22,12 +24,16 @@ export default function FoodPackages() {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
+    // Weekly collection counts are tied to the authenticated user and are used
+    // to explain remaining eligibility in the page header.
     if (user) {
       loadUserCollections(user.email)
     }
   }, [user, loadUserCollections])
 
   useEffect(() => {
+    // Package contents depend on the selected food bank. When the user reaches
+    // this page through the intended flow, the store already knows that bank.
     if (!selectedFoodBank) {
       return
     }
@@ -74,6 +80,8 @@ export default function FoodPackages() {
 
   const handleApply = async () => {
     setErrorMsg('')
+    // Route-level protection handles authentication. The remaining checks are
+    // specific to package selection itself.
     if (selectedCount === 0) {
       setErrorMsg('Please select at least one package.')
       return

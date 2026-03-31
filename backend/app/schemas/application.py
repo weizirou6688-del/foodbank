@@ -14,8 +14,12 @@ Week start enforces business rule: max 3 packages per user per week.
 
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+ApplicationStatus = Literal["pending", "collected", "expired"]
 
 
 # ==================== INNER PAYLOADS ====================
@@ -44,8 +48,8 @@ class ApplicationBase(BaseModel):
     redemption_code: str = Field(pattern=r"^FB-[A-Za-z0-9]{6}$", max_length=20)
 
     # From spec: status: VARCHAR(20), NOT NULL, DEFAULT 'pending'
-    # Lifecycle: pending, approved, rejected, collected, expired.
-    status: str = Field(default="pending", pattern="^(pending|approved|rejected|collected|expired)$")
+    # Lifecycle: pending -> collected | expired.
+    status: ApplicationStatus = "pending"
 
     # From spec § 1.8: week_start: DATE, NOT NULL
     # Start date of the week when application was submitted.
@@ -93,7 +97,7 @@ class ApplicationUpdate(BaseModel):
 
     # From spec: status: VARCHAR(20)
     # Admin updates application status within supported lifecycle states.
-    status: str | None = Field(default=None, pattern="^(pending|approved|rejected|collected|expired)$")
+    status: ApplicationStatus | None = None
 
     # From spec: redemption_code: VARCHAR(20), UNIQUE
     # Admin can regenerate code if original lost/damaged.

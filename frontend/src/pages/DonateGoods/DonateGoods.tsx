@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Trash2 } from 'lucide-react'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import Modal from '@/components/ui/Modal'
+import Button from '@/shared/ui/Button'
+import Input from '@/shared/ui/Input'
+import Modal from '@/shared/ui/Modal'
 import { donationsAPI } from '@/shared/lib/api'
-import { isValidEmail } from '@/utils/validation'
-import type { GoodsDonationItem, GoodsDonationForm } from '@/types'
+import { isValidEmail } from '@/shared/lib/validation'
+import type { GoodsDonationItem, GoodsDonationForm } from '@/shared/types/common'
 import styles from './DonateGoods.module.css'
 
 const ACCEPTED_ITEMS = ['Canned goods', 'Rice & Pasta', 'Breakfast cereal', 'Cooking oil', 'Toiletries', 'Baby food', 'UHT milk', 'Non-perishables']

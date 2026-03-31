@@ -5,6 +5,8 @@ import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
 import { getCoordinatesFromPostcode, getNearbyFoodbanks, getRankedFoodbanks } from '@/utils/foodbankApi'
 
 const fetchWithAuthRetry = async (url: string, init: RequestInit = {}) => {
+  // Protected endpoints share the same token refresh behaviour, so we keep the
+  // retry logic here instead of duplicating it in every action.
   const withToken = async (token: string) =>
     fetch(url, {
       ...init,
@@ -58,6 +60,8 @@ const findInternalFoodBankMatch = (
   candidate: { name: string; address: string },
   internalBanks: InternalFoodBankRecord[],
 ): InternalFoodBankRecord | null => {
+  // There is no universal external/internal id bridge, so matching is
+  // currently heuristic: normalized name and address comparisons.
   const normalizedName = normalizeText(candidate.name)
   const normalizedAddress = normalizeText(candidate.address)
 
@@ -149,6 +153,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
 
   loadPackages: async () => {
     try {
+      // Package browsing is anchored to the selected food bank. The fallback to
+      // the first internal bank keeps the page resilient in demo scenarios.
       let foodBankId = get().selectedFoodBank?.id
 
       if (!foodBankId) {
@@ -517,6 +523,9 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
     if (!postcode.trim()) return
     set({ isSearching: true, searchError: null })
     try {
+      // Search is composed from multiple sources in parallel:
+      // postcode geocoding, internal DB banks, nearby external banks, and a
+      // ranked external list used for debugging empty results.
       const [userCoords, internalResponse, nearby, rankedNearby] = await Promise.all([
         getCoordinatesFromPostcode(postcode),
         fetch(`${API_BASE_URL}/api/v1/food-banks`),
@@ -560,6 +569,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       const internalBanksWithPackages = await Promise.all(
         rankedInternalBanks.map(async (bank) => {
           try {
+            // A bank counts as "package-enabled" only if our own backend says
+            // there are package records behind it.
             const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/${bank.id}/packages`)
             if (!response.ok) {
               return bank
@@ -581,6 +592,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       const onlineInternalBanks = internalBanksWithPackages.filter((bank) => bank.systemMatched)
       const defaultOnlineBank = onlineInternalBanks[0] ?? null
       const externalResults: FoodBank[] = nearby.map((fb) => {
+        // External discovery data is mapped onto internal package data where
+        // possible so public search can still lead into the package flow.
         const mapped = findInternalFoodBankMatch(
           { name: fb.name, address: `${fb.address}, ${fb.postcode}` },
           internalBanksWithPackages,
@@ -622,6 +635,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       }
 
       console.warn(
+        // This log is intentionally descriptive so search-radius debugging can
+        // happen from the browser console without a deeper tracing tool.
         `[FindFoodBank] no results within configured radius for "${postcode}" at ${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}. Closest matches: ${
           rankedNearby
             .slice(0, 3)

@@ -29,6 +29,9 @@ from app.modules.food_banks.schema import (
 
 router = APIRouter(tags=["Food Banks"])
 
+# These regexes support a two-stage extraction strategy for Trussell opening
+# hours: first use the structured table when available, then fall back to
+# line-based text parsing if the HTML varies.
 DAY_LINE_PATTERN = re.compile(
     r"^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*\|?\s*(Closed|\d{1,2}[:.]\d{2}\s*-\s*\d{1,2}[:.]\d{2})$",
     re.IGNORECASE,
@@ -40,6 +43,7 @@ DAY_TEXT_PATTERN = re.compile(
 
 
 def _strip_html_to_lines(value: str) -> list[str]:
+    """Convert raw HTML into compact text lines for fallback parsing."""
     text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", value, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</(p|div|li|h1|h2|h3|h4|h5|h6|section|article|tr)>", "\n", text, flags=re.IGNORECASE)
@@ -49,6 +53,13 @@ def _strip_html_to_lines(value: str) -> list[str]:
 
 
 def _extract_opening_hours_from_html(value: str) -> list[str]:
+    """
+    Extract opening-hour rows from official Trussell pages.
+
+    The parser first targets the known opening-times table. If that fails, it
+    falls back to normalized day/time text patterns so minor template changes do
+    not immediately break the endpoint.
+    """
     table_match = re.search(
         r'<table[^>]*location__opening-times[^>]*>(.*?)</table>',
         value,
@@ -176,8 +187,8 @@ async def get_external_food_banks_feed():
     """
     Proxy external UK food bank feed for frontend usage.
 
-    The upstream endpoint does not expose CORS headers for browsers, so the
-    frontend must access it via this backend endpoint.
+    The upstream endpoint is proxied here so the browser can consume the feed
+    without dealing with CORS or upstream request-header quirks directly.
     """
     upstream_url = "https://www.givefood.org.uk/api/1/foodbanks/"
 
@@ -210,6 +221,12 @@ async def get_external_food_banks_feed():
 
 @router.get("/trussell-hours")
 async def get_trussell_opening_hours(foodbank_url: str = Query(..., min_length=8, max_length=512)):
+    """
+    Return a normalized list of opening-hour lines for Trussell-linked sites.
+
+    Keeping this logic on the server avoids pushing HTML scraping concerns into
+    the browser application.
+    """
     parsed = urlparse(foodbank_url.strip())
     hostname = (parsed.hostname or "").lower()
     if not hostname.endswith("foodbank.org.uk"):

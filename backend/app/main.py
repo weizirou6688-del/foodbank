@@ -2,9 +2,7 @@
 FastAPI main application entry point.
 
 Initializes the FastAPI app with CORS middleware, exception handlers,
-startup/shutdown hooks, and placeholder routes.
-
-Run with: uvicorn app.main:app --reload
+startup/shutdown hooks, and health routes.
 """
 
 import logging
@@ -16,13 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.bootstrap import (
-    ensure_demo_food_banks,
-    ensure_demo_inventory_and_packages,
-    ensure_demo_users,
-)
 from app.core.config import settings
-from app.core.database import close_db, init_db
+from app.core.database import check_database_connection, close_db, init_db
 from app.core.database_errors import DATABASE_UNAVAILABLE_DETAIL
 
 logger = logging.getLogger(__name__)
@@ -32,22 +25,23 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """
     FastAPI app lifespan context manager.
-
-    Initializes database tables on startup and closes connections on shutdown.
     """
     db_ready = False
+    db_error: str | None = None
+
     try:
         await init_db()
-        await ensure_demo_users()
-        await ensure_demo_food_banks()
-        await ensure_demo_inventory_and_packages()
-        db_ready = True
+        db_ready, db_error = await check_database_connection()
+        if not db_ready:
+            raise RuntimeError(db_error or "Database connection check failed")
         print("Database initialized and connected")
     except Exception as exc:
+        db_error = str(exc)
         logger.warning("Database startup skipped: %s", exc)
         print("Database unavailable; API started in degraded mode")
 
     app.state.db_ready = db_ready
+    app.state.db_error = db_error
 
     yield
 
@@ -156,11 +150,20 @@ async def root():
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    db_state = "connected" if getattr(app.state, "db_ready", False) else "unavailable"
-    return {
-        "status": "healthy",
-        "database": db_state,
-    }
+    if getattr(app.state, "db_ready", False):
+        return {
+            "status": "ok",
+            "database": "connected",
+        }
+
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "status": "degraded",
+            "database": "unavailable",
+            "detail": getattr(app.state, "db_error", None) or DATABASE_UNAVAILABLE_DETAIL,
+        },
+    )
 
 
 from app.modules import (  # noqa: E402
@@ -190,6 +193,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=settings.backend_port,
         reload=settings.debug,
     )

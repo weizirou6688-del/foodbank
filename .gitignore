@@ -30,3 +30,12 @@ dist-ssr
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.logs/
+backend/*.log
+frontend/*.log
+uvicorn*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/

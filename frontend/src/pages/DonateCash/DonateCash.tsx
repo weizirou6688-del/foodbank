@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import Modal from '@/components/ui/Modal'
+import Button from '@/shared/ui/Button'
+import Input from '@/shared/ui/Input'
+import Modal from '@/shared/ui/Modal'
 import { donationsAPI } from '@/shared/lib/api'
-import { isValidEmail, isValidCardNumber, isValidExpiry, formatCardNumber, formatExpiryDate } from '@/utils/validation'
-import type { CashDonationForm, FormErrors } from '@/types'
+import { isValidEmail, isValidCardNumber, isValidExpiry, formatCardNumber, formatExpiryDate } from '@/shared/lib/validation'
+import type { CashDonationForm, FormErrors } from '@/shared/types/common'
 import styles from './DonateCash.module.css'
 
 const PRESET_AMOUNTS = [10, 20, 50, 100]

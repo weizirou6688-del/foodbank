@@ -316,6 +316,30 @@ async def generate_applications(
     return created
 
 
+def rebalance_package_stock(packages: list[FoodPackage], rng: random.Random) -> int:
+    if not packages:
+        return 0
+
+    ranked_packages = sorted(
+        packages,
+        key=lambda package: (int(package.applied_count or 0), int(package.id or 0)),
+        reverse=True,
+    )
+    below_threshold_count = max(1, len(ranked_packages) // 2)
+
+    for index, package in enumerate(ranked_packages):
+        threshold = max(int(package.threshold or 0), 1)
+        if index < below_threshold_count:
+            deficit = rng.randint(1, max(2, threshold))
+            package.stock = max(0, threshold - deficit)
+            continue
+
+        buffer = rng.randint(1, max(3, threshold))
+        package.stock = threshold + buffer
+
+    return below_threshold_count
+
+
 async def main() -> None:
     config = parse_args()
     rng = random.Random(config.seed)
@@ -344,6 +368,7 @@ async def main() -> None:
             food_banks,
             packages,
         )
+        low_stock_packages = rebalance_package_stock(packages, rng)
 
         await db.commit()
 
@@ -353,6 +378,7 @@ async def main() -> None:
     print(f"Cash donations created: {cash_count}")
     print(f"Goods donations created: {goods_count}")
     print(f"Applications created: {application_count}")
+    print(f"Packages forced below threshold for stock-gap analysis: {low_stock_packages}")
 
 
 if __name__ == "__main__":

@@ -54,6 +54,8 @@ export async function getCoordinatesFromPostcode(postcode: string): Promise<{ la
     return cachedCoords
   }
 
+  // `postcodes.io` is the cleanest structured source for UK postcode lookup,
+  // so this function acts as the entry point for distance-based search.
   const directResponse = await fetch(`${DIRECT_POSTCODE_API_URL}/${encodeURIComponent(normalizedPostcode)}`)
   const directPayload = await directResponse.json().catch(() => null) as PostcodesIoResponse | null
   if (directResponse.ok && directPayload?.status === 200 && directPayload.result) {
@@ -79,6 +81,8 @@ export async function getAllFoodbanks(): Promise<GiveFoodBankApiRecord[]> {
   }
 
   inFlightFoodbanksRequest = (async () => {
+    // Prefer the backend proxy because it is more resilient to CORS or header
+    // restrictions than a pure browser-side request.
     const backendResponse = await fetch(`${API_BASE_URL}/api/v1/food-banks/external-feed`)
     if (backendResponse.ok) {
       const payload = await backendResponse.json() as GiveFoodBankApiRecord[]
@@ -115,6 +119,8 @@ export async function getTrussellOpeningHours(foodbankUrl?: string): Promise<str
     return cached
   }
 
+  // Opening-hours enrichment is limited to Trussell-linked sites because that
+  // is the source we currently know how to parse reliably.
   const response = await fetch(
     `${API_BASE_URL}/api/v1/food-banks/trussell-hours?foodbank_url=${encodeURIComponent(foodbankUrl)}`,
   )
@@ -145,6 +151,8 @@ function parseCoordinates(foodbank: GiveFoodBankApiRecord): { lat: number; lng: 
     return { lat: foodbank.lat, lng: foodbank.lng }
   }
 
+  // GiveFood sometimes ships coordinates as a single comma-separated string, so
+  // we normalize both formats into one consistent shape here.
   if (!foodbank.latt_long) {
     return null
   }
@@ -189,6 +197,8 @@ export async function getNearbyFoodbanks(postcode: string): Promise<NearbyFoodBa
   const rankedByDistance = await getRankedFoodbanks(postcode)
   const withinRadius = rankedByDistance.filter((foodbank) => foodbank.distance <= SEARCH_RADIUS_KM)
 
+  // Hours are fetched only for the already-filtered nearby subset, which keeps
+  // the number of backend enrichment calls reasonable.
   return Promise.all(
     withinRadius.map(async (foodbank) => ({
       ...foodbank,

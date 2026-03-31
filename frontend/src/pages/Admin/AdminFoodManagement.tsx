@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import AddItemModal from '@/components/admin/AddItemModal'
-import AddPackageModal from '@/components/admin/AddPackageModal'
-import AdjustStockModal from '@/components/admin/AdjustStockModal'
-import EditNameThresholdModal from '@/components/admin/EditNameThresholdModal'
-import { useAuthStore } from '@/store/authStore'
-import { useFoodBankStore } from '@/store/foodBankStore'
-import { adminAPI } from '@/services/api'
+import AddItemModal from '@/features/admin/components/AddItemModal'
+import AdminActionButtons from '@/features/admin/components/AdminActionButtons'
+import AdminFeedbackBanner from '@/features/admin/components/AdminFeedbackBanner'
+import AdminPackageActionButtons from '@/features/admin/components/AdminPackageActionButtons'
+import AddPackageModal from '@/features/admin/components/AddPackageModal'
+import AdjustStockModal from '@/features/admin/components/AdjustStockModal'
+import ConfirmActionModal from '@/features/admin/components/ConfirmActionModal'
+import DatePromptModal from '@/features/admin/components/DatePromptModal'
+import EditNameThresholdModal from '@/features/admin/components/EditNameThresholdModal'
+import QuantityPromptModal from '@/features/admin/components/QuantityPromptModal'
+import { useAuthStore } from '@/app/store/authStore'
+import { useFoodBankStore } from '@/app/store/foodBankStore'
+import { adminAPI, restockAPI } from '@/shared/lib/api'
 
 type Tab = 'packages' | 'items' | 'packaging' | 'lots' | 'low-stock'
 
@@ -30,35 +36,19 @@ interface LowStockRow {
   stock_deficit: number
 }
 
+interface RestockRequestRow {
+  id: number
+  inventory_item_id: number
+  current_stock: number
+  threshold: number
+  urgency: 'high' | 'medium' | 'low'
+  status: 'open' | 'fulfilled' | 'cancelled'
+  created_at: string
+}
+
 interface Props {
   onSwitch: (s: 'statistics' | 'food') => void
 }
-
-const ActionBtns = ({
-  onEdit,
-  onIn,
-  onOut,
-  onDelete,
-}: {
-  onEdit?: () => void
-  onIn?: () => void
-  onOut?: () => void
-  onDelete?: () => void
-}) => (
-  <div className="flex gap-2">
-    <button onClick={onEdit} className="px-3 py-1.5 border-[1.5px] border-[#E8E8E8] rounded-full text-xs font-medium text-[#1A1A1A] hover:bg-gray-50 bg-transparent">Edit</button>
-    <button onClick={onIn} className="px-3 py-1.5 border-[1.5px] border-[#E8E8E8] rounded-full text-xs font-medium text-[#1A1A1A] hover:bg-gray-50 bg-transparent">In</button>
-    <button onClick={onOut} className="px-3 py-1.5 border-[1.5px] border-[#E63946] text-[#E63946] rounded-full text-xs font-medium hover:bg-[#E63946]/5 bg-transparent">Out</button>
-    {onDelete && (
-      <button
-        onClick={onDelete}
-        className="px-3 py-1.5 border-[1.5px] border-[#E8E8E8] rounded-full text-xs font-medium text-[#1A1A1A] hover:bg-gray-50 bg-transparent"
-      >
-        Delete
-      </button>
-    )}
-  </div>
-)
 
 export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
   const accessToken = useAuthStore((state) => state.accessToken)
@@ -81,7 +71,6 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
   const [itemEditTarget, setItemEditTarget] = useState<{ id: number; name: string; threshold: number } | null>(null)
   const [packageEditTarget, setPackageEditTarget] = useState<{ id: number; name: string; threshold: number } | null>(null)
   const [itemAdjustTarget, setItemAdjustTarget] = useState<{ id: number; direction: 'in' | 'out' } | null>(null)
-  const [packageAdjustTarget, setPackageAdjustTarget] = useState<{ id: number; stock: number; direction: 'in' | 'out' } | null>(null)
   const [packPackageId, setPackPackageId] = useState<number | ''>('')
   const [packQuantity, setPackQuantity] = useState('1')
   const [isPacking, setIsPacking] = useState(false)
@@ -93,6 +82,17 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
   const [isLoadingLowStock, setIsLoadingLowStock] = useState(false)
   const [lowStockError, setLowStockError] = useState('')
   const [lowStockThreshold, setLowStockThreshold] = useState('')
+  const [restockRequests, setRestockRequests] = useState<RestockRequestRow[]>([])
+  const [isLoadingRestockRequests, setIsLoadingRestockRequests] = useState(false)
+  const [restockError, setRestockError] = useState('')
+  const [restockActionId, setRestockActionId] = useState<number | null>(null)
+  const [pageFeedback, setPageFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null)
+  const [lotDamageTarget, setLotDamageTarget] = useState<{ id: number; itemName: string } | null>(null)
+  const [lotExpiryTarget, setLotExpiryTarget] = useState<{ id: number; itemName: string; expiryDate: string } | null>(null)
+  const [lotStatusTarget, setLotStatusTarget] = useState<{ id: number; itemName: string; currentStatus: InventoryLotRow['status'] } | null>(null)
+  const [deleteItemTarget, setDeleteItemTarget] = useState<{ id: number; itemName: string; referencedByPackages: string[] } | null>(null)
+  const [pendingAction, setPendingAction] = useState<'lot-damage' | 'lot-expiry' | 'lot-status' | 'delete-item' | 'restock-fulfil' | 'restock-cancel' | null>(null)
+  const [restockConfirmTarget, setRestockConfirmTarget] = useState<{ id: number; mode: 'fulfil' | 'cancel' } | null>(null)
 
   const loadLots = async () => {
     if (!accessToken) {
@@ -132,6 +132,30 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
     }
   }
 
+  const loadRestockRequests = async () => {
+    if (!accessToken) {
+      return
+    }
+
+    setIsLoadingRestockRequests(true)
+    setRestockError('')
+
+    try {
+      const data = await restockAPI.getRequests(accessToken)
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray((data as { items?: unknown[] })?.items)
+          ? (data as { items: RestockRequestRow[] }).items
+          : []
+      setRestockRequests(items as RestockRequestRow[])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load restock requests.'
+      setRestockError(message)
+    } finally {
+      setIsLoadingRestockRequests(false)
+    }
+  }
+
   useEffect(() => {
     let active = true
 
@@ -152,6 +176,9 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
         }),
         loadLowStock().catch((error) => {
           errors.push(error instanceof Error ? error.message : 'Failed to load low stock items.')
+        }),
+        loadRestockRequests().catch((error) => {
+          errors.push(error instanceof Error ? error.message : 'Failed to load restock requests.')
         }),
       ])
 
@@ -223,6 +250,18 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
     }))
     .filter((cat) => cat.items.length > 0)
 
+  const openRestockRequests = useMemo(
+    () => restockRequests.filter((request) => request.status === 'open'),
+    [restockRequests],
+  )
+
+  const openRestockItemIds = useMemo(
+    () => new Set(openRestockRequests.map((request) => request.inventory_item_id)),
+    [openRestockRequests],
+  )
+
+  const isActionBusy = (action: typeof pendingAction) => pendingAction === action
+
   const submitItemEdit = async (name: string, threshold: number) => {
     if (!itemEditTarget) {
       return
@@ -249,24 +288,6 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
       await stockOutItem(itemAdjustTarget.id, quantity, 'admin manual stock-out')
     }
     setItemAdjustTarget(null)
-  }
-
-  const submitPackageAdjust = async (quantity: number) => {
-    if (!packageAdjustTarget) {
-      return
-    }
-
-    const nextStock = packageAdjustTarget.direction === 'in'
-      ? packageAdjustTarget.stock + quantity
-      : packageAdjustTarget.stock - quantity
-
-    if (nextStock < 0) {
-      throw new Error('Insufficient package stock.')
-    }
-
-    await updatePackage(packageAdjustTarget.id, { stock: nextStock })
-    await loadLowStock()
-    setPackageAdjustTarget(null)
   }
 
   const handlePackPackage = async () => {
@@ -302,78 +323,113 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
   }
 
   const handleLotDamage = async (lotId: number) => {
+    const lot = lotRows.find((entry) => entry.id === lotId)
+    if (!lot) {
+      setPageFeedback({ tone: 'error', message: 'Inventory lot not found.' })
+      return
+    }
+
     if (!accessToken) {
-      window.alert('Please login again and retry.')
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
       return
     }
 
-    const input = window.prompt('Damage quantity', '1')
-    if (input === null) {
+    setLotDamageTarget({ id: lotId, itemName: lot.item_name })
+  }
+
+  const submitLotDamage = async (damageQuantity: number) => {
+    if (!lotDamageTarget || !accessToken) {
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
       return
     }
 
-    const damageQuantity = Number(input)
-    if (!Number.isInteger(damageQuantity) || damageQuantity <= 0) {
-      window.alert('Damage quantity must be a positive integer.')
-      return
-    }
-
+    setPendingAction('lot-damage')
     try {
-      await adminAPI.adjustInventoryLot(lotId, { damage_quantity: damageQuantity }, accessToken)
+      await adminAPI.adjustInventoryLot(lotDamageTarget.id, { damage_quantity: damageQuantity }, accessToken)
       await Promise.all([loadLots(), loadLowStock(), loadInventory()])
-      window.alert('Lot damaged quantity updated.')
+      setLotDamageTarget(null)
+      setPageFeedback({ tone: 'success', message: 'Lot damaged quantity updated.' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to report damage.'
-      window.alert(message)
+      setPageFeedback({ tone: 'error', message })
+    } finally {
+      setPendingAction(null)
     }
   }
 
   const handleLotExpiryEdit = async (lotId: number, currentExpiryDate: string) => {
+    const lot = lotRows.find((entry) => entry.id === lotId)
+    if (!lot) {
+      setPageFeedback({ tone: 'error', message: 'Inventory lot not found.' })
+      return
+    }
+
     if (!accessToken) {
-      window.alert('Please login again and retry.')
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
       return
     }
 
-    const input = window.prompt('New expiry date (YYYY-MM-DD)', currentExpiryDate)
-    if (input === null) {
+    setLotExpiryTarget({ id: lotId, itemName: lot.item_name, expiryDate: currentExpiryDate })
+  }
+
+  const submitLotExpiryEdit = async (expiryDate: string) => {
+    if (!lotExpiryTarget || !accessToken) {
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
       return
     }
 
-    const trimmed = input.trim()
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      window.alert('Expiry date format must be YYYY-MM-DD.')
-      return
-    }
-
+    setPendingAction('lot-expiry')
     try {
-      await adminAPI.adjustInventoryLot(lotId, { expiry_date: trimmed }, accessToken)
+      await adminAPI.adjustInventoryLot(lotExpiryTarget.id, { expiry_date: expiryDate }, accessToken)
       await Promise.all([loadLots(), loadLowStock()])
-      window.alert('Lot expiry date updated.')
+      setLotExpiryTarget(null)
+      setPageFeedback({ tone: 'success', message: 'Lot expiry date updated.' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update expiry date.'
-      window.alert(message)
+      setPageFeedback({ tone: 'error', message })
+    } finally {
+      setPendingAction(null)
     }
   }
 
   const handleLotStatusToggle = async (lotId: number, currentStatus: InventoryLotRow['status']) => {
+    const lot = lotRows.find((entry) => entry.id === lotId)
+    if (!lot) {
+      setPageFeedback({ tone: 'error', message: 'Inventory lot not found.' })
+      return
+    }
+
     if (!accessToken) {
-      window.alert('Please login again and retry.')
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
       return
     }
 
     if (currentStatus === 'expired') {
-      window.alert('Expired lots cannot be reactivated. Please adjust expiry date first.')
+      setPageFeedback({ tone: 'info', message: 'Expired lots cannot be reactivated. Please adjust expiry date first.' })
       return
     }
 
-    const nextStatus = currentStatus === 'active' ? 'wasted' : 'active'
+    setLotStatusTarget({ id: lotId, itemName: lot.item_name, currentStatus })
+  }
+
+  const submitLotStatusToggle = async () => {
+    if (!lotStatusTarget || !accessToken) {
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
+      return
+    }
+
+    const nextStatus = lotStatusTarget.currentStatus === 'active' ? 'wasted' : 'active'
+    setPendingAction('lot-status')
     try {
-      await adminAPI.adjustInventoryLot(lotId, { status: nextStatus }, accessToken)
+      await adminAPI.adjustInventoryLot(lotStatusTarget.id, { status: nextStatus }, accessToken)
       await Promise.all([loadLots(), loadLowStock()])
-      window.alert('Lot status updated.')
+      setLotStatusTarget(null)
+      setPageFeedback({ tone: 'success', message: 'Lot status updated.' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update lot status.'
-      window.alert(message)
+      setPageFeedback({ tone: 'error', message })
+    } finally {
+      setPendingAction(null)
     }
   }
 
@@ -408,22 +464,102 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
       )
       .map((pkg) => pkg.name)
 
+    setDeleteItemTarget({ id: itemId, itemName, referencedByPackages })
+  }
+
+  const submitDeleteItem = async () => {
+    if (!deleteItemTarget) {
+      return
+    }
+
+    setPendingAction('delete-item')
     try {
-      await deleteItem(itemId)
+      await deleteItem(deleteItemTarget.id)
+      setPageFeedback({ tone: 'success', message: `Deleted ${deleteItemTarget.itemName}.` })
+      setDeleteItemTarget(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete inventory item.'
 
       const isConflict = message.toLowerCase().includes('used in packages')
         || message.toLowerCase().includes('conflict')
 
-      if (isConflict && referencedByPackages.length > 0) {
-        const preview = referencedByPackages.slice(0, 3).join(', ')
-        const suffix = referencedByPackages.length > 3 ? ', ...' : ''
-        window.alert(`Cannot delete this item because it is referenced by: ${preview}${suffix}`)
-        return
+      if (isConflict && deleteItemTarget.referencedByPackages.length > 0) {
+        const preview = deleteItemTarget.referencedByPackages.slice(0, 3).join(', ')
+        const suffix = deleteItemTarget.referencedByPackages.length > 3 ? ', ...' : ''
+        setPageFeedback({ tone: 'error', message: `Cannot delete this item because it is referenced by: ${preview}${suffix}` })
+      } else {
+        setPageFeedback({ tone: 'error', message })
       }
+    } finally {
+      setPendingAction(null)
+    }
+  }
 
-      window.alert(message)
+  const createRestockRequest = async (item: LowStockRow) => {
+    if (!accessToken) {
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
+      return
+    }
+
+    setRestockActionId(item.id)
+    try {
+      await restockAPI.submitRequest({
+        inventory_item_id: item.id,
+        current_stock: item.current_stock,
+        threshold: item.threshold,
+        urgency: item.current_stock === 0 ? 'high' : item.current_stock <= Math.max(1, Math.floor(item.threshold / 2)) ? 'medium' : 'low',
+      }, accessToken)
+      await Promise.all([loadRestockRequests(), loadLowStock()])
+      setPageFeedback({ tone: 'success', message: `Restock request created for ${item.name}.` })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create restock request.'
+      if (message.toLowerCase().includes('already exists')) {
+        await loadRestockRequests()
+      }
+      setPageFeedback({ tone: 'error', message })
+    } finally {
+      setRestockActionId(null)
+    }
+  }
+
+  const fulfilRestockRequest = async (requestId: number) => {
+    if (!accessToken) {
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
+      return
+    }
+
+    setRestockConfirmTarget({ id: requestId, mode: 'fulfil' })
+  }
+
+  const submitRestockConfirm = async () => {
+    if (!restockConfirmTarget || !accessToken) {
+      setPageFeedback({ tone: 'error', message: 'Please login again and retry.' })
+      return
+    }
+
+    setRestockActionId(restockConfirmTarget.id)
+    setPendingAction(restockConfirmTarget.mode === 'fulfil' ? 'restock-fulfil' : 'restock-cancel')
+    try {
+      if (restockConfirmTarget.mode === 'fulfil') {
+        await restockAPI.fulfilRequest(restockConfirmTarget.id, accessToken)
+        await Promise.all([loadRestockRequests(), loadInventory(), loadLots(), loadLowStock()])
+        setPageFeedback({ tone: 'success', message: 'Restock request fulfilled.' })
+      } else {
+        await restockAPI.cancelRequest(restockConfirmTarget.id, accessToken)
+        await Promise.all([loadRestockRequests(), loadLowStock()])
+        setPageFeedback({ tone: 'success', message: 'Restock request cancelled.' })
+      }
+      setRestockConfirmTarget(null)
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : restockConfirmTarget.mode === 'fulfil'
+          ? 'Failed to fulfil restock request.'
+          : 'Failed to cancel restock request.'
+      setPageFeedback({ tone: 'error', message })
+    } finally {
+      setPendingAction(null)
+      setRestockActionId(null)
     }
   }
 
@@ -437,6 +573,14 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
         <div className="mb-6 rounded-xl border border-[#E63946]/30 bg-[#E63946]/[0.08] px-4 py-3 text-sm text-[#E63946]">
           {loadError}
         </div>
+      )}
+
+      {pageFeedback && (
+        <AdminFeedbackBanner
+          tone={pageFeedback.tone}
+          message={pageFeedback.message}
+          onClose={() => setPageFeedback(null)}
+        />
       )}
 
       {/* Inner tabs */}
@@ -533,10 +677,12 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
                       </div>
                     </td>
                     <td className="p-4">
-                      <ActionBtns
+                      <AdminPackageActionButtons
                         onEdit={() => setPackageEditTarget({ id: pkg.id, name: pkg.name, threshold: pkg.threshold })}
-                        onIn={() => setPackageAdjustTarget({ id: pkg.id, stock: pkg.stock, direction: 'in' })}
-                        onOut={() => setPackageAdjustTarget({ id: pkg.id, stock: pkg.stock, direction: 'out' })}
+                        onOpenPackTab={() => {
+                          setPackPackageId(pkg.id)
+                          setTab('packaging')
+                        }}
                       />
                     </td>
                   </tr>
@@ -617,7 +763,7 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
                     <span className="md:hidden text-gray-500 text-sm">Threshold:</span> {item.threshold}
                   </div>
                   <div className="mt-2 md:mt-0">
-                    <ActionBtns
+                    <AdminActionButtons
                       onEdit={inventoryIdSet.has(item.id) ? () => setItemEditTarget({ id: item.id, name: item.name, threshold: item.threshold }) : undefined}
                       onIn={inventoryIdSet.has(item.id) ? () => setItemAdjustTarget({ id: item.id, direction: 'in' }) : undefined}
                       onOut={inventoryIdSet.has(item.id) ? () => setItemAdjustTarget({ id: item.id, direction: 'out' }) : undefined}
@@ -793,11 +939,17 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
             </div>
           )}
 
+          {restockError && (
+            <div className="mb-6 rounded-xl border border-[#E63946]/30 bg-[#E63946]/[0.08] px-4 py-3 text-sm text-[#E63946]">
+              {restockError}
+            </div>
+          )}
+
           <div className="overflow-x-auto bg-white border-[1.5px] border-[#E8E8E8] rounded-xl shadow-sm">
-            <table className="w-full text-left border-collapse min-w-[840px]">
+            <table className="w-full text-left border-collapse min-w-[980px]">
               <thead>
                 <tr className="bg-[#F5F5F5]">
-                  {['Item', 'Category', 'Current', 'Threshold', 'Deficit', 'Unit'].map((h) => (
+                  {['Item', 'Category', 'Current', 'Threshold', 'Deficit', 'Unit', 'Restock'].map((h) => (
                     <th key={h} className="p-4 font-semibold text-gray-600 border-b-[1.5px] border-[#E8E8E8] text-sm">{h}</th>
                   ))}
                 </tr>
@@ -811,19 +963,95 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
                     <td className="p-4">{item.threshold}</td>
                     <td className="p-4 text-[#E63946] font-semibold">{item.stock_deficit}</td>
                     <td className="p-4">{item.unit}</td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => void createRestockRequest(item)}
+                        disabled={openRestockItemIds.has(item.id) || restockActionId === item.id}
+                        className="px-3 py-1.5 border-[1.5px] border-[#E8E8E8] rounded-full text-xs font-medium text-[#1A1A1A] hover:bg-gray-50 bg-transparent disabled:opacity-60"
+                      >
+                        {openRestockItemIds.has(item.id) ? 'Requested' : restockActionId === item.id ? 'Working...' : 'Create Request'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {isLoadingLowStock && lowStockRows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-sm text-gray-500">
+                    <td colSpan={7} className="p-8 text-center text-sm text-gray-500">
                       Loading low stock items...
                     </td>
                   </tr>
                 )}
                 {!isLoadingLowStock && lowStockRows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-sm text-gray-500">
+                    <td colSpan={7} className="p-8 text-center text-sm text-gray-500">
                       No low stock items found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-8 overflow-x-auto bg-white border-[1.5px] border-[#E8E8E8] rounded-xl shadow-sm">
+            <div className="px-6 py-4 border-b-[1.5px] border-[#E8E8E8] flex items-center justify-between">
+              <h3 className="text-lg font-bold text-[#1A1A1A]">Open Restock Requests</h3>
+              <button
+                onClick={() => void loadRestockRequests()}
+                disabled={isLoadingRestockRequests}
+                className="px-4 py-1.5 rounded-full text-sm font-medium border-[1.5px] border-[#E8E8E8] text-[#1A1A1A] hover:bg-gray-50 disabled:opacity-60"
+              >
+                {isLoadingRestockRequests ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+
+            <table className="w-full text-left border-collapse min-w-[900px]">
+              <thead>
+                <tr className="bg-[#F5F5F5]">
+                  {['Request ID', 'Item ID', 'Current', 'Threshold', 'Urgency', 'Created', 'Actions'].map((h) => (
+                    <th key={h} className="p-4 font-semibold text-gray-600 border-b-[1.5px] border-[#E8E8E8] text-sm">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {openRestockRequests.map((request) => (
+                  <tr key={request.id} className="border-b border-[#E8E8E8]">
+                    <td className="p-4">#{request.id}</td>
+                    <td className="p-4">{request.inventory_item_id}</td>
+                    <td className="p-4">{request.current_stock}</td>
+                    <td className="p-4">{request.threshold}</td>
+                    <td className="p-4 uppercase">{request.urgency}</td>
+                    <td className="p-4">{request.created_at}</td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => void fulfilRestockRequest(request.id)}
+                          disabled={restockActionId === request.id}
+                          className="px-3 py-1.5 border-[1.5px] border-[#E8E8E8] rounded-full text-xs font-medium text-[#1A1A1A] hover:bg-gray-50 bg-transparent disabled:opacity-60"
+                        >
+                          Fulfil
+                        </button>
+                        <button
+                          onClick={() => setRestockConfirmTarget({ id: request.id, mode: 'cancel' })}
+                          disabled={restockActionId === request.id}
+                          className="px-3 py-1.5 border-[1.5px] border-[#E63946] text-[#E63946] rounded-full text-xs font-medium hover:bg-[#E63946]/5 bg-transparent disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {isLoadingRestockRequests && openRestockRequests.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-sm text-gray-500">
+                      Loading restock requests...
+                    </td>
+                  </tr>
+                )}
+                {!isLoadingRestockRequests && openRestockRequests.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-sm text-gray-500">
+                      No open restock requests.
                     </td>
                   </tr>
                 )}
@@ -869,13 +1097,72 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
         onSubmit={submitItemAdjust}
       />
 
-      <AdjustStockModal
-        isOpen={packageAdjustTarget !== null}
-        onClose={() => setPackageAdjustTarget(null)}
-        title={packageAdjustTarget?.direction === 'out' ? 'Stock Out Package' : 'Stock In Package'}
-        quantityLabel="Quantity"
-        submitLabel={packageAdjustTarget?.direction === 'out' ? 'Apply Stock Out' : 'Apply Stock In'}
-        onSubmit={submitPackageAdjust}
+      <QuantityPromptModal
+        isOpen={lotDamageTarget !== null}
+        onClose={() => setLotDamageTarget(null)}
+        title="Report Inventory Loss"
+        description={lotDamageTarget ? `Record damaged or lost quantity for ${lotDamageTarget.itemName}.` : ''}
+        submitLabel="Save Damage"
+        submitting={isActionBusy('lot-damage')}
+        onSubmit={submitLotDamage}
+      />
+
+      <DatePromptModal
+        isOpen={lotExpiryTarget !== null}
+        onClose={() => setLotExpiryTarget(null)}
+        title="Edit Lot Expiry"
+        description={lotExpiryTarget ? `Update the expiry date for ${lotExpiryTarget.itemName}.` : ''}
+        initialValue={lotExpiryTarget?.expiryDate ?? ''}
+        submitLabel="Save Expiry"
+        submitting={isActionBusy('lot-expiry')}
+        onSubmit={submitLotExpiryEdit}
+      />
+
+      <ConfirmActionModal
+        isOpen={lotStatusTarget !== null}
+        onClose={() => setLotStatusTarget(null)}
+        title={lotStatusTarget?.currentStatus === 'active' ? 'Mark Lot as Wasted' : 'Reactivate Lot'}
+        message={
+          lotStatusTarget
+            ? lotStatusTarget.currentStatus === 'active'
+              ? `Mark ${lotStatusTarget.itemName} as wasted? This lot will stop counting toward active stock.`
+              : `Mark ${lotStatusTarget.itemName} as active again? This lot will count toward stock totals.`
+            : ''
+        }
+        confirmLabel={lotStatusTarget?.currentStatus === 'active' ? 'Mark Wasted' : 'Mark Active'}
+        confirmTone={lotStatusTarget?.currentStatus === 'active' ? 'danger' : 'neutral'}
+        submitting={isActionBusy('lot-status')}
+        onConfirm={submitLotStatusToggle}
+      />
+
+      <ConfirmActionModal
+        isOpen={deleteItemTarget !== null}
+        onClose={() => setDeleteItemTarget(null)}
+        title="Delete Inventory Item"
+        message={
+          deleteItemTarget
+            ? `Delete ${deleteItemTarget.itemName}? This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete Item"
+        confirmTone="danger"
+        submitting={isActionBusy('delete-item')}
+        onConfirm={submitDeleteItem}
+      />
+
+      <ConfirmActionModal
+        isOpen={restockConfirmTarget !== null}
+        onClose={() => setRestockConfirmTarget(null)}
+        title={restockConfirmTarget?.mode === 'fulfil' ? 'Fulfil Restock Request' : 'Cancel Restock Request'}
+        message={
+          restockConfirmTarget?.mode === 'fulfil'
+            ? 'Fulfil this request and add a replenishment lot up to the threshold?'
+            : 'Cancel this open restock request?'
+        }
+        confirmLabel={restockConfirmTarget?.mode === 'fulfil' ? 'Fulfil Request' : 'Cancel Request'}
+        confirmTone={restockConfirmTarget?.mode === 'cancel' ? 'danger' : 'neutral'}
+        submitting={isActionBusy(restockConfirmTarget?.mode === 'fulfil' ? 'restock-fulfil' : 'restock-cancel')}
+        onConfirm={submitRestockConfirm}
       />
     </div>
   )

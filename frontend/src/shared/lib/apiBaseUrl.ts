@@ -1,8 +1,5 @@
 const normalizeBaseUrl = (value: string): string => value.replace(/\/+$/, '')
 
-const isLoopbackHost = (hostname: string): boolean =>
-  hostname === 'localhost' || hostname === '127.0.0.1'
-
 const buildCodespacesApiUrl = (
   protocol: string,
   hostname: string,
@@ -29,21 +26,8 @@ export const getApiBaseUrl = (): string => {
     const { protocol, hostname } = window.location
 
     if (import.meta.env.DEV) {
-      if (envUrl) {
-        try {
-          const parsedEnvUrl = new URL(envUrl)
-          const isRemoteHost = !isLoopbackHost(hostname)
-          const isLoopbackEnv = isLoopbackHost(parsedEnvUrl.hostname)
-
-          if (!(isRemoteHost && isLoopbackEnv)) {
-            return normalizeBaseUrl(envUrl)
-          }
-        } catch {
-          return normalizeBaseUrl(envUrl)
-        }
-      }
-
-      // In dev, prefer same-origin + Vite proxy to avoid remote tunnel auth/CORS issues.
+      // In dev, always go through the same-origin Vite proxy. The proxy target
+      // is configured in `vite.config.ts` from shared startup settings.
       return ''
     }
 

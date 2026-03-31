@@ -14,6 +14,8 @@ const RESULTS_PER_PAGE = 3
 export default function FindFoodBank() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuthStore()
+  // This page keeps only visual state locally. Search data itself lives in the
+  // store so it can be reused by the map and the package page.
   const {
     searchPostcode,
     searchResults,
@@ -32,6 +34,8 @@ export default function FindFoodBank() {
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
+    // Keep one selected result in sync with the current search results so card
+    // highlighting and map marker emphasis always refer to the same location.
     if (searchResults.length === 0) {
       setSelectedFoodBankKey(null)
       return
@@ -46,21 +50,29 @@ export default function FindFoodBank() {
   }, [searchResults])
 
   useEffect(() => {
+    // New searches always start from page 1 to avoid pagination carrying over
+    // from a previous result set.
     setCurrentPage(1)
   }, [searchResults])
 
   const handleSearch = async () => {
     const trimmed = localPostcode.trim()
     if (!trimmed) return
+    // We store the cleaned postcode centrally before firing the async search so
+    // the UI and the store agree on which query is active.
     setSearchPostcode(trimmed)
     await searchFoodBanks(trimmed)
   }
 
   const handleViewPackages = (foodBank: FoodBank) => {
+    // External search results do not always correspond to an internal
+    // package-enabled bank, so invalid ids are blocked here.
     if (foodBank.id <= 0) {
       return
     }
 
+    // The original package flow is login-protected, so the redesigned page
+    // preserves that behaviour instead of routing anonymously.
     if (!isAuthenticated) {
       setShowLogin(true)
       return
@@ -126,7 +138,7 @@ export default function FindFoodBank() {
                 <button
                   type="button"
                   onClick={() => navigate('/')}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-all h-9 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 text-sm font-medium px-4"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-all h-9 py-2 bg-[#F5A623] hover:bg-[#F5A623] text-gray-900 text-sm font-medium px-4"
                 >
                   Public
                 </button>
@@ -159,7 +171,7 @@ export default function FindFoodBank() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="max-w-3xl">
               <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">
-                Food security, <span className="text-yellow-500">engineered</span>
+                Food security, <span className="text-[#F5A623]">engineered</span>
               </h1>
               <p className="text-base text-gray-600">
                 Search by postcode to find food banks near you, check opening information, and see
@@ -198,7 +210,7 @@ export default function FindFoodBank() {
               <button
                 type="submit"
                 disabled={isSearching}
-                className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium h-9 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 whitespace-nowrap disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium h-9 px-4 py-2 bg-[#F5A623] hover:bg-[#F5A623] text-gray-900 whitespace-nowrap disabled:opacity-50"
               >
                 {isSearching ? 'Searching...' : 'Find Food Banks'}
               </button>
@@ -235,10 +247,14 @@ export default function FindFoodBank() {
                   {displayedResults.map((foodBank) => {
                     const key = getFoodBankKey(foodBank)
                     const isSelected = selectedFoodBankKey === key
+                    // Cards stay compact by showing only the first parsed
+                    // opening-hours line even though the source can hold more.
                     const openingLine =
                       (foodBank.hours ?? []).length > 0
                         ? foodBank.hours?.[0] ?? 'Opening hours unavailable'
                         : 'Please contact this food bank directly'
+                    // This secondary line guarantees that each card still shows
+                    // one useful operational detail when some fields are missing.
                     const secondaryLine =
                       foodBank.phone
                         ? `Phone: ${foodBank.phone}`
@@ -253,7 +269,7 @@ export default function FindFoodBank() {
                         key={key}
                         className={`bg-card text-card-foreground flex flex-col gap-6 rounded-xl border hover:shadow-lg transition-shadow ${
                           isSelected
-                            ? 'border-yellow-500 shadow-lg'
+                            ? 'border-[#F5A623] shadow-lg'
                             : 'border-gray-200'
                         }`}
                         onClick={() => setSelectedFoodBankKey(key)}
@@ -267,7 +283,7 @@ export default function FindFoodBank() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={(event) => event.stopPropagation()}
-                                  className="text-gray-900 hover:text-yellow-600 transition-colors inline-flex items-center gap-2"
+                                  className="text-gray-900 hover:text-[#F5A623] transition-colors inline-flex items-center gap-2"
                                 >
                                   {foodBank.name}
                                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
@@ -287,7 +303,7 @@ export default function FindFoodBank() {
 
                         <div className="px-6 [&:last-child]:pb-6 space-y-4">
                           <div className="flex items-start gap-2 text-sm text-gray-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-yellow-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
                               <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path>
                               <circle cx="12" cy="10" r="3"></circle>
                             </svg>
@@ -296,7 +312,7 @@ export default function FindFoodBank() {
 
                           {(foodBank.hours ?? []).length > 0 && (
                             <div className="flex items-start gap-2 text-sm text-gray-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-yellow-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
                                 <circle cx="12" cy="12" r="10"></circle>
                                 <polyline points="12 6 12 12 16 14"></polyline>
                               </svg>
@@ -305,7 +321,7 @@ export default function FindFoodBank() {
                           )}
 
                           <div className="flex items-start gap-2 text-sm text-gray-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-yellow-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
                               <rect width="20" height="16" x="2" y="4" rx="2"></rect>
                               <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
                             </svg>
@@ -314,7 +330,7 @@ export default function FindFoodBank() {
 
                           {(foodBank.phone || foodBank.email) && (
                             <div className="flex items-start gap-2 text-sm text-gray-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-yellow-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
                                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                               </svg>
                               <span>{foodBank.phone ?? foodBank.email}</span>
@@ -322,7 +338,7 @@ export default function FindFoodBank() {
                           )}
 
                           <div className="flex items-start gap-2 text-sm text-gray-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-yellow-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
                               <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path>
                               <circle cx="12" cy="10" r="3"></circle>
                             </svg>
@@ -340,7 +356,7 @@ export default function FindFoodBank() {
                                 event.stopPropagation()
                                 handleViewPackages(foodBank)
                               }}
-                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background h-9 px-4 py-2 flex-1 border-yellow-600 text-yellow-600 hover:bg-yellow-50"
+                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background h-9 px-4 py-2 flex-1 border-[#F5A623] text-[#F5A623] hover:bg-[#F9F7F2]"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
                                 <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path>
@@ -355,7 +371,7 @@ export default function FindFoodBank() {
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(event) => event.stopPropagation()}
-                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all h-9 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900"
+                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all h-9 px-4 py-2 bg-[#F5A623] hover:bg-[#F5A623] text-gray-900"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
                                 <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
@@ -395,7 +411,7 @@ export default function FindFoodBank() {
                           onClick={() => setCurrentPage(pageNumber)}
                           className={`inline-flex items-center justify-center rounded-md border h-9 min-w-9 px-3 text-sm ${
                             currentPage === pageNumber
-                              ? 'border-yellow-500 bg-yellow-400 text-gray-900'
+                              ? 'border-[#F5A623] bg-[#F5A623] text-gray-900'
                               : 'border-gray-300 hover:bg-gray-50 text-gray-700'
                           }`}
                         >

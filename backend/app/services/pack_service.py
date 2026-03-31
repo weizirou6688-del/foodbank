@@ -10,18 +10,15 @@ they call pack_package_transaction to atomically:
 - Log operation (optional)
 """
 
-from datetime import datetime
-from typing import Optional
+from datetime import date, datetime
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.models.food_package import FoodPackage
 from app.models.inventory_lot import InventoryLot
 from app.models.package_item import PackageItem
-from app.models.inventory_item import InventoryItem
-
 
 async def pack_package_transaction(
     package_id: int,
@@ -92,6 +89,7 @@ async def pack_package_transaction(
                 .where(
                     InventoryLot.inventory_item_id == item_id,
                     InventoryLot.deleted_at.is_(None),  # active only
+                    InventoryLot.expiry_date >= date.today(),  # non-expired only
                 )
                 .order_by(InventoryLot.expiry_date)  # FEFO: earliest expiry first
             )

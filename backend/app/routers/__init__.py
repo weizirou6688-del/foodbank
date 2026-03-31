@@ -3,7 +3,7 @@ Routers module for ABC Community Food Bank API.
 
 Subpackage containing all API route modules:
 - auth: Authentication (register, login, refresh, profile)
-- food_banks: Food Bank locations and hours
+- food_banks: Food bank locations and hours
 - food_packages: Food package management
 - applications: Assistance applications
 - donations: Cash and goods donations
@@ -12,15 +12,15 @@ Subpackage containing all API route modules:
 - stats: Statistics and reporting
 """
 
-from . import auth, donations, food_banks, food_packages, inventory, restock, stats, applications
+from . import applications, auth, donations, food_banks, food_packages, inventory, restock, stats
 
 __all__ = [
-	"auth",
-	"donations",
-	"food_banks",
-	"food_packages",
-	"inventory",
-	"restock",
-	"stats",
-	"applications",
+    "applications",
+    "auth",
+    "donations",
+    "food_banks",
+    "food_packages",
+    "inventory",
+    "restock",
+    "stats",
 ]
