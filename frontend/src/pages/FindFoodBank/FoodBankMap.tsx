@@ -16,6 +16,8 @@ interface FoodBankMapProps {
 const UK_CENTER: [number, number] = [54.5, -3.5]
 const UK_ZOOM = 6
 
+// Leaflet's default marker assets need to be rebound explicitly in a Vite
+// build, otherwise markers render as broken images.
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
 
 L.Icon.Default.mergeOptions({
@@ -35,6 +37,8 @@ function FitMapBounds({
   const map = useMap()
 
   useEffect(() => {
+    // The viewport is fitted against both the user's searched postcode and the
+    // returned food bank markers so the search context stays visible.
     const points: [number, number][] = foodBanks.map((foodBank) => [foodBank.lat, foodBank.lng])
     if (searchedLocation) {
       points.push([searchedLocation.lat, searchedLocation.lng])
@@ -60,6 +64,8 @@ export default function FoodBankMap({
   selectedFoodBankKey,
   onSelectFoodBank,
 }: FoodBankMapProps) {
+  // The selected result is memoized so the map can consistently elevate the
+  // matching marker without recalculating on every render.
   const selectedFoodBank = useMemo(() => {
     if (foodBanks.length === 0) {
       return null
@@ -87,6 +93,8 @@ export default function FoodBankMap({
         )}
 
         {foodBanks.map((foodBank) => {
+          // Selected markers get a higher z-index so clustered markers do not
+          // visually bury the currently selected result.
           const isSelected =
             getFoodBankKey(foodBank) === (selectedFoodBank ? getFoodBankKey(selectedFoodBank) : null)
 

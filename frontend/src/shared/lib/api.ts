@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
+import type { ApplicationStatus } from '@/shared/types/common'
 
 class APIClient {
   private baseURL: string
@@ -86,7 +87,7 @@ export const donationsAPI = {
 }
 
 export const statsAPI = {
-  getOverview: () => apiClient.get('/api/v1/stats/overview'),
+  getOverview: () => apiClient.get('/api/v1/stats/donations'),
 }
 
 export const restockAPI = {
@@ -95,20 +96,38 @@ export const restockAPI = {
 
   submitRequest: (
     data: {
-      supermarket_id: string
-      items: Array<{ food_name: string; quantity: number }>
-      notes?: string
+      inventory_item_id: number
+      current_stock: number
+      threshold: number
+      urgency: 'high' | 'medium' | 'low'
     },
     token: string
   ) => apiClient.post('/api/v1/restock-requests', data, token),
+
+  fulfilRequest: (
+    requestId: number | string,
+    token: string,
+    notes?: string
+  ) => apiClient.post(`/api/v1/restock-requests/${requestId}/fulfil`, { notes }, token),
+
+  cancelRequest: (
+    requestId: number | string,
+    token: string
+  ) => apiClient.delete(`/api/v1/restock-requests/${requestId}`, token),
 }
 
 export const adminAPI = {
-  getStats: (token: string, period: 'daily' | 'weekly' | 'monthly' = 'daily') =>
-    apiClient.get(`/api/v1/stats/admin?period=${period}`, token),
+  getStats: (token: string, _period: 'daily' | 'weekly' | 'monthly' = 'daily') =>
+    apiClient.get('/api/v1/stats/donations', token),
+
+  getPackageStats: (token: string) =>
+    apiClient.get('/api/v1/stats/packages', token),
+
+  getStockGap: (token: string) =>
+    apiClient.get('/api/v1/stats/stock-gap', token),
 
   getFoodPackages: (token: string) =>
-    apiClient.get('/api/v1/food-packages/admin', token),
+    apiClient.get('/api/v1/stats/packages', token),
 
   updateFoodPackage: (
     id: number | string,
@@ -128,7 +147,7 @@ export const adminAPI = {
   ) => apiClient.post(`/api/v1/packages/${id}/pack`, { quantity }, token),
 
   getInventoryItems: (token: string) =>
-    apiClient.get('/api/v1/inventory/items', token),
+    apiClient.get('/api/v1/inventory', token),
 
   getInventoryLots: (token: string, includeInactive = true) =>
     apiClient.get(`/api/v1/inventory/lots?include_inactive=${includeInactive}`, token),
@@ -178,7 +197,7 @@ export const applicationsAPI = {
 
   updateApplicationStatus: (
     id: number | string,
-    data: { status: 'collected' | 'expired' },
+    data: { status: ApplicationStatus },
     token: string
   ) => apiClient.patch(`/api/v1/applications/${id}`, data, token),
 }

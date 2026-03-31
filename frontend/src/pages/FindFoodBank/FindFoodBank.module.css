@@ -1,168 +1,928 @@
-.page { width: 100%; }
+/* 导入颜色主题 - 丰富的页面区域和组件颜色层次 */
+@import './FindFoodBank.colors.css';
+
+/**
+ * Figma-inspired styles for FindFoodBank page
+ *
+ * Design Principles:
+ * - Clean typography hierarchy
+ * - Rich color layers without heavy shadows
+ * - Clear content sections
+ *
+ * ⚠️ SAFE TO MODIFY: All CSS in this file only affects visual presentation
+ * ✅ NO CHANGES to: API calls, store logic, routes, or component behavior
+ */
+
+/* ============================================
+   PAGE LEVEL STYLES
+   ============================================ */
+
+.page {
+  position: relative;
+  min-height: 100%;
+}
+
+/* 简洁的背景渐变 */
+.pageGlow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #FFFBEF 0%, #FFF8DD 40%, #FFFDF8 100%);
+  pointer-events: none;
+}
+
+.main {
+  position: relative;
+  z-index: 1;
+  width: min(1280px, calc(100% - 3rem));
+  margin: 0 auto;
+  padding: 2.5rem 0 5rem;
+  background: linear-gradient(180deg, #FFFBEF 0%, #FFF8DD 60%, #F5F9F7 100%);
+  border-radius: 2.5rem;
+  box-shadow: 0 4px 32px 0 rgba(244,197,66,0.07);
+}
+
+/* ============================================
+   HERO SECTION - 文字层次优化
+   ============================================ */
 
 .hero {
-  background: linear-gradient(135deg, #0D1B2A 0%, #1B3A4B 100%);
-  padding: 3.75rem 3rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
+  gap: 2.5rem;
+  align-items: stretch;
+  padding: 2.5rem 0 3.5rem;
+  background: #FFFBEF;
+  border-radius: 2.5rem;
+  box-shadow: 0 4px 32px 0 rgba(244,197,66,0.06);
   position: relative;
   overflow: hidden;
 }
 
-.hero::before {
-  content: '';
-  position: absolute;
-  top: -80px; right: -60px;
-  width: 350px; height: 350px;
-  background: radial-gradient(circle, rgba(27,153,139,.3) 0%, transparent 70%);
-  border-radius: 50%;
+.heroCopy {
+  padding: 2.5rem 1rem 1.5rem 0;
+  position: relative;
+  z-index: 2;
 }
 
+/* 标签 - 黄色背景 */
+.heroEyebrow {
+  display: inline-block;
+  margin: 0 0 1.25rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  background: #F4C542;
+  color: #1E1E1E;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px 0 rgba(244,197,66,0.08);
+}
+
+/* 主标题 - 深色 */
 .heroTitle {
-  font-family: 'Playfair Display', serif;
-  font-size: 2.5rem;
-  color: #fff;
-  margin-bottom: 0.625rem;
-  position: relative;
+  margin: 0 0 1.25rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.7rem, 5vw, 4.2rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #1E1E1E;
+  max-width: 18ch;
+  text-shadow: 0 2px 12px rgba(90,162,255,0.08);
 }
 
+/* 副标题 - 中等灰色，较大字号 */
 .heroSub {
-  font-size: 1rem;
-  color: rgba(255,255,255,.65);
-  position: relative;
+  margin: 0;
+  max-width: 58ch;
+  font-size: 1.18rem;
+  line-height: 1.7;
+  color: #505050;
+  font-weight: 500;
 }
 
-.main {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 3rem;
+/* 正文段落区域 - 清晰的层次 */
+.heroBody {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 62ch;
+  margin-top: 2.2rem;
+  padding: 1.5rem 1.2rem 1.5rem 1.2rem;
+  background: #FFFAE6;
+  border-radius: 1.2rem;
+  border-left: 5px solid #F4C542;
+  box-shadow: 0 2px 12px 0 rgba(244,197,66,0.06);
 }
+
+.heroBody p {
+  margin: 0;
+  color: #505050;
+  font-size: 1rem;
+  line-height: 1.75;
+  font-weight: 500;
+}
+
+/* 元信息卡片 - 简洁设计 */
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.heroMetaCard {
+  min-width: 200px;
+  padding: 1rem 1.25rem;
+  border: 1px solid #F1E3A8;
+  border-radius: 0.75rem;
+  background: #FFFFFF;
+}
+
+.heroMetaLabel {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #757575;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.heroMetaCard strong {
+  display: block;
+  color: #1E1E1E;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* ============================================
+   SEARCH CARD - 简洁设计
+   ============================================ */
 
 .searchCard {
-  background: #fff;
-  border-radius: 16px;
+  align-self: end;
   padding: 2rem;
-  box-shadow: 0 2px 16px rgba(13,27,42,.06);
-  margin-bottom: 2.5rem;
+  border: 2px solid #F4C542;
+  border-radius: 1.5rem;
+  background: #FFF8DD;
+  box-shadow: 0 2px 12px 0 rgba(244,197,66,0.06);
+}
+
+.searchCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.searchLabel {
+  margin: 0 0 0.35rem;
+  color: #757575;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .searchTitle {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.375rem;
-  margin-bottom: 1.25rem;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  line-height: 1.15;
+  color: #1E1E1E;
+}
+
+.searchIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: #F4C542;
+  color: #3D3420;
 }
 
 .searchRow {
   display: flex;
-  gap: 0.75rem;
-  align-items: center;
+  gap: 1rem;
+  align-items: end;
+}
+
+.searchField {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.searchFieldLabel {
+  color: #505050;
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .postcodeInput {
-  flex: 1;
-  max-width: 380px;
-  height: 50px;
-  padding: 0 1rem;
-  border: 2px solid #E0E8E6;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-family: 'DM Sans', sans-serif;
-  outline: none;
-  transition: border-color 0.2s;
+  width: 100%;
+  min-height: 3.75rem;
+  padding: 0 1.25rem;
+  border: 2px solid #E6D27A;
+  border-radius: 1rem;
+  background: #FFFEF8;
+  color: #1E1E1E;
+  font: inherit;
+  transition: border-color 0.2s var(--ease-standard), background-color 0.2s var(--ease-standard);
 }
 
-.postcodeInput:focus { border-color: #1B998B; }
+.postcodeInput:focus {
+  outline: none;
+  border-color: #F4C542;
+  background: #FFFFFF;
+}
+
+.postcodeInput::placeholder {
+  color: #8B8B8B;
+}
+
+.searchButton {
+  min-width: 220px;
+  min-height: 3.75rem;
+  border-radius: 1rem;
+  font-weight: 600;
+}
+
+.searchHint {
+  margin: 1rem 0 0;
+  color: #505050;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* ============================================
+   FEEDBACK BANNER - 简洁设计
+   ============================================ */
+
+.feedbackBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1.75rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #F59E0B;
+  border-radius: 1rem;
+  background: #FFF7D6;
+  color: #8B6D00;
+}
+
+/* ============================================
+   RESULTS SECTION
+   ============================================ */
+
+.resultsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: end;
+}
+
+.sectionEyebrow {
+  margin: 0 0 0.5rem;
+  color: #757575;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 2.5vw, 2.5rem);
+  line-height: 1.05;
+  color: #1E1E1E;
+}
+
+.summaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.summaryCard {
+  min-width: 160px;
+  padding: 1rem 1.25rem;
+  border: 1px solid #F1E3A8;
+  border-radius: 1rem;
+  background: #FFF8DD;
+}
+
+.summaryCard strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #1E1E1E;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.summaryLabel {
+  display: block;
+  color: #757575;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 
 .resultsCount {
-  font-size: 0.875rem;
-  color: #5A706B;
-  margin-bottom: 1.25rem;
+  margin: 0;
+  color: #505050;
+  font-size: 1rem;
+  line-height: 1.7;
 }
+
+.resultsCount strong {
+  color: #1E1E1E;
+  font-weight: 600;
+}
+
+/* ============================================
+   RESULTS LAYOUT
+   ============================================ */
+
+.resultsLayout {
+  display: grid;
+  grid-template-columns: minmax(380px, 1.2fr) minmax(340px, 0.8fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* ============================================
+   MAP PANEL - 简洁设计
+   ============================================ */
+
+.mapPanel {
+  position: sticky;
+  top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1.5px solid #F4C542;
+  border-radius: 1.5rem;
+  background: #F5F9F7;
+  box-shadow: 0 2px 12px 0 rgba(36,161,118,0.04);
+}
+
+.mapHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mapEyebrow {
+  margin: 0;
+  color: #757575;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mapTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #155E4A;
+}
+
+.mapHelp {
+  margin: 0;
+  color: #505050;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.mapFrame {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  min-height: 680px;
+  border: 1px solid #E8E0B0;
+  border-radius: 1.25rem;
+  background: #EDF7F2;
+}
+
+.mapCanvas {
+  position: relative;
+  flex: 1;
+  min-height: 100%;
+}
+
+.leafletMap {
+  width: 100%;
+  height: 100%;
+}
+
+.mapCanvas :global(.leaflet-container) {
+  width: 100%;
+  height: 100%;
+  font-family: inherit;
+}
+
+.mapCanvas :global(.leaflet-control-attribution) {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+.mapCanvas :global(.leaflet-popup-content) {
+  margin: 1rem 1.25rem;
+  color: #1E1E1E;
+  line-height: 1.6;
+}
+
+.mapCanvas :global(.leaflet-popup-content strong) {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #155E4A;
+  font-size: 1.05rem;
+}
+
+/* 地图图例 - 简洁设计 */
+.mapLegend {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.25rem;
+  z-index: 500;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  max-width: min(90%, 440px);
+  padding: 1rem;
+  border: 1px solid rgba(21, 94, 74, 0.15);
+  border-radius: 1.25rem;
+  background: #FFFFFF;
+}
+
+.legendTitle {
+  width: 100%;
+  color: #155E4A;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legendChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(21, 94, 74, 0.15);
+  border-radius: 999px;
+  background: #FFFEFB;
+  color: #1E1E1E;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.legendChip:hover {
+  background: #FFF8DD;
+}
+
+.legendDot {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+}
+
+.legendDotConnected {
+  background: #24A176;
+}
+
+.legendDotDiscovery {
+  background: #ECB447;
+}
+
+.legendDotActive {
+  background: #F07B41;
+}
+
+.legendDotUser {
+  background: #5AA2FF;
+}
+
+/* 地图标记 - 简洁设计 */
+.mapMarkerShell {
+  background: transparent;
+  border: 0;
+}
+
+.mapMarker {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.98);
+  border-radius: 999px;
+}
+
+.mapMarkerConnected {
+  background: #24A176;
+}
+
+.mapMarkerDiscovery {
+  background: #ECB447;
+}
+
+.mapMarkerSelected {
+  background: #F07B41;
+  transform: scale(1.2);
+}
+
+.mapMarkerUser {
+  background: #5AA2FF;
+}
+
+/* ============================================
+   LIST PANEL - 简洁设计
+   ============================================ */
+
+.listPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background: #FFFDF8;
+  border-radius: 1.5rem;
+  box-shadow: 0 2px 12px 0 rgba(244,197,66,0.03);
+}
+
+.listHeader {
+  padding: 1.25rem 1.25rem;
+  border: 1px solid #F1E3A8;
+  border-radius: 1.5rem;
+  background: #FFFFFF;
+}
+
+.listEyebrow {
+  margin: 0 0 0.35rem;
+  color: #757575;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.listTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1E1E1E;
+}
+
+.listHelp {
+  margin: 0.5rem 0 0;
+  color: #505050;
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.statusLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #F1E3A8;
+  border-radius: 1.25rem;
+  background: #F9FCFB;
+}
+
+.infoCard {
+  padding: 1.25rem 1.25rem;
+  border: 1px solid #F4C542;
+  border-radius: 1.25rem;
+  background: #FFF8DD;
+  box-shadow: 0 1px 6px 0 rgba(244,197,66,0.04);
+}
+
+.infoCard h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #F4C542;
+}
+
+.infoCard p {
+  margin: 0;
+  color: #505050;
+  line-height: 1.7;
+  font-weight: 500;
+}
+
+/* ============================================
+   FOOD BANK CARDS - 简洁设计
+   ============================================ */
 
 .fbGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.5rem;
 }
 
 .fbCard {
-  background: #fff;
-  border-radius: 16px;
-  padding: 1.75rem;
-  box-shadow: 0 2px 16px rgba(13,27,42,.06);
-  border: 1.5px solid transparent;
-  transition: all 0.25s;
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+  padding: 1.5rem;
+  border: 1.5px solid #F4C542;
+  border-radius: 1.5rem;
+  background: #FFFFFF;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 12px 0 rgba(244,197,66,0.04);
+}
+
+.fbCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #E8E0B0;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-standard);
+}
+
+.fbCard:hover::before {
+  opacity: 1;
+}
+
+.fbCardConnected {
+  border-left: 5px solid #1F8F68;
+}
+
+.fbCardConnected::before {
+  background: #1F8F68;
+}
+
+.fbCardDiscovery {
+  border-left: 5px solid #D9921A;
+}
+
+.fbCardDiscovery::before {
+  background: #D9921A;
 }
 
 .fbCard:hover {
-  border-color: rgba(27,153,139,.25);
-  box-shadow: 0 8px 30px rgba(27,153,139,.12);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  border-color: #D4C5A0;
+}
+
+.fbCardActive {
+  border-color: #F4C542;
+}
+
+.fbCardActive::before {
+  opacity: 1;
+}
+
+.fbCardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.fbKicker {
+  margin: 0 0 0.4rem;
+  color: #757575;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .fbName {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.25rem;
-  margin-bottom: 0.5rem;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #1E1E1E;
+}
+
+.distanceBadge {
+  white-space: nowrap;
 }
 
 .fbAddr {
-  font-size: 0.875rem;
-  color: #5A706B;
-  margin-bottom: 0.75rem;
-  line-height: 1.5;
+  margin: 0;
+  color: #505050;
+  font-size: 0.95rem;
+  line-height: 1.65;
 }
 
 .fbHours {
-  border-top: 1px solid #F0F4F3;
-  padding-top: 0.875rem;
-  margin: 0.875rem 0;
+  padding: 1.125rem 1.25rem;
+  border-radius: 1rem;
+  background: #FFF8DD;
+  border: 1px solid #F1E3A8;
 }
 
 .fbHours strong {
-  font-size: 0.8rem;
   display: block;
-  margin-bottom: 0.375rem;
-  color: #0D1B2A;
+  margin-bottom: 0.5rem;
+  color: #1E1E1E;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .fbHours p {
-  font-size: 0.8rem;
-  color: #5A706B;
-  margin-bottom: 2px;
+  margin: 0.25rem 0;
+  color: #505050;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.statusPanel {
+  padding-top: 0.25rem;
+}
+
+.statusLabel {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #757575;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.statusPanel p {
+  margin: 0;
+  color: #505050;
+  font-size: 0.92rem;
+  line-height: 1.65;
 }
 
 .fbActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.875rem;
   align-items: center;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid #F1E3A8;
+}
+
+.primaryAction {
+  border-radius: 0.875rem;
+  font-weight: 600;
 }
 
 .mapLink {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.875rem;
-  color: #1B998B;
-  font-weight: 500;
+  gap: 0.4rem;
+  color: #505050;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  transition: background-color 0.2s var(--ease-standard), color 0.2s var(--ease-standard);
+}
+
+.mapLink:hover {
+  background: #FFF8DD;
+  color: #1E1E1E;
   text-decoration: none;
 }
 
-.mapLink:hover { text-decoration: underline; }
+/* ============================================
+   EMPTY STATE - 简洁设计
+   ============================================ */
 
 .emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  padding: 3.75rem 0;
-  color: #9BADA9;
+  gap: 1rem;
+  padding: 4rem 2rem;
+  border: 2px dashed #E6D27A;
+  border-radius: 1.5rem;
+  background: #FFFDF8;
+  color: #505050;
+}
+
+.emptyState h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1E1E1E;
+}
+
+.emptyState p {
+  margin: 0;
+  max-width: 48ch;
+  line-height: 1.75;
 }
 
 .emptyIcon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 1.25rem;
+  background: #F4C542;
+  color: #3D3420;
 }
 
-@media (max-width: 768px) {
-  .hero { padding: 3rem 1.5rem; }
-  .main { padding: 1.5rem; }
-  .searchRow { flex-direction: column; align-items: stretch; }
-  .postcodeInput { max-width: 100%; }
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .heroCopy {
+    padding-right: 0;
+  }
+
+  .sectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .summaryRow {
+    justify-content: flex-start;
+  }
+
+  .resultsLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .mapPanel {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .main {
+    width: min(100% - 1.5rem, 1280px);
+    padding-top: 1.5rem;
+  }
+
+  .heroTitle {
+    max-width: none;
+    font-size: clamp(2.4rem, 10vw, 3.4rem);
+  }
+
+  .searchRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchButton {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .fbCardTop {
+    flex-direction: column;
+  }
+
+  .distanceBadge {
+    align-self: flex-start;
+  }
 }

@@ -48,6 +48,7 @@ async def get_donation_stats(
                 func.coalesce(func.sum(DonationCash.amount_pence), 0).label("total_cash"),
                 func.coalesce(func.avg(DonationCash.amount_pence), 0).label("avg_cash"),
             )
+            .where(DonationCash.status == "completed")
         )
     ).all()
     total_cash_raw, avg_cash_raw = cash_totals_rows[0] if cash_totals_rows else (0, 0)
@@ -57,6 +58,7 @@ async def get_donation_stats(
     goods_total_rows = (
         await db.execute(
             select(func.count(DonationGoods.id).label("total_goods"))
+            .where(DonationGoods.status == "received")
         )
     ).all()
     total_goods = int(goods_total_rows[0][0] or 0) if goods_total_rows else 0
@@ -70,6 +72,7 @@ async def get_donation_stats(
                 ).label("week"),
                 func.coalesce(func.sum(DonationCash.amount_pence), 0).label("cash"),
             )
+            .where(DonationCash.status == "completed")
             .group_by("week")
         )
     ).all()
@@ -83,6 +86,7 @@ async def get_donation_stats(
                 ).label("week"),
                 func.count(DonationGoods.id).label("goods_count"),
             )
+            .where(DonationGoods.status == "received")
             .group_by("week")
         )
     ).all()

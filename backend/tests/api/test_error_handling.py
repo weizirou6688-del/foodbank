@@ -116,18 +116,24 @@ def test_not_found_404_package():
     # They are covered by the unit tests in test_food_packages.py
     # Here we just verify the health endpoint is responsive
     response = client.get("/health")
-    assert response.status_code == 200
+    assert response.status_code in {200, 503}
 
 
 # ==================== HEALTH CHECK TESTS ====================
 
 def test_health_check_endpoint():
-    """Test that health check endpoint returns 200 OK."""
+    """Test that health check endpoint reflects database readiness."""
     response = client.get("/health")
-    
-    assert response.status_code == 200
+
+    assert response.status_code in {200, 503}
     data = response.json()
-    assert data["status"] == "healthy"
+    if response.status_code == 200:
+        assert data["status"] == "ok"
+        assert data["database"] == "connected"
+    else:
+        assert data["status"] == "degraded"
+        assert data["database"] == "unavailable"
+        assert "detail" in data
 
 
 def test_root_endpoint():

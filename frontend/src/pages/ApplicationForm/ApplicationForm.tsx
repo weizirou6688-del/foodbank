@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useFoodBankStore } from '@/store/foodBankStore'
-import { useAuthStore } from '@/store/authStore'
-import { WEEKLY_COLLECTION_LIMIT } from '@/data/mockData'
-import Button from '@/components/ui/Button'
-import Modal from '@/components/ui/Modal'
+import { useFoodBankStore } from '@/app/store/foodBankStore'
+import { useAuthStore } from '@/app/store/authStore'
+import { WEEKLY_COLLECTION_LIMIT } from '@/shared/config/businessRules'
+import Button from '@/shared/ui/Button'
+import Modal from '@/shared/ui/Modal'
 import styles from './ApplicationForm.module.css'
 
 interface Selection {
@@ -12,20 +12,6 @@ interface Selection {
   qty: number
 }
 
-/**
- * ApplicationForm Component
- * 
- * Purpose: Collect application details from users
- * - Select a food bank
- * - Choose week_start date (defaults to Monday of current week)
- * - Select packages and quantities
- * - Submit application
- * 
- * Fields:
- * - food_bank_id: Selected food bank
- * - week_start: Date in YYYY-MM-DD format (Monday of the week)
- * - items[]: Array of {package_id, quantity}
- */
 export default function ApplicationForm() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -38,8 +24,10 @@ export default function ApplicationForm() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (user) loadUserCollections(user.email)
-  }, [user, loadUserCollections])
+    if (user) {
+      loadUserCollections(user.email, weekStart)
+    }
+  }, [user, weekStart, loadUserCollections])
 
   useEffect(() => {
     if (!selectedFoodBank) {
@@ -66,9 +54,37 @@ export default function ApplicationForm() {
     )
   }
 
-  const remaining = WEEKLY_COLLECTION_LIMIT - weeklyCollected
+  if (selectedFoodBank.id <= 0 || selectedFoodBank.systemMatched === false) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.emptyState}>
+          <h2>Online Application Unavailable</h2>
+          <p>This food bank can be viewed in search results but is not connected to online applications yet.</p>
+          <Button onClick={() => navigate('/find-foodbank')}>
+            Back to Search
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const remaining = Math.max(0, WEEKLY_COLLECTION_LIMIT - weeklyCollected)
   const totalQty = Object.values(selections).reduce((s, q) => s + q, 0)
   const selectedCount = Object.keys(selections).length
+
+  if (packages.length === 0) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.emptyState}>
+          <h2>No Packages Available Right Now</h2>
+          <p>This food bank is connected, but there are no online food packages available for application at the moment.</p>
+          <Button onClick={() => navigate('/find-foodbank')}>
+            Back to Search
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const toggleSelect = (pkgId: number) => {
     setSelections((prev) => {
@@ -87,7 +103,6 @@ export default function ApplicationForm() {
 
   const handleWeekStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dateStr = e.target.value
-    // Validate format YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || dateStr === '') {
       setWeekStart(dateStr)
     }
@@ -96,7 +111,6 @@ export default function ApplicationForm() {
   const handleSubmit = async () => {
     setErrorMsg('')
 
-    // Validation
     if (selectedCount === 0) {
       setErrorMsg('Please select at least one package.')
       return
@@ -107,7 +121,6 @@ export default function ApplicationForm() {
       return
     }
 
-    // Validate week_start is Monday
     const date = new Date(weekStart)
     const day = date.getDay()
     if (day !== 1) {
@@ -122,9 +135,8 @@ export default function ApplicationForm() {
         qty,
       }))
 
-      // Call store method with week_start parameter (YYYY-MM-DD format)
       const result = await applyPackages(user!.email, selArray, weekStart)
-      
+
       if (result.success) {
         setSelections({})
         setSuccessModal({ open: true, code: result.code! })
@@ -140,7 +152,6 @@ export default function ApplicationForm() {
 
   return (
     <div className={styles.page}>
-      {/* Hero */}
       <div className={styles.hero}>
         <h1 className={styles.heroTitle}>Application Form</h1>
         <p className={styles.heroSub}>
@@ -149,7 +160,6 @@ export default function ApplicationForm() {
       </div>
 
       <div className={styles.main}>
-        {/* Food bank info bar */}
         <div className={styles.infoBar}>
           <div>
             <h3 className={styles.fbName}>{selectedFoodBank.name}</h3>
@@ -161,7 +171,6 @@ export default function ApplicationForm() {
           </div>
         </div>
 
-        {/* Week selector */}
         <div className={styles.weekSelector}>
           <label htmlFor="week-start" className={styles.label}>
             Week Starting (Monday):
@@ -174,29 +183,31 @@ export default function ApplicationForm() {
             className={styles.dateInput}
             disabled={loading}
           />
-          <p className={styles.hint}>Select Monday of the week you're applying for.</p>
+          <p className={styles.hint}>Select Monday of the week you are applying for.</p>
         </div>
 
-        {/* Notice */}
         <div className={styles.notice}>
           Maximum <strong>{WEEKLY_COLLECTION_LIMIT} packages</strong> per week. This week: <strong>{weeklyCollected}</strong>/{WEEKLY_COLLECTION_LIMIT} used.
         </div>
 
-        {/* Error */}
         {errorMsg && <div className={styles.errorBanner}>{errorMsg}</div>}
 
-        {/* Package grid */}
         <div className={styles.pkgGrid}>
           {packages.map((pkg) => {
             const isSelected = selections[pkg.id] !== undefined
             const qty = selections[pkg.id] ?? 1
             const isLow = pkg.stock <= pkg.threshold
+            const isOutOfStock = pkg.stock <= 0
 
             return (
               <div
                 key={pkg.id}
                 className={`${styles.pkgCard} ${isSelected ? styles.selected : ''}`}
-                onClick={() => toggleSelect(pkg.id)}
+                onClick={() => {
+                  if (!isOutOfStock) {
+                    toggleSelect(pkg.id)
+                  }
+                }}
               >
                 {isSelected && <span className={styles.selectedBadge}>Selected</span>}
                 {isLow && <span className={styles.lowBadge}>Low Stock</span>}
@@ -206,7 +217,7 @@ export default function ApplicationForm() {
                   <p className={styles.pkgDesc}>{pkg.description}</p>
                   <ul className={styles.itemList}>
                     {pkg.items.map((item) => (
-                      <li key={item.name}>{item.name} <span>×{item.qty}</span></li>
+                      <li key={item.name}>{item.name} <span>x{item.qty}</span></li>
                     ))}
                   </ul>
                   <div className={styles.stockRow}>
@@ -215,18 +226,21 @@ export default function ApplicationForm() {
                       {pkg.stock} packs
                     </span>
                   </div>
+                  {isOutOfStock && (
+                    <div className={styles.errorBanner}>This package is currently out of stock.</div>
+                  )}
                   {isSelected && (
                     <div className={styles.qtyRow} onClick={(e) => e.stopPropagation()}>
                       <span className={styles.qtyLabel}>Quantity:</span>
                       <div className={styles.qtyControl}>
-                        <button 
+                        <button
                           onClick={() => setQty(pkg.id, Math.max(1, qty - 1))}
                           disabled={loading}
                         >
-                          −
+                          -
                         </button>
                         <span>{qty}</span>
-                        <button 
+                        <button
                           onClick={() => setQty(pkg.id, Math.min(pkg.stock, qty + 1))}
                           disabled={loading}
                         >
@@ -242,27 +256,25 @@ export default function ApplicationForm() {
         </div>
       </div>
 
-      {/* Sticky submit bar */}
       <div className={styles.submitBar}>
         <div className={styles.submitSummary}>
           {selectedCount === 0
             ? 'No packages selected'
-            : <><strong>{selectedCount}</strong> type(s) · Total <strong>{totalQty}</strong> pack(s)</>
+            : <><strong>{selectedCount}</strong> type(s) | Total <strong>{totalQty}</strong> pack(s)</>
           }
         </div>
-        <Button 
-          onClick={handleSubmit} 
-          size="lg" 
+        <Button
+          onClick={handleSubmit}
+          size="lg"
           disabled={selectedCount === 0 || loading}
         >
-          {loading ? 'Submitting...' : 'Submit Application →'}
+          {loading ? 'Submitting...' : 'Submit Application ->'}
         </Button>
       </div>
 
-      {/* Success modal */}
-      <Modal 
-        isOpen={successModal.open} 
-        onClose={() => { setSuccessModal({ open: false, code: '' }); navigate('/find-foodbank') }} 
+      <Modal
+        isOpen={successModal.open}
+        onClose={() => { setSuccessModal({ open: false, code: '' }); navigate('/find-foodbank') }}
         title="Application Successful!"
       >
         <div className={styles.modalContent}>
@@ -285,14 +297,11 @@ export default function ApplicationForm() {
   )
 }
 
-/**
- * Helper: Get Monday of current week in YYYY-MM-DD format
- */
 function getMondayOfCurrentWeek(): string {
   const today = new Date()
   const date = new Date(today)
   const day = date.getDay()
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is Sunday
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
   date.setDate(diff)
   return date.toISOString().split('T')[0]
 }

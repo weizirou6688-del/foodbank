@@ -134,11 +134,15 @@ function CheckIcon() {
 
 export default function Home() {
   const navigate = useNavigate()
+  // The shared navbar is hidden on `/`, so the homepage owns its own login
+  // modal and top-level actions in order to match the supplied reference page.
   const [loginModal, setLoginModal] = useState<{ open: boolean; tab: 'signin' | 'register' }>({
     open: false,
     tab: 'signin',
   })
 
+  // Some homepage navigation stays on the same page and scrolls to sections
+  // instead of pushing the user onto a new route.
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }

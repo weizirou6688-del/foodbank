@@ -1,0 +1,575 @@
+/**
+ * Home 页面颜色主题
+ * 
+ * 丰富的颜色层次用于区分不同的页面区域和组件
+ * ⚠️ SAFE TO MODIFY: 所有 CSS 只影响视觉呈现
+ */
+
+/* ============================================
+   页面级别样式
+   ============================================ */
+
+.page {
+  width: 100%;
+  background: var(--surface-page-bg);
+}
+
+/* ============================================
+   HERO SECTION - Hero 区域颜色增强
+   ============================================ */
+
+.hero {
+  position: relative;
+  min-height: 520px;
+  display: flex;
+  align-items: center;
+  padding: 5rem 2rem 4rem;
+  overflow: hidden;
+  /* 温暖的渐变背景 */
+  background: linear-gradient(135deg, #FFFFFF 0%, var(--color-brand-50) 100%);
+}
+
+/* 增强的光晕效果 - 多层渐变 */
+.heroGlow {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 420px;
+  height: 420px;
+  /* 多层光晕 */
+  background: 
+    radial-gradient(circle, rgba(247, 220, 111, 0.35) 0%, transparent 70%),
+    radial-gradient(circle at 30% 30%, rgba(244, 197, 66, 0.2) 0%, transparent 50%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.heroContent {
+  max-width: 600px;
+  position: relative;
+  z-index: 1;
+}
+
+.heroTag {
+  display: inline-flex;
+  align-items: center;
+  /* 品牌色渐变背景 */
+  background: linear-gradient(135deg, var(--color-brand-300) 0%, var(--color-brand-500) 100%);
+  color: var(--text-on-yellow);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  margin-bottom: 1.5rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* 彩色阴影 */
+  box-shadow: 0 2px 8px var(--shadow-color-yellow);
+}
+
+.heroTitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(2.2rem, 5vw, 3rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+}
+
+.heroTitle span {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--color-brand-500);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 3px;
+}
+
+.heroSub {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+  max-width: 480px;
+}
+
+.heroCta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btnPrimary {
+  /* 品牌色按钮 */
+  background: linear-gradient(135deg, var(--color-brand-400) 0%, var(--color-brand-500) 100%);
+  color: var(--text-on-yellow);
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  padding: 0.75rem 1.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s var(--ease-standard);
+  /* 阴影效果 */
+  box-shadow: 0 4px 12px var(--shadow-color-yellow);
+}
+
+.btnPrimary:hover {
+  background: linear-gradient(135deg, var(--color-brand-500) 0%, var(--color-brand-600) 100%);
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--shadow-color-yellow);
+}
+
+/* ============================================
+   SEARCH SECTION - 搜索区域颜色
+   ============================================ */
+
+.searchSection {
+  /* 清新的渐变背景 */
+  background: linear-gradient(180deg, #FFFFFF 0%, var(--color-brand-50) 100%);
+  padding: 4rem 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.sectionLabel {
+  display: inline-block;
+  /* 标签背景 */
+  background: var(--color-brand-100);
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.4rem 1rem;
+  border-radius: 9999px;
+  margin-bottom: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionTitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.sectionSub {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  max-width: 520px;
+}
+
+.searchBar {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  /* 搜索框容器背景 */
+  background: #FFFFFF;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 2px solid var(--border-subtle);
+}
+
+.postcodeInput {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.875rem 1.25rem;
+  border: 2px solid var(--border-subtle);
+  border-radius: 8px;
+  background: #FFFEF8;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s var(--ease-standard);
+}
+
+.postcodeInput:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(244, 197, 66, 0.15);
+}
+
+.postcodeInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+.searchBtn {
+  /* 品牌色按钮 */
+  background: linear-gradient(135deg, var(--color-brand-400) 0%, var(--color-brand-500) 100%);
+  color: var(--text-on-yellow);
+  border: none;
+  border-radius: 8px;
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s var(--ease-standard);
+  box-shadow: 0 4px 12px var(--shadow-color-yellow);
+}
+
+.searchBtn:hover {
+  background: linear-gradient(135deg, var(--color-brand-500) 0%, var(--color-brand-600) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--shadow-color-yellow);
+}
+
+/* ============================================
+   HELP SECTION - 帮助区域颜色
+   ============================================ */
+
+.helpSection {
+  /* 交替的背景色 */
+  background: linear-gradient(180deg, var(--color-brand-50) 0%, #FFFFFF 100%);
+  padding: 4rem 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.helpTitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 800;
+  text-align: center;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.helpSub {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 3rem;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.helpGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* 卡片基础样式 */
+.helpCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  transition: all 0.3s var(--ease-standard);
+  box-shadow: 0 4px 12px var(--shadow-color-base);
+}
+
+.helpCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px var(--shadow-color-base);
+  border-color: var(--border-default);
+}
+
+.cardIconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 1.25rem;
+  border-radius: 16px;
+  /* 默认渐变背景 */
+  background: linear-gradient(135deg, var(--color-brand-100) 0%, var(--color-brand-200) 100%);
+}
+
+.cardIcon {
+  width: 32px;
+  height: 32px;
+  color: var(--text-primary);
+}
+
+.helpCard h3 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.helpCard p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 现金捐赠卡片 - 绿色主题 */
+.cashCard {
+  background: linear-gradient(180deg, #FFFFFF 0%, var(--functional-connected-bg) 100%);
+  border: 1px solid var(--functional-connected-border);
+}
+
+.cashCard .cardIconWrap {
+  background: linear-gradient(135deg, var(--functional-connected-bg) 0%, var(--functional-connected-border) 100%);
+}
+
+.cashCard .cardIcon {
+  color: var(--functional-connected);
+}
+
+/* 物品捐赠卡片 - 黄色主题 */
+.goodsCard {
+  background: linear-gradient(180deg, #FFFFFF 0%, var(--state-warning-bg) 100%);
+  border: 1px solid var(--state-warning-border);
+}
+
+.goodsCard .cardIconWrap {
+  background: linear-gradient(135deg, var(--state-warning-bg) 0%, var(--state-warning-border) 100%);
+}
+
+.goodsCard .cardIcon {
+  color: var(--functional-discovery);
+}
+
+/* 志愿者卡片 - 蓝色主题 */
+.volunteerCard {
+  background: linear-gradient(180deg, #FFFFFF 0%, var(--state-info-bg) 100%);
+  border: 1px solid var(--state-info-border);
+}
+
+.volunteerCard .cardIconWrap {
+  background: linear-gradient(135deg, var(--state-info-bg) 0%, var(--state-info-border) 100%);
+}
+
+.volunteerCard .cardIcon {
+  color: var(--functional-user);
+}
+
+/* 倡导卡片 - 橙色主题 */
+.advocateCard {
+  background: linear-gradient(180deg, #FFFFFF 0%, var(--functional-selected-bg) 100%);
+  border: 1px solid var(--functional-selected-border);
+}
+
+.advocateCard .cardIconWrap {
+  background: linear-gradient(135deg, var(--functional-selected-bg) 0%, var(--functional-selected-border) 100%);
+}
+
+.advocateCard .cardIcon {
+  color: var(--functional-selected);
+}
+
+/* ============================================
+   IMPACT SECTION - 影响区域颜色
+   ============================================ */
+
+.impactSection {
+  /* 清新的绿色背景 */
+  background: linear-gradient(180deg, var(--functional-connected-bg) 0%, #FFFFFF 100%);
+  padding: 4rem 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.impactTitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 800;
+  text-align: center;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.impactSub {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 3rem;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.impactGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.impactCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  transition: all 0.3s var(--ease-standard);
+  box-shadow: 0 4px 12px var(--shadow-color-base);
+}
+
+.impactCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px var(--shadow-color-yellow);
+  border-color: var(--border-default);
+}
+
+.impactNumber {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 3rem;
+  font-weight: 900;
+  /* 渐变文字 */
+  background: linear-gradient(135deg, var(--color-brand-500) 0%, var(--color-brand-600) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+
+.impactLabel {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ============================================
+   CTA SECTION - 行动号召区域颜色
+   ============================================ */
+
+.ctaSection {
+  /* 品牌色渐变背景 */
+  background: linear-gradient(135deg, var(--color-brand-400) 0%, var(--color-brand-600) 100%);
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.ctaContent {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.ctaTitle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 800;
+  color: var(--text-on-yellow);
+  margin-bottom: 1rem;
+}
+
+.ctaSub {
+  font-size: 1.05rem;
+  color: var(--text-on-yellow);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  opacity: 0.95;
+}
+
+.ctaButtons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btnWhite {
+  background: #FFFFFF;
+  color: var(--text-primary);
+  border: 2px solid #FFFFFF;
+  border-radius: 8px;
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s var(--ease-standard);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btnWhite:hover {
+  background: var(--color-brand-50);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.btnOutline {
+  background: transparent;
+  color: var(--text-on-yellow);
+  border: 2px solid var(--text-on-yellow);
+  border-radius: 8px;
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s var(--ease-standard);
+}
+
+.btnOutline:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   FOOTER - 页脚颜色
+   ============================================ */
+
+.footer {
+  background: var(--surface-footer);
+  padding: 3rem 2rem 2rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.footerContent {
+  max-width: 1280px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.footerText {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ============================================
+   响应式设计
+   ============================================ */
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 4rem 1.5rem 3rem;
+  }
+
+  .searchSection,
+  .helpSection,
+  .impactSection,
+  .ctaSection {
+    padding: 3rem 1.5rem;
+  }
+
+  .helpGrid,
+  .impactGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .ctaButtons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .btnWhite,
+  .btnOutline {
+    width: 100%;
+    max-width: 300px;
+  }
+}
