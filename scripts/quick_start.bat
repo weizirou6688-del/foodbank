@@ -256,7 +256,7 @@ exit /b 0
 
 :wait_for_backend_ready
 set "PORT=%~1"
-for /l %%I in (1,1,15) do (
+for /l %%I in (1,1,30) do (
     timeout /t 1 /nobreak >nul
     call :is_backend_ready %PORT%
     if not errorlevel 1 exit /b 0
@@ -265,7 +265,7 @@ exit /b 1
 
 :wait_for_frontend_ready
 set "PORT=%~1"
-for /l %%I in (1,1,25) do (
+for /l %%I in (1,1,45) do (
     timeout /t 1 /nobreak >nul
     call :is_our_frontend %PORT%
     if not errorlevel 1 exit /b 0
@@ -289,13 +289,13 @@ netstat -ano | findstr "LISTENING" | findstr ":%~1 " >nul 2>&1
 exit /b %errorlevel%
 
 :is_our_backend
-curl.exe -fsS "http://localhost:%~1/" 2>nul | findstr /C:"ABC Community Food Bank API" >nul 2>&1
+curl.exe -fsS "http://127.0.0.1:%~1/" 2>nul | findstr /C:"ABC Community Food Bank API" >nul 2>&1
 exit /b %errorlevel%
 
 :is_backend_ready
-curl.exe -fsS "http://localhost:%~1/health" 2>nul | findstr /C:"\"status\":\"ok\"" >nul 2>&1
+curl.exe -fsS "http://127.0.0.1:%~1/health" 2>nul | findstr /C:"\"status\":\"ok\"" >nul 2>&1
 exit /b %errorlevel%
 
 :is_our_frontend
-curl.exe -fsS "http://localhost:%~1" 2>nul | findstr /C:"ABC Community Food Bank" >nul 2>&1
+curl.exe -fsS "http://127.0.0.1:%~1" 2>nul | findstr /C:"ABC Community Food Bank" >nul 2>&1
 exit /b %errorlevel%
