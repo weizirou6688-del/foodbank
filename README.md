@@ -19,6 +19,8 @@ Double-click `scripts\quick_start.bat` to start all services automatically.
 
 Startup now uses a shared repo-root `dev.env` file for frontend/backend port defaults. If the preferred port is already occupied by another app, the script will fall back to an available local port and print the actual frontend/backend URLs at the end. Active ports are also written to `.logs\frontend.port` and `.logs\backend.port`. Per-port runtime logs are written to `.logs\frontend_<port>.log` and `.logs\backend_<port>.log`.
 
+If the repo-local `.venv` exists, the quick-start and backend launcher scripts will prefer that interpreter over the system `python` executable. This avoids mixed environments and makes stop/restart behaviour more predictable on Windows.
+
 Or run from command line:
 
 ```batch
