@@ -21,4 +21,4 @@ $proxyTarget = "http://127.0.0.1:$BackendPort"
 Set-Content -Path $logPath -Encoding utf8 -Value "[$(Get-Date -Format s)] Starting frontend on port $Port (proxy: $proxyTarget)"
 
 $command = "cd /d ""$frontendDir"" && set VITE_API_PROXY_TARGET=$proxyTarget && set VITE_FRONTEND_PORT=$Port && set VITE_STRICT_PORT=true && npm.cmd run dev -- --host 127.0.0.1 --port $Port --strictPort >> ""$logPath"" 2>&1"
-cmd.exe /d /c $command
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/d', '/c', $command -WindowStyle Hidden | Out-Null

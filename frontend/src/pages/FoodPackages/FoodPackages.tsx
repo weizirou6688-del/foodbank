@@ -80,21 +80,111 @@ export default function FoodPackages() {
     }
   }, [availableItems, category])
 
+  const remainingPackageSlots = Math.max(0, WEEKLY_COLLECTION_LIMIT - weeklyCollected)
+
+  useEffect(() => {
+    if (showSuccess) {
+      return
+    }
+
+    setPkgQty((prev) => {
+      const packagesById = new Map(packages.map((pkg) => [pkg.id, pkg]))
+      let remainingSlots = remainingPackageSlots
+      let changed = false
+      const next: Record<number, number> = {}
+
+      for (const [rawId, rawQty] of Object.entries(prev)) {
+        const packageId = Number(rawId)
+        const pkg = packagesById.get(packageId)
+
+        if (!pkg || pkg.stock <= 0 || remainingSlots <= 0) {
+          changed = true
+          continue
+        }
+
+        const cappedQty = Math.min(rawQty, pkg.stock, remainingSlots)
+        if (cappedQty !== rawQty) {
+          changed = true
+        }
+
+        if (cappedQty > 0) {
+          next[packageId] = cappedQty
+          remainingSlots -= cappedQty
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [packages, remainingPackageSlots, showSuccess])
+
+  useEffect(() => {
+    if (showSuccess) {
+      return
+    }
+
+    setFoodSel((prev) => {
+      const itemsById = new Map(availableItems.map((item) => [String(item.id), item]))
+      let selectedTypes = 0
+      let changed = false
+      const next: Record<string, number> = {}
+
+      for (const [itemId, rawQty] of Object.entries(prev)) {
+        const item = itemsById.get(itemId)
+        if (!item || item.stock <= 0 || selectedTypes >= MAX_INDIVIDUAL) {
+          changed = true
+          continue
+        }
+
+        const cappedQty = Math.min(rawQty, item.stock, MAX_INDIVIDUAL)
+        if (cappedQty !== rawQty) {
+          changed = true
+        }
+
+        if (cappedQty > 0) {
+          next[itemId] = cappedQty
+          selectedTypes += 1
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [availableItems, showSuccess])
+
+  useEffect(() => {
+    if (errorMsg && !showSuccess) {
+      setErrorMsg('')
+    }
+  }, [pkgQty, foodSel])
+
   const foodBank = selectedFoodBank
   const displayPackages = packages
   const categories = ['All', ...Array.from(new Set(availableItems.map((item) => item.category)))]
 
   /* ── derived ── */
   const totalPkgs = Object.values(pkgQty).reduce((s, q) => s + q, 0)
-  const remaining = Math.max(0, WEEKLY_COLLECTION_LIMIT - weeklyCollected)
+  const remaining = remainingPackageSlots
   const totalFoods = Object.keys(foodSel).length
+  const totalFoodUnits = Object.values(foodSel).reduce((sum, qty) => sum + qty, 0)
   const atFoodLimit = totalFoods >= MAX_INDIVIDUAL
+  const packageLimitReached = remainingPackageSlots === 0
+  const interactionsDisabled = isBootstrapping || loading || showSuccess
   const filteredFoods = category === 'All'
     ? availableItems
     : availableItems.filter((item) => item.category === category)
   const totalPages = Math.ceil(filteredFoods.length / ITEMS_PER_PAGE)
   const pagedFoods = filteredFoods.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
   const hasAny = totalPkgs > 0 || totalFoods > 0
+
+  useEffect(() => {
+    if (totalPages === 0 && page !== 1) {
+      setPage(1)
+      return
+    }
+
+    if (totalPages > 0 && page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [page, totalPages])
 
   if (isBootstrapping && !foodBank) {
     return (
@@ -120,16 +210,24 @@ export default function FoodPackages() {
 
   /* ── handlers ── */
   const changePkgQty = (id: number, delta: number, maxStock: number) => {
+    if (interactionsDisabled) {
+      return
+    }
+
     setPkgQty(prev => {
       const cur = prev[id] || 0
       const curTotal = Object.values(prev).reduce((s, q) => s + q, 0)
-      if (delta > 0 && (cur >= maxStock || curTotal >= WEEKLY_COLLECTION_LIMIT)) return prev
+      if (delta > 0 && (cur >= maxStock || curTotal >= remainingPackageSlots)) return prev
       const next = cur + delta
       if (next <= 0) { const c = { ...prev }; delete c[id]; return c }
       return { ...prev, [id]: next }
     })
   }
   const toggleFood = (id: string) => {
+    if (interactionsDisabled) {
+      return
+    }
+
     setFoodSel(prev => {
       if (prev[id]) { const c = { ...prev }; delete c[id]; return c }
       if (Object.keys(prev).length >= MAX_INDIVIDUAL) return prev
@@ -137,6 +235,10 @@ export default function FoodPackages() {
     })
   }
   const changeFoodQty = (id: string, delta: number, max: number) => {
+    if (interactionsDisabled) {
+      return
+    }
+
     setFoodSel(prev => {
       const cur = prev[id] || 0; const next = cur + delta
       if (next <= 0) { const c = { ...prev }; delete c[id]; return c }
@@ -147,8 +249,13 @@ export default function FoodPackages() {
 
   const handleApply = async () => {
     setErrorMsg('')
+    if (interactionsDisabled) { return }
     if (!user?.email) { setErrorMsg('Please sign in to submit an application.'); return }
     if (!hasAny) { setErrorMsg('Please select at least one package or item.'); return }
+    if (totalPkgs > remainingPackageSlots) {
+      setErrorMsg(`You can only request ${remainingPackageSlots} more package${remainingPackageSlots === 1 ? '' : 's'} this week.`)
+      return
+    }
     const selArray: Selection[] = Object.entries(pkgQty).map(([id, qty]) => ({ packageId: Number(id), qty }))
     const itemArray: ItemSelection[] = Object.entries(foodSel).map(([id, qty]) => ({ itemId: Number(id), qty }))
     setLoading(true)
@@ -180,7 +287,12 @@ export default function FoodPackages() {
   let summaryTxt = ''
   if (totalPkgs > 0) summaryTxt += `${totalPkgs} package${totalPkgs > 1 ? 's' : ''}`
   if (totalPkgs > 0 && totalFoods > 0) summaryTxt += ' + '
-  if (totalFoods > 0) summaryTxt += `${totalFoods} item${totalFoods > 1 ? 's' : ''}`
+  if (totalFoods > 0) {
+    summaryTxt += `${totalFoods} item type${totalFoods > 1 ? 's' : ''}`
+    if (totalFoodUnits > totalFoods) {
+      summaryTxt += ` (${totalFoodUnits} units)`
+    }
+  }
 
   return (
     <div className={styles.pageWrap}>
@@ -231,7 +343,7 @@ export default function FoodPackages() {
 
           {/* ══ Info Banner ══ */}
           <div className="rounded-lg p-3 mb-8 text-sm border" style={{ backgroundColor: '#F2F4F3', color: '#1A1A1A', borderColor: '#E5E7EB' }}>
-            Maximum <strong>{WEEKLY_COLLECTION_LIMIT} packages</strong> per week. This week: <strong style={{ color: '#F5A623' }}>{weeklyCollected}/{WEEKLY_COLLECTION_LIMIT}</strong> used.
+            Maximum <strong>{WEEKLY_COLLECTION_LIMIT} packages</strong> per week. This week: <strong style={{ color: '#F5A623' }}>{weeklyCollected}/{WEEKLY_COLLECTION_LIMIT}</strong> used, with <strong>{remainingPackageSlots}</strong> package slot{remainingPackageSlots === 1 ? '' : 's'} left.
           </div>
 
           {errorMsg && (
@@ -242,15 +354,21 @@ export default function FoodPackages() {
           <div id="section-packages" className="mb-12" style={{ scrollMarginTop: '1.5rem' }}>
             <div className="mb-5">
               <h3 className="text-2xl font-bold mb-1" style={{ color: '#1A1A1A', fontFamily: FONT }}>Food Packages</h3>
-              <p className="text-sm" style={{ color: '#6B7280' }}>Pre-made packages with essential items. Select up to {WEEKLY_COLLECTION_LIMIT} packages.</p>
+              <p className="text-sm" style={{ color: '#6B7280' }}>Pre-made packages with essential items. You can request up to {remainingPackageSlots} more package{remainingPackageSlots === 1 ? '' : 's'} this week.</p>
             </div>
+
+            {packageLimitReached && (
+              <div className="rounded-lg border p-3 mb-4 text-sm" style={{ borderColor: '#FDE68A', backgroundColor: '#FEF3C7', color: '#92400E' }}>
+                You have already used this week&apos;s package allowance. You can still request individual food items below.
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {displayPackages.map(pkg => {
                 const qty = pkgQty[pkg.id] || 0
                 const selected = qty > 0
                 const isLow = pkg.stock <= pkg.threshold
-                const atLimit = !selected && totalPkgs >= WEEKLY_COLLECTION_LIMIT
+                const atLimit = !selected && totalPkgs >= remainingPackageSlots
                 return (
                   <div key={pkg.id} className="rounded-lg overflow-hidden border transition-all"
                     style={{
@@ -297,34 +415,34 @@ export default function FoodPackages() {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
                         <button
                           onClick={() => changePkgQty(pkg.id, -1, pkg.stock)}
-                          disabled={qty === 0}
+                          disabled={interactionsDisabled || qty === 0}
                           style={{
                             width: '2rem', height: '2rem', borderRadius: 9999,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            backgroundColor: qty > 0 ? '#F5A623' : '#E5E7EB',
+                            backgroundColor: !interactionsDisabled && qty > 0 ? '#F5A623' : '#E5E7EB',
                             color: '#1A1A1A', border: 'none',
-                            cursor: qty > 0 ? 'pointer' : 'not-allowed',
+                            cursor: !interactionsDisabled && qty > 0 ? 'pointer' : 'not-allowed',
                             transition: 'background-color 0.15s',
                           }}
-                          onMouseOver={e => { if (qty > 0) e.currentTarget.style.backgroundColor = '#D4870A' }}
-                          onMouseOut={e => { if (qty > 0) e.currentTarget.style.backgroundColor = '#F5A623' }}
+                          onMouseOver={e => { if (!interactionsDisabled && qty > 0) e.currentTarget.style.backgroundColor = '#D4870A' }}
+                          onMouseOut={e => { if (!interactionsDisabled && qty > 0) e.currentTarget.style.backgroundColor = '#F5A623' }}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         </button>
                         <div style={{ minWidth: 40, textAlign: 'center', fontSize: '1.25rem', fontWeight: 700, color: '#1A1A1A' }}>{qty}</div>
                         <button
                           onClick={() => changePkgQty(pkg.id, 1, pkg.stock)}
-                          disabled={atLimit || qty >= pkg.stock}
+                          disabled={interactionsDisabled || atLimit || qty >= pkg.stock}
                           style={{
                             width: '2rem', height: '2rem', borderRadius: 9999,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            backgroundColor: !atLimit && qty < pkg.stock ? '#F5A623' : '#E5E7EB',
+                            backgroundColor: !interactionsDisabled && !atLimit && qty < pkg.stock ? '#F5A623' : '#E5E7EB',
                             color: '#1A1A1A', border: 'none',
-                            cursor: !atLimit && qty < pkg.stock ? 'pointer' : 'not-allowed',
+                            cursor: !interactionsDisabled && !atLimit && qty < pkg.stock ? 'pointer' : 'not-allowed',
                             transition: 'background-color 0.15s',
                           }}
-                          onMouseOver={e => { if (!atLimit && qty < pkg.stock) e.currentTarget.style.backgroundColor = '#D4870A' }}
-                          onMouseOut={e => { if (!atLimit && qty < pkg.stock) e.currentTarget.style.backgroundColor = '#F5A623' }}
+                          onMouseOver={e => { if (!interactionsDisabled && !atLimit && qty < pkg.stock) e.currentTarget.style.backgroundColor = '#D4870A' }}
+                          onMouseOut={e => { if (!interactionsDisabled && !atLimit && qty < pkg.stock) e.currentTarget.style.backgroundColor = '#F5A623' }}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         </button>
@@ -416,12 +534,13 @@ export default function FoodPackages() {
                         {/* Checkbox */}
                         <button
                           onClick={() => { if (canSelect) toggleFood(itemKey) }}
+                          disabled={interactionsDisabled || !canSelect}
                           style={{
                             width: '1.25rem', height: '1.25rem', borderRadius: '0.25rem',
                             border: `2px solid ${selected ? '#10B981' : '#E5E7EB'}`,
                             backgroundColor: selected ? '#10B981' : '#FFFFFF',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            flexShrink: 0, cursor: canSelect ? 'pointer' : 'not-allowed',
+                            flexShrink: 0, cursor: !interactionsDisabled && canSelect ? 'pointer' : 'not-allowed',
                           }}
                         >
                           {selected && (
@@ -447,31 +566,32 @@ export default function FoodPackages() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <button
                             onClick={() => changeFoodQty(itemKey, -1, food.stock)}
+                            disabled={interactionsDisabled}
                             style={{
                               width: '1.75rem', height: '1.75rem', borderRadius: 9999,
-                              backgroundColor: '#F5A623', color: '#1A1A1A', border: 'none',
-                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              backgroundColor: interactionsDisabled ? '#E5E7EB' : '#F5A623', color: '#1A1A1A', border: 'none',
+                              cursor: interactionsDisabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                               transition: 'background-color 0.15s',
                             }}
-                            onMouseOver={e => { e.currentTarget.style.backgroundColor = '#D4870A' }}
-                            onMouseOut={e => { e.currentTarget.style.backgroundColor = '#F5A623' }}
+                            onMouseOver={e => { if (!interactionsDisabled) e.currentTarget.style.backgroundColor = '#D4870A' }}
+                            onMouseOut={e => { if (!interactionsDisabled) e.currentTarget.style.backgroundColor = '#F5A623' }}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
                           </button>
                           <div style={{ fontSize: '1.125rem', fontWeight: 700, minWidth: 30, textAlign: 'center', color: '#1A1A1A' }}>{qty}</div>
                           <button
                             onClick={() => changeFoodQty(itemKey, 1, food.stock)}
-                            disabled={qty >= MAX_INDIVIDUAL || qty >= food.stock}
+                            disabled={interactionsDisabled || qty >= MAX_INDIVIDUAL || qty >= food.stock}
                             style={{
                               width: '1.75rem', height: '1.75rem', borderRadius: 9999,
-                              backgroundColor: qty < MAX_INDIVIDUAL && qty < food.stock ? '#F5A623' : '#E5E7EB',
+                              backgroundColor: !interactionsDisabled && qty < MAX_INDIVIDUAL && qty < food.stock ? '#F5A623' : '#E5E7EB',
                               color: '#1A1A1A', border: 'none',
-                              cursor: qty < MAX_INDIVIDUAL && qty < food.stock ? 'pointer' : 'not-allowed',
+                              cursor: !interactionsDisabled && qty < MAX_INDIVIDUAL && qty < food.stock ? 'pointer' : 'not-allowed',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               transition: 'background-color 0.15s',
                             }}
-                            onMouseOver={e => { if (qty < MAX_INDIVIDUAL && qty < food.stock) e.currentTarget.style.backgroundColor = '#D4870A' }}
-                            onMouseOut={e => { if (qty < MAX_INDIVIDUAL && qty < food.stock) e.currentTarget.style.backgroundColor = '#F5A623' }}
+                            onMouseOver={e => { if (!interactionsDisabled && qty < MAX_INDIVIDUAL && qty < food.stock) e.currentTarget.style.backgroundColor = '#D4870A' }}
+                            onMouseOut={e => { if (!interactionsDisabled && qty < MAX_INDIVIDUAL && qty < food.stock) e.currentTarget.style.backgroundColor = '#F5A623' }}
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                           </button>
@@ -567,8 +687,14 @@ export default function FoodPackages() {
                   )}
                   {totalFoods > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                      <span style={{ color: '#6B7280' }}>Individual Items</span>
+                      <span style={{ color: '#6B7280' }}>Individual Item Types</span>
                       <span style={{ fontWeight: 700, color: '#1A1A1A' }}>{totalFoods}</span>
+                    </div>
+                  )}
+                  {totalFoodUnits > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+                      <span style={{ color: '#6B7280' }}>Individual Item Units</span>
+                      <span style={{ fontWeight: 700, color: '#1A1A1A' }}>{totalFoodUnits}</span>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
@@ -606,17 +732,17 @@ export default function FoodPackages() {
               </div>
               <button
                 onClick={handleApply}
-                disabled={!hasAny || loading}
+                disabled={!hasAny || loading || isBootstrapping}
                 className="px-8 py-3 rounded-lg font-medium transition-all"
                 style={{
                   backgroundColor: hasAny ? '#F5A623' : '#E5E7EB',
                   color: '#1A1A1A',
-                  cursor: hasAny && !loading ? 'pointer' : 'not-allowed',
-                  opacity: !hasAny || loading ? 0.3 : 1,
+                  cursor: hasAny && !loading && !isBootstrapping ? 'pointer' : 'not-allowed',
+                  opacity: !hasAny || loading || isBootstrapping ? 0.3 : 1,
                 }}
-                onMouseOver={e => { if (hasAny && !loading) e.currentTarget.style.backgroundColor = '#D4870A' }}
-                onMouseOut={e => { if (hasAny && !loading) e.currentTarget.style.backgroundColor = '#F5A623' }}
-              >{loading ? 'Submitting...' : 'Submit Application'}</button>
+                onMouseOver={e => { if (hasAny && !loading && !isBootstrapping) e.currentTarget.style.backgroundColor = '#D4870A' }}
+                onMouseOut={e => { if (hasAny && !loading && !isBootstrapping) e.currentTarget.style.backgroundColor = '#F5A623' }}
+              >{isBootstrapping ? 'Loading Availability...' : loading ? 'Submitting...' : 'Submit Application'}</button>
             </div>
           )}
 

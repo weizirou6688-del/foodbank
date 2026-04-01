@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
 
@@ -168,6 +168,12 @@ DEMO_INVENTORY_ITEMS = [
         "quantity": 220,
     },
 ]
+
+DEMO_INVENTORY_ITEM_NAMES = {item["name"] for item in DEMO_INVENTORY_ITEMS}
+
+
+def _demo_batch_reference(item_name: str) -> str:
+    return f"demo-seed-{item_name.lower().replace(' ', '-')}"
 
 DEMO_PACKAGES = [
     {
@@ -344,7 +350,7 @@ async def ensure_demo_inventory_and_packages() -> None:
 
             inventory_items_by_name[item_data["name"]] = existing_item
 
-            batch_reference = f"demo-seed-{item_data['name'].lower().replace(' ', '-')}"
+            batch_reference = _demo_batch_reference(item_data["name"])
             lot_result = await db.execute(
                 select(InventoryLot).where(
                     InventoryLot.inventory_item_id == existing_item.id,
@@ -482,6 +488,26 @@ async def ensure_demo_inventory_and_packages() -> None:
                 if existing_package.name not in expected_names and existing_package.is_active:
                     existing_package.is_active = False
                     changed = True
+
+        # Previous demo seeds used a few legacy item names that now have
+        # renamed replacements (for example Rice -> Rice (2kg)). When those
+        # old lots stay active, the public item list shows duplicate entries.
+        legacy_demo_lots = (
+            await db.execute(
+                select(InventoryLot, InventoryItem.name)
+                .join(InventoryItem, InventoryItem.id == InventoryLot.inventory_item_id)
+                .where(
+                    InventoryLot.batch_reference.like("demo-seed-%"),
+                    InventoryLot.deleted_at.is_(None),
+                )
+            )
+        ).all()
+        now = datetime.now(timezone.utc)
+        for lot, item_name in legacy_demo_lots:
+            if item_name in DEMO_INVENTORY_ITEM_NAMES:
+                continue
+            lot.deleted_at = now
+            changed = True
 
         if changed:
             await db.commit()

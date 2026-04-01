@@ -77,11 +77,20 @@ set "PORT=%~1"
 set "KILLED="
 for /f "tokens=5" %%A in ('netstat -ano ^| findstr "LISTENING" ^| findstr ":%PORT% "') do (
     echo   - Killing process %%A on port %PORT%
-    taskkill /F /PID %%A >nul 2>&1
+    taskkill /F /T /PID %%A >nul 2>&1
+    if errorlevel 1 call :kill_children_of_pid %%A
     set "KILLED=1"
 )
 if not defined KILLED (
     echo   - No listener found on port %PORT%
+)
+exit /b 0
+
+:kill_children_of_pid
+set "PARENT_PID=%~1"
+for /f "tokens=2 delims==" %%B in ('wmic process where "ParentProcessId=%PARENT_PID%" get ProcessId /value ^| findstr "="') do (
+    echo     - Killing child process %%B from ghost parent %PARENT_PID%
+    taskkill /F /T /PID %%B >nul 2>&1
 )
 exit /b 0
 
