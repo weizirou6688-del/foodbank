@@ -47,6 +47,10 @@ class DonationCash(Base):
     # index=True enables quick lookup by donor or for sending receipts.
     donor_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
 
+    # Optional donor name captured from the checkout/contact form.
+    # Kept nullable to preserve support for anonymous/manual cash donations.
+    donor_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # From spec: amount_pence: INTEGER, NOT NULL
     # Amount in pence (1/100 of currency unit) to avoid floating-point
     # precision issues common in financial systems.

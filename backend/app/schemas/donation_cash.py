@@ -19,6 +19,10 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 # Common fields for cash donation creation and responses.
 class DonationCashBase(BaseModel):
+    # Optional donor name captured from checkout/contact form.
+    # Nullable to preserve support for anonymous/offline donations.
+    donor_name: str | None = Field(default=None, min_length=1, max_length=100)
+
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor email for receipt and contact. Validated as EmailStr per RFC 5332.
     donor_email: EmailStr
@@ -43,6 +47,9 @@ class DonationCashBase(BaseModel):
 class DonationCashCreate(BaseModel):
     # Typically called from payment processor webhook or form submission.
     # Does NOT require user authentication (anonymous donations allowed).
+
+    # Optional donor name captured from the payment/contact form.
+    donor_name: str | None = Field(default=None, min_length=1, max_length=100)
 
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor email for receipt.
