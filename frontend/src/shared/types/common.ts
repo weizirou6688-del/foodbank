@@ -72,6 +72,51 @@ export interface GoodsDonationForm {
   notes: string
 }
 
+export interface GoodsDonationApiItem {
+  id: number
+  donation_id: string
+  item_name: string
+  quantity: number
+}
+
+export interface GoodsDonationResponse {
+  id: string
+  donor_user_id?: string | null
+  food_bank_id?: number | null
+  food_bank_name?: string | null
+  food_bank_address?: string | null
+  donor_name: string
+  donor_email: string
+  donor_phone: string
+  postcode?: string | null
+  pickup_date?: string | null
+  item_condition?: string | null
+  estimated_quantity?: string | null
+  notes?: string | null
+  status: 'pending' | 'received' | 'rejected'
+  created_at: string
+  items: GoodsDonationApiItem[]
+}
+
+export interface DonationListRow {
+  donation_type: 'cash' | 'goods'
+  donor_email?: string
+  donor_name?: string
+  donor_phone?: string
+  food_bank_id?: number | null
+  food_bank_name?: string | null
+  food_bank_address?: string | null
+  postcode?: string | null
+  pickup_date?: string | null
+  item_condition?: string | null
+  estimated_quantity?: string | null
+  amount_pence?: number
+  status?: string
+  notes?: string | null
+  created_at?: string
+  items?: GoodsDonationApiItem[]
+}
+
 // Restock requests used by mock/demo helpers
 export interface RestockRequest {
   id: number

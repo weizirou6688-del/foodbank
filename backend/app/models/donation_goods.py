@@ -12,9 +12,9 @@ or rejected. Items are recorded in junction table DonationGoodsItem.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -54,6 +54,16 @@ class DonationGoods(Base):
         index=True,
     )
 
+    food_bank_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food_banks.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    food_bank_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    food_bank_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # From spec: donor_name: VARCHAR(100), NOT NULL
     # Donor's name for receipt/thank-you communication.
     # Required even if user is NULL (anonymous donations still need contact info).
@@ -67,6 +77,14 @@ class DonationGoods(Base):
     # From spec: donor_phone: VARCHAR(30), NOT NULL
     # Donor's phone for follow-up (if donation rejected or needs clarification).
     donor_phone: Mapped[str] = mapped_column(String(30), nullable=False)
+
+    postcode: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    pickup_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    item_condition: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    estimated_quantity: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # From spec: notes: TEXT
     # Optional donation notes (e.g., dietary restrictions, storage requirements).
@@ -91,6 +109,8 @@ class DonationGoods(Base):
     # FK: donor_user_id -> users.id (nullable)
     # back_populates="goods_donations" establishes bidirectional relationship.
     donor_user: Mapped["User | None"] = relationship(back_populates="goods_donations")
+
+    food_bank: Mapped["FoodBank | None"] = relationship(back_populates="goods_donations")
 
     # Relationship: DonationGoods -> DonationGoodsItems (one-to-many)
     # From spec § 2 "donations_goods → donation_goods_items: one-to-many"

@@ -4,13 +4,16 @@ Food Bank location management routes.
 Spec § 2.2: GET /food-banks, GET /food-banks/:id, POST, PATCH, DELETE
 """
 
+import asyncio
 from datetime import date
 from html import unescape
+import json
+from math import atan2, cos, radians, sin, sqrt
 import re
 from typing import Optional
-from urllib.parse import urlparse
-
-import httpx
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urlencode, urlparse
+from urllib.request import Request, urlopen
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +35,7 @@ from app.schemas.inventory_item import InventoryItemListResponse, InventoryItemO
 
 
 router = APIRouter(tags=["Food Banks"])
+NEAREST_FOOD_BANK_LIMIT = 25
 
 # These regexes support a two-stage extraction strategy for Trussell opening
 # hours: first use the structured table when available, then fall back to
@@ -182,58 +186,112 @@ def _extract_opening_hours_from_html(value: str) -> list[str]:
     return hours[:7]
 
 
-@router.get("/geocode")
-async def geocode_postcode(postcode: str = Query(..., min_length=2, max_length=32)):
-    """
-    Resolve postcode to coordinates.
+def _haversine_distance_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    earth_radius_km = 6371
+    d_lat = radians(lat2 - lat1)
+    d_lng = radians(lng2 - lng1)
+    a = (
+        sin(d_lat / 2) ** 2
+        + cos(radians(lat1)) * cos(radians(lat2)) * sin(d_lng / 2) ** 2
+    )
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return earth_radius_km * c
 
-    Provider strategy:
-    1) Try postcodes.io (best for UK postcodes)
-    2) Fallback to Nominatim (broader postcode coverage)
-    """
-    normalized_postcode = postcode.strip()
+
+def _blocking_fetch_text(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: float = 20.0,
+) -> tuple[int, str, str]:
+    request = Request(url, headers=headers or {})
+
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            return int(getattr(response, "status", 200)), body, response.geturl()
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return exc.code, body, exc.geturl()
+
+
+async def _fetch_text(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: float = 20.0,
+) -> tuple[int, str, str]:
+    try:
+        return await asyncio.to_thread(
+            _blocking_fetch_text,
+            url,
+            headers=headers,
+            timeout=timeout,
+        )
+    except (OSError, TimeoutError, URLError) as exc:
+        raise RuntimeError(str(exc)) from exc
+
+
+async def _fetch_json(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    timeout: float = 20.0,
+) -> tuple[int, object, str]:
+    status_code, body, final_url = await _fetch_text(url, headers=headers, timeout=timeout)
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON payload from {final_url}: {exc}") from exc
+
+    return status_code, payload, final_url
+
+
+async def _geocode_postcode_coordinates(normalized_postcode: str) -> dict[str, float | str]:
     if not normalized_postcode:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Postcode cannot be empty",
         )
 
+    primary_error: Exception | None = None
+    fallback_error: Exception | None = None
+
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            # Primary: UK postcode service
-            primary = await client.get(
-                f"https://api.postcodes.io/postcodes/{normalized_postcode}"
-            )
-            if primary.status_code == status.HTTP_200_OK:
-                primary_json = primary.json()
-                result = primary_json.get("result") if isinstance(primary_json, dict) else None
-                if isinstance(result, dict):
-                    lat = result.get("latitude")
-                    lng = result.get("longitude")
-                    if isinstance(lat, (float, int)) and isinstance(lng, (float, int)):
-                        return {
-                            "lat": float(lat),
-                            "lng": float(lng),
-                            "source": "postcodes.io",
-                        }
+        primary_status, primary_payload, _ = await _fetch_json(
+            f"https://api.postcodes.io/postcodes/{quote(normalized_postcode, safe='')}",
+            headers={"User-Agent": "foodbank-app/1.0"},
+            timeout=15.0,
+        )
+        if primary_status == status.HTTP_200_OK and isinstance(primary_payload, dict):
+            result = primary_payload.get("result")
+            if isinstance(result, dict):
+                lat = result.get("latitude")
+                lng = result.get("longitude")
+                if isinstance(lat, (float, int)) and isinstance(lng, (float, int)):
+                    return {
+                        "lat": float(lat),
+                        "lng": float(lng),
+                        "source": "postcodes.io",
+                    }
+    except (RuntimeError, ValueError) as exc:
+        primary_error = exc
 
-            # Fallback: broader geocoder
-            fallback = await client.get(
-                "https://nominatim.openstreetmap.org/search",
-                params={
-                    "q": normalized_postcode,
-                    "format": "jsonv2",
-                    "limit": 1,
-                },
-                headers={
-                    "User-Agent": "foodbank-app/1.0",
-                },
-            )
-            fallback.raise_for_status()
-            fallback_json = fallback.json()
-
-            if isinstance(fallback_json, list) and fallback_json:
-                first = fallback_json[0]
+    try:
+        fallback_status, fallback_payload, _ = await _fetch_json(
+            "https://nominatim.openstreetmap.org/search?"
+            + urlencode({
+                "q": normalized_postcode,
+                "format": "jsonv2",
+                "limit": 1,
+            }),
+            headers={"User-Agent": "foodbank-app/1.0"},
+            timeout=15.0,
+        )
+        if fallback_status == status.HTTP_200_OK and isinstance(fallback_payload, list) and fallback_payload:
+            first = fallback_payload[0]
+            if isinstance(first, dict):
                 lat_raw = first.get("lat")
                 lon_raw = first.get("lon")
                 try:
@@ -246,17 +304,33 @@ async def geocode_postcode(postcode: str = Query(..., min_length=2, max_length=3
                     }
                 except (TypeError, ValueError):
                     pass
+    except (RuntimeError, ValueError) as exc:
+        fallback_error = exc
 
-    except httpx.HTTPError as exc:
+    if primary_error or fallback_error:
+        error_message = fallback_error or primary_error
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to geocode postcode: {exc}",
+            detail=f"Failed to geocode postcode: {error_message}",
         )
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Unable to resolve postcode: {normalized_postcode}",
     )
+
+
+@router.get("/geocode")
+async def geocode_postcode(postcode: str = Query(..., min_length=2, max_length=32)):
+    """
+    Resolve postcode to coordinates.
+
+    Provider strategy:
+    1) Try postcodes.io (best for UK postcodes)
+    2) Fallback to Nominatim (broader postcode coverage)
+    """
+    normalized_postcode = postcode.strip()
+    return await _geocode_postcode_coordinates(normalized_postcode)
 
 
 @router.get("/external-feed")
@@ -270,30 +344,32 @@ async def get_external_food_banks_feed():
     upstream_url = "https://www.givefood.org.uk/api/1/foodbanks/"
 
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.get(
-                upstream_url,
-                headers={
-                    "User-Agent": "foodbank-app/1.0",
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
-
-            if not isinstance(payload, list):
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Invalid upstream payload format",
-                )
-
-            return payload
+        status_code, payload, _ = await _fetch_json(
+            upstream_url,
+            headers={"User-Agent": "foodbank-app/1.0"},
+            timeout=20.0,
+        )
     except HTTPException:
         raise
-    except httpx.HTTPError as exc:
+    except (RuntimeError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to fetch external food bank feed: {exc}",
         )
+
+    if status_code != status.HTTP_200_OK:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"External food bank feed returned status {status_code}",
+        )
+
+    if not isinstance(payload, list):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Invalid upstream payload format",
+        )
+
+    return payload
 
 
 @router.get("/trussell-hours")
@@ -316,25 +392,30 @@ async def get_trussell_opening_hours(foodbank_url: str = Query(..., min_length=8
         base_url,
     ]
 
-    try:
-        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-            for candidate_url in candidate_urls:
-                response = await client.get(
-                    candidate_url,
-                    headers={
-                        "User-Agent": "foodbank-app/1.0",
-                    },
-                )
-                if response.status_code != status.HTTP_200_OK:
-                    continue
+    last_error: Exception | None = None
 
-                hours = _extract_opening_hours_from_html(response.text)
-                if hours:
-                    return {"hours": hours, "source_url": candidate_url}
-    except httpx.HTTPError as exc:
+    for candidate_url in candidate_urls:
+        try:
+            status_code, html, resolved_url = await _fetch_text(
+                candidate_url,
+                headers={"User-Agent": "foodbank-app/1.0"},
+                timeout=20.0,
+            )
+        except RuntimeError as exc:
+            last_error = exc
+            continue
+
+        if status_code != status.HTTP_200_OK:
+            continue
+
+        hours = _extract_opening_hours_from_html(html)
+        if hours:
+            return {"hours": hours, "source_url": resolved_url}
+
+    if last_error is not None:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch Trussell opening hours: {exc}",
+            detail=f"Failed to fetch Trussell opening hours: {last_error}",
         )
 
     return {"hours": [], "source_url": None}
@@ -353,10 +434,20 @@ async def list_food_banks(
     
     Note: proximity filtering not implemented in basic version.
     """
-    _ = postcode
     try:
         result = await db.execute(select(FoodBank))
         items = list(result.scalars().all())
+        if postcode and postcode.strip():
+            coords = await _geocode_postcode_coordinates(postcode.strip())
+            items.sort(
+                key=lambda bank: _haversine_distance_km(
+                    float(coords["lat"]),
+                    float(coords["lng"]),
+                    float(bank.lat),
+                    float(bank.lng),
+                )
+            )
+            items = items[:NEAREST_FOOD_BANK_LIMIT]
         total = len(items)
         return {
             "items": items,
