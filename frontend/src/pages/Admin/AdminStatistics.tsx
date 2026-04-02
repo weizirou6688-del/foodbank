@@ -1,21 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '@/app/store/authStore'
 import { adminAPI } from '@/shared/lib/api'
+import type { DonationListRow } from '@/shared/types/common'
 
 type Period = 'Day' | 'Week' | 'Month'
 
 interface Props {
   onSwitch: (s: 'statistics' | 'food') => void
-}
-
-interface DonationRow {
-  donation_type: 'cash' | 'goods'
-  donor_email?: string
-  donor_name?: string
-  amount_pence?: number
-  status?: string
-  notes?: string
-  created_at?: string
 }
 
 interface PackageStatsRow {
@@ -66,7 +57,7 @@ const PERIOD_LABEL: Record<Period, string> = {
 export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
   const [period, setPeriod] = useState<Period>('Day')
   const accessToken = useAuthStore((state) => state.accessToken)
-  const [donations, setDonations] = useState<DonationRow[]>([])
+  const [donations, setDonations] = useState<DonationListRow[]>([])
   const [packageStats, setPackageStats] = useState<PackageStatsRow[]>([])
   const [stockGapRows, setStockGapRows] = useState<StockGapRow[]>([])
   const [donationSummary, setDonationSummary] = useState<DonationSummary | null>(null)
@@ -106,7 +97,7 @@ export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
       }),
     ])
 
-    setDonations(Array.isArray(donationsData) ? (donationsData as DonationRow[]) : [])
+    setDonations(Array.isArray(donationsData) ? donationsData : [])
     setPackageStats(Array.isArray(packagesData) ? (packagesData as PackageStatsRow[]) : [])
     setStockGapRows(Array.isArray(stockGapData) ? (stockGapData as StockGapRow[]) : [])
     setDonationSummary(summaryData && typeof summaryData === 'object' ? (summaryData as DonationSummary) : null)
@@ -176,10 +167,13 @@ export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
     return parsed.toLocaleString()
   }
 
-  const renderDonationDetail = (row: DonationRow) => {
+  const renderDonationDetail = (row: DonationListRow) => {
     if (row.donation_type === 'cash') {
       const amount = typeof row.amount_pence === 'number' ? (row.amount_pence / 100).toFixed(2) : '0.00'
       return `GBP ${amount}`
+    }
+    if (Array.isArray(row.items) && row.items.length > 0) {
+      return row.items.map((item) => `${item.item_name} x${item.quantity}`).join(', ')
     }
     return row.notes || row.donor_name || 'Goods donation'
   }

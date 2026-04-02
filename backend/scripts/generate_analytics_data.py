@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import random
+import re
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -65,6 +66,11 @@ GOODS_NOTES = [
     "Office charity contribution",
     None,
 ]
+GOODS_CONDITIONS = [
+    "New or unopened",
+    "Excellent",
+    "Good",
+]
 GOODS_ITEMS = [
     "Rice",
     "Pasta",
@@ -77,6 +83,13 @@ GOODS_ITEMS = [
     "Peanut Butter",
     "Tinned Fruit",
 ]
+QUANTITY_UNITS = [
+    "bags",
+    "boxes",
+    "crates",
+    "packs",
+]
+UK_POSTCODE_PATTERN = re.compile(r"([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})$", re.IGNORECASE)
 
 
 def parse_args() -> GenerationConfig:
@@ -144,6 +157,13 @@ def make_email(name: str, unique_value: str) -> str:
     return f"{local}.{unique_value}@example.com"
 
 
+def extract_postcode_from_address(address: str) -> str | None:
+    match = UK_POSTCODE_PATTERN.search(address.strip())
+    if not match:
+        return None
+    return match.group(1).upper()
+
+
 async def ensure_public_users(
     db,
     count: int,
@@ -176,6 +196,9 @@ async def generate_cash_donations(db, rng: random.Random, config: GenerationConf
     created = 0
     today = date.today()
 
+    if config.cash_per_day <= 0:
+        return 0
+
     for offset in range(config.days):
         target_day = today - timedelta(days=offset)
         count = max(0, int(round(config.cash_per_day + rng.choice([-1, 0, 0, 1]))))
@@ -203,20 +226,32 @@ async def generate_goods_donations(
     rng: random.Random,
     config: GenerationConfig,
     public_users: list[User],
+    food_banks: list[FoodBank],
 ) -> int:
     created = 0
     today = date.today()
+
+    if config.goods_per_day <= 0:
+        return 0
 
     for offset in range(config.days):
         target_day = today - timedelta(days=offset)
         count = max(0, int(round(config.goods_per_day + rng.choice([-1, 0, 1]))))
         for donation_index in range(count):
             donor_name = make_name(rng)
+            selected_bank = rng.choice(food_banks) if food_banks else None
             goods = DonationGoods(
                 donor_user_id=rng.choice(public_users).id if rng.random() < 0.35 else None,
+                food_bank_id=selected_bank.id if selected_bank is not None else None,
+                food_bank_name=selected_bank.name if selected_bank is not None else None,
+                food_bank_address=selected_bank.address if selected_bank is not None else None,
                 donor_name=donor_name,
                 donor_email=make_email(donor_name, f"goods{offset:03d}{donation_index:02d}"),
                 donor_phone=f"07{rng.randint(100000000, 999999999)}",
+                postcode=extract_postcode_from_address(selected_bank.address) if selected_bank is not None else None,
+                pickup_date=target_day + timedelta(days=rng.randint(1, 14)),
+                item_condition=rng.choice(GOODS_CONDITIONS),
+                estimated_quantity=f"{rng.randint(1, 6)} {rng.choice(QUANTITY_UNITS)}",
                 notes=rng.choice(GOODS_NOTES),
                 status=rng.choices(
                     ["pending", "received", "received", "received", "rejected"],
@@ -252,18 +287,24 @@ async def generate_applications(
     packages: list[FoodPackage],
 ) -> int:
     created = 0
+    if config.applications_per_week <= 0:
+        return 0
     packages_by_bank: dict[int, list[FoodPackage]] = {}
     for package in packages:
         if package.food_bank_id is None:
             continue
         packages_by_bank.setdefault(package.food_bank_id, []).append(package)
 
+    available_food_banks = [bank for bank in food_banks if bank.id in packages_by_bank]
+    if not available_food_banks:
+        return 0
+
     total_weeks = max(1, (config.days + 6) // 7)
     for week_offset in range(total_weeks):
         week_start = monday_of_week(date.today() - timedelta(days=week_offset * 7))
         count = max(0, int(round(config.applications_per_week + rng.choice([-2, -1, 0, 1, 2]))))
         for app_index in range(count):
-            bank = rng.choice(food_banks)
+            bank = rng.choice(available_food_banks)
             bank_packages = packages_by_bank.get(bank.id, [])
             if not bank_packages:
                 continue
@@ -359,7 +400,7 @@ async def main() -> None:
         _ = (await db.execute(select(InventoryItem).order_by(InventoryItem.id))).scalars().all()
 
         cash_count = await generate_cash_donations(db, rng, config)
-        goods_count = await generate_goods_donations(db, rng, config, public_users)
+        goods_count = await generate_goods_donations(db, rng, config, public_users, food_banks)
         application_count = await generate_applications(
             db,
             rng,

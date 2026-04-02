@@ -12,9 +12,11 @@ Donor contact info always captured for follow-up communication.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from app.schemas.donation_goods_item import DonationGoodsItemOut
 
 
 # ==================== INNER PAYLOADS ====================
@@ -36,6 +38,10 @@ class DonationGoodsBase(BaseModel):
     # If NULL, donation is anonymous. Optional.
     donor_user_id: uuid.UUID | None = None
 
+    food_bank_id: int | None = Field(default=None, gt=0)
+    food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
+    food_bank_address: str | None = Field(default=None, min_length=1)
+
     # From spec: donor_name: VARCHAR(100), NOT NULL
     # Donor name (required even if user NULL, for thank-you/follow-up).
     # Validation: 1-100 characters.
@@ -48,6 +54,14 @@ class DonationGoodsBase(BaseModel):
     # From spec: donor_phone: VARCHAR(30), NOT NULL
     # Donor phone for follow-up if donation rejected. Validation: 3-30 chars.
     donor_phone: str = Field(min_length=3, max_length=30)
+
+    postcode: str | None = Field(default=None, min_length=2, max_length=16)
+
+    pickup_date: date | None = None
+
+    item_condition: str | None = Field(default=None, min_length=1, max_length=50)
+
+    estimated_quantity: str | None = Field(default=None, min_length=1, max_length=100)
 
     # From spec: notes: TEXT
     # Optional donation notes (special handling, storage, dietary restrictions).
@@ -68,6 +82,10 @@ class DonationGoodsCreate(BaseModel):
     # Optional: if logged in, user ID captured; else NULL for anonymous.
     donor_user_id: uuid.UUID | None = None
 
+    food_bank_id: int | None = Field(default=None, gt=0)
+    food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
+    food_bank_address: str | None = Field(default=None, min_length=1)
+
     # From spec: donor_name: VARCHAR(100), NOT NULL
     # Donor name (required regardless of user authentication).
     donor_name: str = Field(min_length=1, max_length=100)
@@ -79,6 +97,14 @@ class DonationGoodsCreate(BaseModel):
     # From spec: donor_phone: VARCHAR(30), NOT NULL
     # Donor phone for follow-up.
     donor_phone: str = Field(min_length=3, max_length=30)
+
+    postcode: str | None = Field(default=None, min_length=2, max_length=16)
+
+    pickup_date: date | None = None
+
+    item_condition: str | None = Field(default=None, min_length=1, max_length=50)
+
+    estimated_quantity: str | None = Field(default=None, min_length=1, max_length=100)
 
     # From spec: notes: TEXT
     # Optional donation notes.
@@ -111,6 +137,18 @@ class DonationGoodsUpdate(BaseModel):
     # Can update if phone was incorrect.
     donor_phone: str | None = Field(default=None, min_length=3, max_length=30)
 
+    food_bank_id: int | None = Field(default=None, gt=0)
+    food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
+    food_bank_address: str | None = Field(default=None, min_length=1)
+
+    postcode: str | None = Field(default=None, min_length=2, max_length=16)
+
+    pickup_date: date | None = None
+
+    item_condition: str | None = Field(default=None, min_length=1, max_length=50)
+
+    estimated_quantity: str | None = Field(default=None, min_length=1, max_length=100)
+
     # From spec: notes: TEXT
     # Can add/update storage or special handling notes.
     notes: str | None = None
@@ -132,3 +170,7 @@ class DonationGoodsOut(DonationGoodsBase):
     # From spec: created_at: TIMESTAMP, NOT NULL, DEFAULT NOW()
     # Audit field: when donation was submitted.
     created_at: datetime
+
+    # Includes item rows stored in donation_goods_items so API responses reflect
+    # the persisted donation contents end-to-end.
+    items: list[DonationGoodsItemOut] = Field(default_factory=list)

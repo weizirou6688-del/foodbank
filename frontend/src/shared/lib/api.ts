@@ -1,5 +1,10 @@
 import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
-import type { ApplicationStatus } from '@/shared/types/common'
+import type {
+  ApplicationStatus,
+  DonationListRow,
+  FoodBank,
+  GoodsDonationResponse,
+} from '@/shared/types/common'
 
 class APIClient {
   private baseURL: string
@@ -19,8 +24,22 @@ class APIClient {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }))
-      throw new Error(error.detail || `HTTP ${response.status}`)
+      const error = await response
+        .json()
+        .catch(() => ({ detail: 'Request failed' })) as {
+        detail?: string
+        message?: string
+        errors?: Array<{ field?: string; message?: string }>
+      }
+
+      const validationMessage = Array.isArray(error.errors)
+        ? error.errors
+            .map((entry) => entry.message || entry.field)
+            .filter(Boolean)
+            .join(' ')
+        : ''
+
+      throw new Error(error.detail || validationMessage || error.message || `HTTP ${response.status}`)
     }
 
     return response.json()
@@ -70,20 +89,87 @@ class APIClient {
 
 const apiClient = new APIClient(API_BASE_URL)
 
+export interface CashDonationResponse {
+  id: string
+  donor_name?: string | null
+  donor_email: string
+  amount_pence: number
+  payment_reference?: string | null
+  status: 'completed' | 'failed' | 'refunded'
+  created_at: string
+}
+
+export interface FoodBankListResponse {
+  items: FoodBank[]
+  total: number
+  page: number
+  size: number
+  pages: number
+}
+
+export interface InventoryItemListResponse {
+  items: Array<{
+    id: number
+    name: string
+    category: string
+    stock: number
+    total_stock: number
+    unit: string
+    threshold: number
+    food_bank_id?: number | null
+    updated_at: string
+  }>
+  total: number
+  page: number
+  size: number
+  pages: number
+}
+
+export interface GeocodeResponse {
+  lat: number
+  lng: number
+  source: string
+}
+
 export const donationsAPI = {
   donateCash: (data: {
+    donor_name?: string
     donor_email: string
     amount_pence: number
     payment_reference?: string
-  }) => apiClient.post('/api/v1/donations/cash', data),
+  }) => apiClient.post('/api/v1/donations/cash', data) as Promise<CashDonationResponse>,
 
   donateGoods: (data: {
     donor_name: string
     donor_email: string
     donor_phone: string
+    food_bank_id?: number
+    food_bank_name?: string
+    food_bank_address?: string
+    postcode?: string
+    pickup_date?: string
+    item_condition?: string
+    estimated_quantity?: string
     notes?: string
     items: Array<{ item_name: string; quantity: number }>
-  }) => apiClient.post('/api/v1/donations/goods', data),
+  }) => apiClient.post('/api/v1/donations/goods', data) as Promise<GoodsDonationResponse>,
+}
+
+export const foodBanksAPI = {
+  getFoodBanks: (postcode?: string) =>
+    apiClient.get(
+      `/api/v1/food-banks${postcode ? `?postcode=${encodeURIComponent(postcode)}` : ''}`,
+    ) as Promise<FoodBankListResponse>,
+
+  geocodePostcode: (postcode: string) =>
+    apiClient.get(
+      `/api/v1/food-banks/geocode?postcode=${encodeURIComponent(postcode)}`,
+    ) as Promise<GeocodeResponse>,
+
+  getInventoryItems: (foodBankId: number | string) =>
+    apiClient.get(
+      `/api/v1/food-banks/${foodBankId}/inventory-items`,
+    ) as Promise<InventoryItemListResponse>,
 }
 
 export const statsAPI = {
@@ -178,7 +264,7 @@ export const adminAPI = {
 
   getDonations: (token: string, type?: 'cash' | 'goods') => {
     const query = type ? `?type=${type}` : ''
-    return apiClient.get(`/api/v1/donations${query}`, token)
+    return apiClient.get(`/api/v1/donations${query}`, token) as Promise<DonationListRow[]>
   },
 }
 

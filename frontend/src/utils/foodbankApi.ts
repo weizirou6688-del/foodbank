@@ -1,7 +1,6 @@
 import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
 
 const SEARCH_RADIUS_KM = 5
-const EXTERNAL_FEED_URL = 'https://www.givefood.org.uk/api/1/foodbanks/'
 const DIRECT_POSTCODE_API_URL = 'https://api.postcodes.io/postcodes'
 const FEED_CACHE_TTL_MS = 10 * 60 * 1000
 
@@ -81,22 +80,23 @@ export async function getAllFoodbanks(): Promise<GiveFoodBankApiRecord[]> {
   }
 
   inFlightFoodbanksRequest = (async () => {
-    // Prefer the backend proxy because it is more resilient to CORS or header
-    // restrictions than a pure browser-side request.
+    // GiveFood does not expose browser-friendly CORS headers, so this search
+    // must flow through our backend proxy.
     const backendResponse = await fetch(`${API_BASE_URL}/api/v1/food-banks/external-feed`)
-    if (backendResponse.ok) {
-      const payload = await backendResponse.json() as GiveFoodBankApiRecord[]
-      cachedFoodbanks = payload
-      cachedFoodbanksAt = Date.now()
-      return payload
+    const backendPayload = await backendResponse.json().catch(() => null) as { detail?: string } | GiveFoodBankApiRecord[] | null
+
+    if (!backendResponse.ok) {
+      const detail =
+        backendPayload
+        && typeof backendPayload === 'object'
+        && 'detail' in backendPayload
+        && typeof backendPayload.detail === 'string'
+          ? backendPayload.detail
+          : 'Food bank lookup service is temporarily unavailable.'
+      throw new Error(detail)
     }
 
-    const directResponse = await fetch(EXTERNAL_FEED_URL)
-    if (!directResponse.ok) {
-      throw new Error('Failed to fetch food banks')
-    }
-
-    const payload = await directResponse.json() as GiveFoodBankApiRecord[]
+    const payload = backendPayload as GiveFoodBankApiRecord[]
     cachedFoodbanks = payload
     cachedFoodbanksAt = Date.now()
     return payload

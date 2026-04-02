@@ -52,6 +52,35 @@ const apiProxyTarget = getConfigValue(
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined
+          }
+
+          if (id.includes('react-router-dom')) {
+            return 'router'
+          }
+
+          if (id.includes('react-leaflet') || id.includes('leaflet')) {
+            return 'maps'
+          }
+
+          if (id.includes('lucide-react')) {
+            return 'icons'
+          }
+
+          if (id.includes('react-dom') || id.includes(`${path.sep}react${path.sep}`)) {
+            return 'react-vendor'
+          }
+
+          return 'vendor'
+        },
+      },
+    },
+  },
   server: {
     host: devHost,
     port: frontendPort,

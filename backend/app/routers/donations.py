@@ -5,12 +5,14 @@ Spec § 2.5: POST /cash, POST /goods, GET /list (admin with ?type filter)
 """
 
 import logging
+import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.database_errors import (
@@ -21,6 +23,7 @@ from app.core.security import require_admin
 from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
 from app.models.donation_goods_item import DonationGoodsItem
+from app.models.food_bank import FoodBank
 from app.services.email_service import send_thank_you_email
 from app.schemas.donation_cash import DonationCashCreate, DonationCashOut
 from app.schemas.donation_goods import DonationGoodsCreate, DonationGoodsOut
@@ -49,11 +52,14 @@ async def submit_cash_donation(
     TODO: Create DonationCash record, record transaction
     """
     try:
+        payment_reference = donation_in.payment_reference or f"WEB-{uuid.uuid4().hex[:12].upper()}"
+
         async with db.begin():
             donation = DonationCash(
+                donor_name=donation_in.donor_name,
                 donor_email=donation_in.donor_email,
                 amount_pence=donation_in.amount_pence,
-                payment_reference=donation_in.payment_reference,
+                payment_reference=payment_reference,
                 status="completed",
             )
             db.add(donation)
@@ -65,7 +71,11 @@ async def submit_cash_donation(
                     send_thank_you_email,
                     donation_in.donor_email,
                     "cash",
-                    f"Amount (pence): {donation_in.amount_pence}",
+                    (
+                        f"Donor: {donation_in.donor_name or 'Anonymous'} | "
+                        f"Amount (pence): {donation_in.amount_pence} | "
+                        f"Reference: {payment_reference}"
+                    ),
                 )
                 logger.info("Queued cash donation thank-you email for %s", donation_in.donor_email)
 
@@ -104,34 +114,70 @@ async def submit_goods_donation(
     TODO: Create DonationGoods record and DonationGoodsItem entries
     """
     try:
+        selected_food_bank: FoodBank | None = None
+        donation_id: uuid.UUID | None = None
+
         async with db.begin():
+            if donation_in.food_bank_id is not None:
+                selected_food_bank = await db.scalar(
+                    select(FoodBank).where(FoodBank.id == donation_in.food_bank_id)
+                )
+                if selected_food_bank is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Food bank not found",
+                    )
+
             donation = DonationGoods(
                 donor_user_id=donation_in.donor_user_id,
+                food_bank_id=selected_food_bank.id if selected_food_bank is not None else None,
+                food_bank_name=(
+                    selected_food_bank.name
+                    if selected_food_bank is not None
+                    else donation_in.food_bank_name
+                ),
+                food_bank_address=(
+                    selected_food_bank.address
+                    if selected_food_bank is not None
+                    else donation_in.food_bank_address
+                ),
                 donor_name=donation_in.donor_name,
                 donor_email=donation_in.donor_email,
                 donor_phone=donation_in.donor_phone,
+                postcode=donation_in.postcode,
+                pickup_date=donation_in.pickup_date,
+                item_condition=donation_in.item_condition,
+                estimated_quantity=donation_in.estimated_quantity,
                 notes=donation_in.notes,
                 status="pending",
             )
             db.add(donation)
             await db.flush()
+            donation_id = donation.id
 
             for item in donation_in.items:
                 db.add(
                     DonationGoodsItem(
                         donation_id=donation.id,
+                        donation=donation,
                         item_name=item.item_name,
                         quantity=item.quantity,
                     )
                 )
 
             await db.flush()
-            await db.refresh(donation)
 
             if donation_in.donor_email:
                 goods_details = ", ".join(
                     f"{item.item_name} x{item.quantity}" for item in donation_in.items
                 )
+                selected_food_bank_name = (
+                    selected_food_bank.name
+                    if selected_food_bank is not None
+                    else donation_in.food_bank_name
+                )
+                if selected_food_bank_name:
+                    goods_details = f"{goods_details} | Food bank: {selected_food_bank_name}"
                 background_tasks.add_task(
                     send_thank_you_email,
                     donation_in.donor_email,
@@ -140,7 +186,12 @@ async def submit_goods_donation(
                 )
                 logger.info("Queued goods donation thank-you email for %s", donation_in.donor_email)
 
-            return donation
+        result = await db.execute(
+            select(DonationGoods)
+            .options(selectinload(DonationGoods.items))
+            .where(DonationGoods.id == donation_id)
+        )
+        return result.scalar_one()
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -199,7 +250,9 @@ async def list_donations(
     if normalized in (None, "goods"):
         goods_rows = (
             await db.execute(
-                select(DonationGoods).order_by(DonationGoods.created_at.desc())
+                select(DonationGoods)
+                .options(selectinload(DonationGoods.items))
+                .order_by(DonationGoods.created_at.desc())
             )
         ).scalars().all()
         for row in goods_rows:
