@@ -33,6 +33,7 @@ yarn-error.log*
 .logs/
 backend/*.log
 frontend/*.log
+frontend/.artifacts/
 uvicorn*.log
 
 # Python
