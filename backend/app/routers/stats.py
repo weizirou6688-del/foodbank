@@ -8,7 +8,7 @@ with the same database tables used by Inventory Management.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from statistics import mean
 from typing import Literal
 
@@ -51,7 +51,6 @@ from app.schemas.stats import (
 
 router = APIRouter(tags=["Statistics"])
 
-RECENT_MONTH_BUCKETS = 6
 COMPARISON_LABELS = {
     "month": "last month",
     "quarter": "last quarter",
@@ -87,10 +86,45 @@ def _shift_month(day: date, offset: int) -> date:
     return date(year, month, 1)
 
 
-def _month_series(reference_day: date, count: int = RECENT_MONTH_BUCKETS) -> list[date]:
-    end_month = _month_start(reference_day)
-    start_month = _shift_month(end_month, -(count - 1))
-    return [_shift_month(start_month, index) for index in range(count)]
+def _trend_bucket_key(
+    target: date | None,
+    range_key: Literal["month", "quarter", "year"],
+) -> date | None:
+    if target is None:
+        return None
+    if range_key == "month":
+        return target
+    return _month_start(target)
+
+
+def _trend_buckets(
+    range_key: Literal["month", "quarter", "year"],
+    today: date,
+    current_start: date,
+    next_start: date,
+) -> tuple[list[date], dict[date, int], list[str]]:
+    if range_key == "month":
+        period_end = min(today + timedelta(days=1), next_start)
+        buckets: list[date] = []
+        cursor = current_start
+        while cursor < period_end:
+            buckets.append(cursor)
+            cursor += timedelta(days=1)
+        if not buckets:
+            buckets = [current_start]
+        labels = [f"{bucket.strftime('%b')} {bucket.day}" for bucket in buckets]
+        return buckets, {bucket: index for index, bucket in enumerate(buckets)}, labels
+
+    period_end = min(next_start, _shift_month(_month_start(today), 1))
+    buckets = []
+    cursor = current_start
+    while cursor < period_end:
+        buckets.append(cursor)
+        cursor = _shift_month(cursor, 1)
+    if not buckets:
+        buckets = [current_start]
+    labels = [bucket.strftime("%b") for bucket in buckets]
+    return buckets, {bucket: index for index, bucket in enumerate(buckets)}, labels
 
 
 def _period_bounds(
@@ -357,9 +391,12 @@ async def get_dashboard_analytics(
     today = date.today()
     current_start, next_start, previous_start = _period_bounds(range_key, today)
     comparison_label = COMPARISON_LABELS[range_key]
-    month_starts = _month_series(today)
-    month_index = {bucket: index for index, bucket in enumerate(month_starts)}
-    month_labels = [bucket.strftime("%b") for bucket in month_starts]
+    trend_buckets, trend_index, trend_labels = _trend_buckets(
+        range_key,
+        today,
+        current_start,
+        next_start,
+    )
 
     cash_donations = list(
         (
@@ -470,7 +507,7 @@ async def get_dashboard_analytics(
     donor_frequency: dict[str, dict[str, int | bool]] = defaultdict(
         lambda: {"count": 0, "corporate": False, "supermarket": False}
     )
-    donation_trend_totals = [0.0] * len(month_starts)
+    donation_trend_totals = [0.0] * len(trend_buckets)
     donation_category_totals: dict[str, int] = defaultdict(int)
     current_goods_units = 0
     previous_goods_units = 0
@@ -514,9 +551,9 @@ async def get_dashboard_analytics(
             current_year_goods_units += donation_quantity
 
         if donation_date is not None:
-            donation_month = _month_start(donation_date)
-            if donation_month in month_index:
-                donation_trend_totals[month_index[donation_month]] += donation_quantity
+            trend_bucket = _trend_bucket_key(donation_date, range_key)
+            if trend_bucket in trend_index:
+                donation_trend_totals[trend_index[trend_bucket]] += donation_quantity
 
         for item in donation.items:
             donation_category_totals[resolve_item_category(item.item_name)] += item.quantity
@@ -549,7 +586,7 @@ async def get_dashboard_analytics(
     stock_by_category: dict[str, int] = defaultdict(int)
     expiring_lot_rows: list[DashboardExpiringLotOut] = []
     expiry_distribution_counts = [0, 0, 0]
-    wastage_month_totals = [0.0] * len(month_starts)
+    wastage_trend_totals = [0.0] * len(trend_buckets)
     current_wastage_units = 0
     previous_wastage_units = 0
 
@@ -560,9 +597,9 @@ async def get_dashboard_analytics(
         if _in_period(waste_date, previous_start, current_start):
             previous_wastage_units += waste_event.quantity
         if waste_date is not None:
-            waste_month = _month_start(waste_date)
-            if waste_month in month_index:
-                wastage_month_totals[month_index[waste_month]] += waste_event.quantity
+            trend_bucket = _trend_bucket_key(waste_date, range_key)
+            if trend_bucket in trend_index:
+                wastage_trend_totals[trend_index[trend_bucket]] += waste_event.quantity
 
     for lot, inventory_item in inventory_lot_rows:
         if lot.deleted_at is not None:
@@ -624,7 +661,7 @@ async def get_dashboard_analytics(
 
     low_stock_alerts.sort(key=lambda row: (row.deficit, -row.current_stock), reverse=True)
 
-    package_trend_totals = [0.0] * len(month_starts)
+    package_trend_totals = [0.0] * len(trend_buckets)
     package_type_totals: dict[str, int] = defaultdict(int)
     families_supported = set()
     food_units_distributed = 0
@@ -637,8 +674,8 @@ async def get_dashboard_analytics(
 
     redemption_chart_counts = {"Redeemed": 0, "Pending": 0, "Expired / Void": 0}
     redemption_breakdown_counts = {"Success": 0, "Invalid": 0, "Expired": 0}
-    redemption_rate_success = [0] * len(month_starts)
-    redemption_rate_resolved = [0] * len(month_starts)
+    redemption_rate_success = [0] * len(trend_buckets)
+    redemption_rate_resolved = [0] * len(trend_buckets)
     verification_records: list[tuple[datetime, DashboardVerificationRecordOut]] = []
 
     for application in applications:
@@ -695,9 +732,9 @@ async def get_dashboard_analytics(
             redemption_chart_counts["Pending"] += 1
 
         if application_created is not None:
-            application_month = _month_start(application_created)
-            if application_month in month_index:
-                bucket_index = month_index[application_month]
+            trend_bucket = _trend_bucket_key(application_created, range_key)
+            if trend_bucket in trend_index:
+                bucket_index = trend_index[trend_bucket]
                 if application.deleted_at is not None or application.status == "expired":
                     redemption_rate_resolved[bucket_index] += 1
                 elif application.status == "collected":
@@ -710,7 +747,7 @@ async def get_dashboard_analytics(
         families_supported.add(str(application.user_id))
         support_weeks_by_user[str(application.user_id)].add(application.week_start)
 
-        application_month = _month_start(application_created) if application_created is not None else None
+        application_bucket = _trend_bucket_key(application_created, range_key)
         application_snapshots = distribution_snapshots_by_application_id.get(application.id, [])
         package_snapshots = [
             snapshot
@@ -748,8 +785,8 @@ async def get_dashboard_analytics(
             if _in_period(application_created, previous_start, current_start):
                 previous_package_quantity += package_quantity
 
-            if application_month in month_index:
-                package_trend_totals[month_index[application_month]] += package_quantity
+            if application_bucket in trend_index:
+                package_trend_totals[trend_index[application_bucket]] += package_quantity
 
             for snapshot in package_snapshots:
                 package_type_totals[snapshot.package_category or "Uncategorized"] += (
@@ -766,8 +803,8 @@ async def get_dashboard_analytics(
                     if _in_period(application_created, previous_start, current_start):
                         previous_package_quantity += item.quantity
 
-                    if application_month in month_index:
-                        package_trend_totals[month_index[application_month]] += item.quantity
+                    if application_bucket in trend_index:
+                        package_trend_totals[trend_index[application_bucket]] += item.quantity
 
                     if item.package is not None:
                         package_type_totals[item.package.category] += item.quantity
@@ -847,7 +884,7 @@ async def get_dashboard_analytics(
             donation_source_labels,
             [donation_source_counts[label] for label in donation_source_labels],
         ),
-        trend=_chart(month_labels, donation_trend_totals),
+        trend=_chart(trend_labels, donation_trend_totals),
         category=_chart(
             [label for label, _ in donation_category_pairs],
             [value for _, value in donation_category_pairs],
@@ -881,7 +918,7 @@ async def get_dashboard_analytics(
     )
 
     package_analytics = DashboardPackageAnalyticsOut(
-        trend=_chart(month_labels, package_trend_totals),
+        trend=_chart(trend_labels, package_trend_totals),
         redemption=_chart(
             ["Redeemed", "Pending", "Expired / Void"],
             [
@@ -914,8 +951,8 @@ async def get_dashboard_analytics(
             expiry_distribution_counts,
         ),
         wastage=DashboardExpiryChartOut(
-            labels=month_labels,
-            data=[float(value) for value in wastage_month_totals],
+            labels=trend_labels,
+            data=[float(value) for value in wastage_trend_totals],
             label="Wasted Units",
         ),
         expiringLots=expiring_lot_rows[:10],
@@ -926,7 +963,7 @@ async def get_dashboard_analytics(
         for success, resolved in zip(redemption_rate_success, redemption_rate_resolved)
     ]
     redemption_analytics = DashboardRedemptionAnalyticsOut(
-        rateTrend=_chart(month_labels, redemption_rate_values),
+        rateTrend=_chart(trend_labels, redemption_rate_values),
         breakdown=_chart(
             ["Success", "Invalid", "Expired"],
             [
