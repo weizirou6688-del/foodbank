@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoginModal from '@/features/auth/components/LoginModal'
+import { statsAPI } from '@/shared/lib/api'
 
 interface ImpactMetric {
   change: string
@@ -8,6 +9,11 @@ interface ImpactMetric {
   label: string
   note: string
   positive?: boolean
+}
+
+interface DonationCategory {
+  title: string
+  items: string[]
 }
 
 interface UniqueCard {
@@ -21,21 +27,74 @@ interface DonationTier {
   amount: string
   description: string
   cta: string
+  href: string
   features: string[]
   featured?: boolean
 }
 
-const impactMetrics: ImpactMetric[] = [
-  { change: '+18%', value: '2.4M', label: 'Meals Delivered', note: 'This year', positive: true },
-  { change: '+7%', value: '8,450', label: 'Active Volunteers', note: 'This month', positive: true },
+const defaultImpactMetrics: ImpactMetric[] = [
+  { change: '+18%', value: '28,600', label: 'Food Units Distributed', note: 'All Time', positive: true },
+  { change: '+8.2%', value: '1,240+', label: 'Families Supported', note: 'All Time', positive: true },
   {
     change: '+2.3%',
-    value: '98.7%',
-    label: 'Satisfaction Rate',
-    note: 'From beneficiaries',
+    value: '98.2%',
+    label: 'Aid Redemption Success Rate',
+    note: 'This Month',
     positive: true,
   },
-  { change: '-15%', value: '<2hrs', label: 'Response Time', note: 'Average', positive: true },
+  { change: '+15%', value: '12,500', label: 'Goods Donation Units', note: 'This Year', positive: true },
+]
+
+const goodsCategories: DonationCategory[] = [
+  {
+    title: 'Non-Perishable Food',
+    items: [
+      'Tinned vegetables & fruit',
+      'Rice, pasta & cereals',
+      'Tinned meat & fish',
+      'UHT milk & plant-based drinks',
+      'Cooking oil & sauces',
+      'Tea, coffee & long-life juice',
+    ],
+  },
+  {
+    title: 'Hygiene Essentials',
+    items: [
+      'Shampoo & conditioner',
+      'Soap & body wash',
+      'Toothpaste & toothbrushes',
+      'Deodorant',
+      'Sanitary pads & tampons',
+      'Shaving foam & razors',
+    ],
+  },
+  {
+    title: 'Baby & Child Care',
+    items: [
+      'Baby formula & baby food',
+      'Nappies & wet wipes',
+      "Children's snacks & cereals",
+      'Baby toiletries',
+      "Children's books & toys",
+    ],
+  },
+  {
+    title: 'Household Items',
+    items: [
+      'Toilet roll & kitchen roll',
+      'Laundry detergent',
+      'Surface cleaner & disinfectant',
+      'Dishwashing liquid',
+      'Bin bags',
+    ],
+  },
+]
+
+const goodsBannerBenefits = [
+  'Free contactless pickup',
+  '100% of goods reach families',
+  'Tax-deductible receipt',
+  'Real-time impact updates',
 ]
 
 const uniqueCards: UniqueCard[] = [
@@ -68,16 +127,18 @@ const uniqueCards: UniqueCard[] = [
 const donationTiers: DonationTier[] = [
   {
     name: 'Supporter',
-    amount: '£25',
-    description: 'Feeds a family of 4 for one week',
-    cta: 'Donate £25',
-    features: ['Monthly impact updates', 'Digital certificate', 'Community newsletter'],
+    amount: '\u00A35',
+    description: 'Feeds a family for 2 days',
+    cta: 'Donate \u00A35',
+    href: '/donate/cash?amount=5',
+    features: ['Monthly impact updates', 'Digital donation certificate', 'Community newsletter'],
   },
   {
     name: 'Champion',
-    amount: '£75',
-    description: 'Supports 3 families for one week',
-    cta: 'Donate £75',
+    amount: '\u00A315',
+    description: 'Feeds a family for one week',
+    cta: 'Donate \u00A315',
+    href: '/donate/cash?amount=15',
     features: [
       'Everything in Supporter',
       'Quarterly impact calls',
@@ -88,9 +149,10 @@ const donationTiers: DonationTier[] = [
   },
   {
     name: 'Hero',
-    amount: '£200',
-    description: 'Feeds 8 families for one week',
-    cta: 'Donate £200',
+    amount: '\u00A330',
+    description: 'Feeds 2 families for one week',
+    cta: 'Donate \u00A330',
+    href: '/donate/cash?amount=30',
     features: [
       'Everything in Champion',
       'Annual site visits',
@@ -120,12 +182,30 @@ function ArrowTrend({ positive = true }: { positive?: boolean }) {
   )
 }
 
-function CheckIcon() {
+function ListCheckIcon() {
   return (
-    <svg className="w-5 h-5 text-[#4CAF50] flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+    <svg className="h-3.5 w-3.5 text-[#059669]" fill="none" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3 8.5l3 3L13 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function BannerCheckIcon() {
+  return (
+    <span className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#FFB800] text-[#121212]">
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M3 8.5l3 3L13 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  )
+}
+
+function TrustShieldIcon() {
+  return (
+    <svg className="h-5 w-5 text-[#4CAF50]" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
       <path
         fillRule="evenodd"
-        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+        d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
         clipRule="evenodd"
       />
     </svg>
@@ -140,6 +220,36 @@ export default function Home() {
     open: false,
     tab: 'signin',
   })
+  const [impactMetrics, setImpactMetrics] = useState<ImpactMetric[]>(defaultImpactMetrics)
+
+  useEffect(() => {
+    let active = true
+
+    statsAPI
+      .getPublicImpact('month')
+      .then((response) => {
+        if (!active || !Array.isArray(response.impactMetrics) || response.impactMetrics.length === 0) {
+          return
+        }
+
+        setImpactMetrics(
+          response.impactMetrics.map((metric) => ({
+            change: metric.change,
+            value: metric.value,
+            label: metric.label,
+            note: metric.note,
+            positive: metric.positive,
+          })),
+        )
+      })
+      .catch(() => {
+        // Keep the homepage stable with fallback metrics when the API is unavailable.
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Some homepage navigation stays on the same page and scrolls to sections
   // instead of pushing the user onto a new route.
@@ -209,13 +319,30 @@ export default function Home() {
                     Modern infrastructure connecting communities with essential resources. Real-time
                     food bank locations, transparent operations, dignified access.
                   </p>
-                  <div className="flex flex-wrap gap-4 md:ml-4">
-                    <button type="button" onClick={() => navigate('/find-foodbank')} className="px-6 py-3 bg-[#FFB800] text-[#0D1117] hover:bg-[#E5A600] transition-all rounded-[4px] text-[15px] font-semibold shadow-[0_4px_12px_rgba(255,184,0,0.2)]">
-                      Find Food Bank Now
+                  <div className="flex max-w-[360px] flex-col gap-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/find-foodbank')}
+                      className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] bg-[#FFB800] px-4 py-[0.85rem] text-center text-[0.95rem] font-semibold text-[#121212] transition-all duration-300 hover:-translate-y-px hover:bg-[#FFA900]"
+                    >
+                      Find Foodbank Now
                     </button>
-                    <button type="button" onClick={() => scrollTo('donate')} className="px-6 py-3 border border-[#E5E8ED] text-[#0D1117] hover:bg-[#F4F7FA] transition-colors rounded-[4px] text-[15px] font-semibold">
-                      Donate
-                    </button>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => scrollTo('donate-goods')}
+                        className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] border border-[#121212] bg-white px-4 py-[0.85rem] text-center text-[0.95rem] font-semibold text-[#121212] transition-colors duration-300 hover:bg-[#F8F9FA]"
+                      >
+                        Donate Goods
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => scrollTo('donate-cash')}
+                        className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] border border-[#121212] bg-white px-4 py-[0.85rem] text-center text-[0.95rem] font-semibold text-[#121212] transition-colors duration-300 hover:bg-[#F8F9FA]"
+                      >
+                        Donate Cash
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -232,46 +359,45 @@ export default function Home() {
             </div>
           </div>
 
-          <div id="impact" className="bg-[#F6F8FA]">
+          <div id="impact" className="bg-[#F8F9FA]">
             <div className="max-w-[1200px] mx-auto px-6 py-24">
               <div className="text-center max-w-[640px] mx-auto mb-16">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#E5E8ED] rounded-full mb-4">
-                  <span className="text-[13px] font-semibold text-[#57606A] uppercase tracking-wide">IMPACT METRICS</span>
-                </div>
-                <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">Real-time impact data</h2>
-                <p className="text-[17px] text-[#57606A] leading-relaxed">
+                <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">
+                  Real-time impact data
+                </h2>
+                <p className="text-[18px] text-[#57606A] leading-relaxed">
                   Every number represents real people and communities. Updated live from our
                   operations network.
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-4 gap-6">
+              <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">
                 {impactMetrics.map((metric) => (
-                  <div key={metric.label} className="bg-white rounded-[8px] p-6 border border-[#E5E8ED] hover:border-[#FFB800] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-[4px] text-[12px] font-semibold bg-[#E8F5E9] text-[#2E7D32]">
-                        <ArrowTrend positive={metric.positive} />
-                        {metric.change}
-                      </span>
+                  <div
+                    key={metric.label}
+                    className="bg-white rounded-[10px] px-6 py-7 shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+                  >
+                    <div className="mb-4 inline-flex items-center gap-1 rounded-[4px] bg-[#ECFDF5] px-2 py-1 text-[0.8rem] font-semibold text-[#059669]">
+                      <ArrowTrend positive={metric.positive} />
+                      {metric.change}
                     </div>
-                    <div className="text-[3rem] font-bold text-[#0D1117] leading-none mb-2">{metric.value}</div>
-                    <div className="text-[15px] font-semibold text-[#0D1117] mb-1">{metric.label}</div>
-                    <div className="text-[13px] text-[#57606A]">{metric.note}</div>
+                    <div className="mb-1 text-[2rem] font-bold tracking-[-0.02em] text-[#121212]">
+                      {metric.value}
+                    </div>
+                    <div className="mb-1 text-[1rem] font-semibold text-[#121212]">{metric.label}</div>
+                    <div className="text-[0.85rem] text-[#4B4B4B]">{metric.note}</div>
                   </div>
                 ))}
               </div>
 
-              <div className="text-center mt-8">
-                <p className="text-[13px] text-[#57606A]">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-[#4CAF50] rounded-full animate-pulse" />
-                    Live data • Updated every 15 minutes
-                  </span>
-                </p>
+              <div className="mt-6 flex items-center justify-center gap-1.5 text-center text-[0.75rem] text-[#4B4B4B]">
+                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[#059669]" />
+                <span>Live data</span>
+                <span aria-hidden="true">&bull;</span>
+                <span>Updated every 15 minutes</span>
               </div>
             </div>
           </div>
-
           <div id="how-it-works" className="bg-white">
             <div className="max-w-[1200px] mx-auto px-6 py-40">
               <div className="text-center max-w-[640px] mx-auto mb-20">
@@ -360,7 +486,7 @@ export default function Home() {
 
           <div id="about" className="bg-[#F6F8FA]">
             <div className="max-w-[1200px] mx-auto px-6 py-32">
-              <div className="text-center max-w-[680px] mx-auto mb-16">
+              <div className="text-center max-w-[640px] mx-auto mb-16">
                 <h2 className="text-[2.75rem] font-bold text-[#0D1117] mb-4 tracking-tight">
                   What makes Food Bank Aid unique?
                 </h2>
@@ -382,88 +508,155 @@ export default function Home() {
             </div>
           </div>
 
-          <div id="donate" className="bg-white">
+          <div id="donate-goods" className="bg-white">
             <div className="max-w-[1200px] mx-auto px-6 py-32">
-              <div className="text-center max-w-[680px] mx-auto mb-16">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#FFF9E6] border border-[#FFB800]/20 rounded-full mb-4">
-                  <span className="text-[13px] font-semibold text-[#B8860B] uppercase tracking-wide">MAKE AN IMPACT</span>
+              <div className="text-center max-w-[640px] mx-auto mb-16">
+                <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">
+                  Donate Goods
+                </h2>
+                <p className="text-[18px] text-[#57606A] leading-relaxed">
+                  Your in-kind donations directly support families and individuals facing food
+                  insecurity. Every item you give helps us deliver dignity and essential resources to
+                  our community.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 min-[576px]:grid-cols-2 min-[992px]:grid-cols-4 mb-10">
+                {goodsCategories.map((category) => (
+                  <div
+                    key={category.title}
+                    className="h-full rounded-[10px] border border-[#E5E5E5] bg-white px-6 py-7 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#FFB800] hover:shadow-[0_4px_12px_rgba(255,184,0,0.08)]"
+                  >
+                    <h3 className="text-[1.25rem] font-semibold text-[#0D1117] mb-3 tracking-tight">{category.title}</h3>
+                    <ul className="list-none text-[15px] leading-relaxed text-[#57606A]">
+                      {category.items.map((item) => (
+                        <li key={item} className="relative mb-[0.35rem] pl-4 last:mb-0">
+                          <span className="absolute left-0 top-[0.1rem]" aria-hidden="true">
+                            <ListCheckIcon />
+                          </span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-[10px] bg-[#FFF3CD] px-6 py-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h3 className="text-[1.25rem] font-semibold text-[#0D1117] mb-3 tracking-tight">
+                    Donate Goods to Families in Need
+                  </h3>
+                  <div className="grid grid-cols-1 gap-x-8 gap-y-2 min-[576px]:grid-cols-2">
+                    {goodsBannerBenefits.map((benefit) => (
+                      <div key={benefit} className="flex items-center gap-2 text-[15px] text-[#57606A]">
+                        <BannerCheckIcon />
+                        <span>{benefit}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <h2 className="text-[2.75rem] font-bold text-[#0D1117] mb-4 tracking-tight">Support our mission</h2>
-                <p className="text-[17px] text-[#57606A] leading-relaxed">
+
+                <div className="flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/donate/goods')}
+                    className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] bg-[#FFB800] px-5 py-[0.55rem] text-center text-[0.85rem] font-semibold text-[#121212] transition-all duration-300 hover:-translate-y-px hover:bg-[#FFA900]"
+                  >
+                    View Full Donation Guide
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="donate-cash" className="bg-[#F6F8FA]">
+            <div className="max-w-[1200px] mx-auto px-6 py-32">
+              <div className="text-center max-w-[640px] mx-auto mb-16">
+
+                <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">
+                  Support our mission
+                </h2>
+                <p className="text-[18px] text-[#57606A] leading-relaxed">
                   Every contribution directly funds food distribution and community support. Choose
                   your impact level.
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-3 gap-6 mb-12">
+              <div className="mb-10 grid gap-6 md:grid-cols-3">
                 {donationTiers.map((tier) => (
                   <div
                     key={tier.name}
                     className={
                       tier.featured
-                        ? 'relative bg-white rounded-[24px] p-8 transition-all border-2 border-[#FFB800] shadow-[0_8px_30px_rgba(255,184,0,0.15)]'
-                        : 'relative bg-white rounded-[24px] p-8 transition-all border border-[#E5E8ED] hover:border-[#FFB800] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]'
+                        ? 'relative rounded-[10px] border-2 border-[#FFB800] bg-white px-6 py-8 shadow-[0_8px_30px_rgba(255,184,0,0.15)]'
+                        : 'relative rounded-[10px] border border-[#E5E5E5] bg-white px-6 py-8'
                     }
                   >
                     {tier.featured && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <span className="inline-block px-4 py-1.5 bg-[#FFB800] text-[#0D1117] rounded-full text-[12px] font-bold uppercase tracking-wide shadow-[0_4px_12px_rgba(255,184,0,0.3)]">
+                      <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+                        <span className="inline-flex rounded-full bg-[#FFB800] px-4 py-1.5 text-[12px] font-bold uppercase tracking-wide text-[#121212] shadow-[0_4px_12px_rgba(255,184,0,0.3)]">
                           Most Popular
                         </span>
                       </div>
                     )}
-                    <div className="text-[13px] font-semibold text-[#57606A] uppercase tracking-wide mb-2">{tier.name}</div>
-                    <div className="mb-4">
-                      <span className="text-[3.5rem] font-bold text-[#0D1117] leading-none">{tier.amount}</span>
-                      <span className="text-[17px] text-[#57606A] ml-1">/month</span>
+
+                    <div className="text-[13px] font-semibold uppercase tracking-wide text-[#57606A]">{tier.name}</div>
+                    <div className="mt-3 text-[3rem] font-bold leading-none tracking-tight text-[#121212]">
+                      {tier.amount}
+                      <span className="ml-1 text-[1rem] font-medium text-[#57606A]">/ month</span>
                     </div>
-                    <p className="text-[15px] font-semibold text-[#FFB800] mb-6">{tier.description}</p>
-                    <button
-                      type="button"
-                      onClick={() => navigate('/donate/cash')}
+                    <div className="mt-3 text-[15px] leading-relaxed text-[#57606A]">{tier.description}</div>
+                    <a
+                      href={tier.href}
+                      target="_blank"
+                      rel="noreferrer"
                       className={
                         tier.featured
-                          ? 'w-full py-3 rounded-[4px] text-[15px] font-semibold transition-all mb-6 bg-[#FFB800] text-[#0D1117] hover:bg-[#E5A600] shadow-[0_4px_12px_rgba(255,184,0,0.2)]'
-                          : 'w-full py-3 rounded-[4px] text-[15px] font-semibold transition-all mb-6 bg-[#F4F7FA] text-[#0D1117] hover:bg-[#E5E8ED]'
+                          ? 'mt-6 inline-flex w-full items-center justify-center rounded-[6px] bg-[#FFB800] px-4 py-3 text-[15px] font-semibold text-[#121212] transition-all duration-300 hover:-translate-y-px hover:bg-[#FFA900]'
+                          : 'mt-6 inline-flex w-full items-center justify-center rounded-[6px] border border-[#121212] bg-white px-4 py-3 text-[15px] font-semibold text-[#121212] transition-colors duration-300 hover:bg-[#F8F9FA]'
                       }
                     >
                       {tier.cta}
-                    </button>
-                    <div className="space-y-3 pt-6 border-t border-[#E5E8ED]">
+                    </a>
+                    <ul className="mt-6 space-y-3 border-t border-[#E5E8ED] pt-6">
                       {tier.features.map((feature) => (
-                        <div key={feature} className="flex items-start gap-3">
-                          <CheckIcon />
-                          <span className="text-[14px] text-[#57606A]">{feature}</span>
-                        </div>
+                        <li key={feature} className="flex items-start gap-2 text-[15px] leading-relaxed text-[#57606A]">
+                          <span className="mt-[0.1rem]" aria-hidden="true">
+                            <ListCheckIcon />
+                          </span>
+                          <span>{feature}</span>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
                 ))}
               </div>
 
-              <div className="bg-[#F6F8FA] rounded-[8px] p-8 border border-[#E5E8ED]">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                  <div className="flex-1 text-center md:text-left">
-                    <h3 className="text-[1.25rem] font-bold text-[#0D1117] mb-2">Prefer a one-time donation?</h3>
-                    <p className="text-[15px] text-[#57606A]">Every contribution makes a difference. Make a single donation of any amount.</p>
+              <div className="rounded-[10px] border border-[#E5E8ED] bg-white px-6 py-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="text-center md:text-left">
+                    <p className="text-[1.25rem] font-semibold text-[#0D1117] tracking-tight">Prefer a one-time donation?</p>
+                    <p className="mt-1 text-[15px] leading-relaxed text-[#57606A]">
+                      Every contribution makes a difference. Make a single donation of any amount.
+                    </p>
                   </div>
-                  <button type="button" onClick={() => navigate('/donate/cash')} className="px-6 py-3 bg-[#0D1117] text-white hover:bg-[#24292F] transition-colors rounded-[4px] text-[15px] font-semibold whitespace-nowrap">
+                  <a
+                    href="/donate/cash?type=onetime"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] bg-[#121212] px-5 py-3 text-[15px] font-semibold text-white transition-colors duration-300 hover:bg-[#2A2A2A]"
+                  >
                     One-Time Donation
-                  </button>
+                  </a>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-6 mt-10">
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-[15px] font-medium text-[#57606A]">
                 {['Secure Payment', 'Tax Deductible', 'Cancel Anytime'].map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-[#57606A]">
-                    <svg className="w-5 h-5 text-[#4CAF50]" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                      <path
-                        fillRule="evenodd"
-                        d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="text-[14px] font-medium">{item}</span>
+                  <div key={item} className="flex items-center gap-2">
+                    <TrustShieldIcon />
+                    <span>{item}</span>
                   </div>
                 ))}
               </div>
@@ -533,7 +726,7 @@ export default function Home() {
 
             <div className="pt-8 border-t border-[#21262D]">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <p className="text-[13px] text-[#8B949E]">© 2026 ABC Foodbank. All rights reserved.</p>
+                <p className="text-[13px] text-[#8B949E]">Copyright 2026 ABC Foodbank. All rights reserved.</p>
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-[#48C774] rounded-full" />
                 </div>
@@ -551,3 +744,4 @@ export default function Home() {
     </>
   )
 }
+
