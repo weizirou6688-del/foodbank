@@ -6,10 +6,11 @@ Spec § 2.5: POST /cash, POST /goods, GET /list (admin with ?type filter)
 
 import logging
 import uuid
+from datetime import date, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -24,13 +25,95 @@ from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
 from app.models.donation_goods_item import DonationGoodsItem
 from app.models.food_bank import FoodBank
+from app.models.inventory_item import InventoryItem
+from app.models.inventory_lot import InventoryLot
 from app.services.email_service import send_thank_you_email
-from app.schemas.donation_cash import DonationCashCreate, DonationCashOut
-from app.schemas.donation_goods import DonationGoodsCreate, DonationGoodsOut
+from app.schemas.donation_cash import DonationCashCreate, DonationCashOut, DonationCashUpdate
+from app.schemas.donation_goods import (
+    DonationGoodsCreate,
+    DonationGoodsItemCreatePayload,
+    DonationGoodsOut,
+    DonationGoodsUpdate,
+)
 
 
 router = APIRouter(tags=["Donations"])
 logger = logging.getLogger("uvicorn.error")
+DEFAULT_INVENTORY_CATEGORY = "Canned Goods"
+DEFAULT_INVENTORY_UNIT = "units"
+
+
+async def _resolve_food_bank(food_bank_id: int, db: AsyncSession) -> FoodBank:
+    selected_food_bank = await db.scalar(
+        select(FoodBank).where(FoodBank.id == food_bank_id)
+    )
+    if selected_food_bank is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Food bank not found",
+        )
+    return selected_food_bank
+
+
+async def _load_goods_donation(db: AsyncSession, donation_id: uuid.UUID) -> DonationGoods | None:
+    result = await db.execute(
+        select(DonationGoods)
+        .options(selectinload(DonationGoods.items))
+        .where(DonationGoods.id == donation_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _resolve_or_create_inventory_item(item_name: str, db: AsyncSession) -> InventoryItem:
+    normalized_name = item_name.strip()
+
+    exact_item = await db.scalar(
+        select(InventoryItem).where(func.lower(InventoryItem.name) == normalized_name.lower())
+    )
+    if exact_item is not None:
+        return exact_item
+
+    fuzzy_item = await db.scalar(
+        select(InventoryItem)
+        .where(func.lower(InventoryItem.name).like(f"{normalized_name.lower()}%"))
+        .order_by(InventoryItem.id)
+    )
+    if fuzzy_item is not None:
+        return fuzzy_item
+
+    item = InventoryItem(
+        name=normalized_name,
+        category=DEFAULT_INVENTORY_CATEGORY,
+        unit=DEFAULT_INVENTORY_UNIT,
+        threshold=10,
+    )
+    db.add(item)
+    await db.flush()
+    return item
+
+
+async def _sync_goods_donation_inventory(
+    donation: DonationGoods,
+    db: AsyncSession,
+    items: list[DonationGoodsItem | DonationGoodsItemCreatePayload] | None = None,
+) -> None:
+    received_date = donation.pickup_date or date.today()
+    donation_items = items if items is not None else list(donation.items)
+
+    for item in donation_items:
+        inventory_item = await _resolve_or_create_inventory_item(item.item_name, db)
+        lot_expiry = item.expiry_date or (received_date + timedelta(days=365))
+        db.add(
+            InventoryLot(
+                inventory_item_id=inventory_item.id,
+                quantity=item.quantity,
+                received_date=received_date,
+                expiry_date=lot_expiry,
+                batch_reference=f"donation-{donation.id}",
+            )
+        )
+
+    await db.flush()
 
 
 @router.post("/cash", response_model=DonationCashOut, status_code=status.HTTP_201_CREATED)
@@ -57,6 +140,7 @@ async def submit_cash_donation(
         async with db.begin():
             donation = DonationCash(
                 donor_name=donation_in.donor_name,
+                donor_type=donation_in.donor_type,
                 donor_email=donation_in.donor_email,
                 amount_pence=donation_in.amount_pence,
                 payment_reference=payment_reference,
@@ -114,19 +198,15 @@ async def submit_goods_donation(
     TODO: Create DonationGoods record and DonationGoodsItem entries
     """
     try:
-        selected_food_bank: FoodBank | None = None
         donation_id: uuid.UUID | None = None
+        resolved_status = donation_in.status or "pending"
 
         async with db.begin():
             if donation_in.food_bank_id is not None:
-                selected_food_bank = await db.scalar(
-                    select(FoodBank).where(FoodBank.id == donation_in.food_bank_id)
-                )
-                if selected_food_bank is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Food bank not found",
-                    )
+                selected_food_bank = await _resolve_food_bank(donation_in.food_bank_id, db)
+            else:
+                selected_food_bank = None
+            created_items: list[DonationGoodsItem] = []
 
             donation = DonationGoods(
                 donor_user_id=donation_in.donor_user_id,
@@ -142,6 +222,7 @@ async def submit_goods_donation(
                     else donation_in.food_bank_address
                 ),
                 donor_name=donation_in.donor_name,
+                donor_type=donation_in.donor_type,
                 donor_email=donation_in.donor_email,
                 donor_phone=donation_in.donor_phone,
                 postcode=donation_in.postcode,
@@ -149,23 +230,27 @@ async def submit_goods_donation(
                 item_condition=donation_in.item_condition,
                 estimated_quantity=donation_in.estimated_quantity,
                 notes=donation_in.notes,
-                status="pending",
+                status=resolved_status,
             )
             db.add(donation)
             await db.flush()
             donation_id = donation.id
 
             for item in donation_in.items:
-                db.add(
-                    DonationGoodsItem(
-                        donation_id=donation.id,
-                        donation=donation,
-                        item_name=item.item_name,
-                        quantity=item.quantity,
-                    )
+                donation_item = DonationGoodsItem(
+                    donation_id=donation.id,
+                    donation=donation,
+                    item_name=item.item_name,
+                    quantity=item.quantity,
+                    expiry_date=item.expiry_date,
                 )
+                db.add(donation_item)
+                created_items.append(donation_item)
 
             await db.flush()
+
+            if resolved_status == "received":
+                await _sync_goods_donation_inventory(donation, db, created_items)
 
             if donation_in.donor_email:
                 goods_details = ", ".join(
@@ -205,6 +290,197 @@ async def submit_goods_donation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit goods donation",
+        ) from exc
+
+
+@router.patch("/cash/{donation_id}", response_model=DonationCashOut)
+async def update_cash_donation(
+    donation_id: uuid.UUID,
+    donation_in: DonationCashUpdate,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+
+    updates = donation_in.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields provided to update",
+        )
+
+    try:
+        async with db.begin():
+            donation = await db.scalar(
+                select(DonationCash).where(DonationCash.id == donation_id)
+            )
+            if donation is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Cash donation not found",
+                )
+
+            for field, value in updates.items():
+                setattr(donation, field, value)
+
+            await db.flush()
+            await db.refresh(donation)
+            return donation
+    except HTTPException:
+        raise
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cash donation conflict detected",
+        ) from exc
+    except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update cash donation",
+        ) from exc
+
+
+@router.delete("/cash/{donation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_cash_donation(
+    donation_id: uuid.UUID,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+
+    try:
+        async with db.begin():
+            donation = await db.scalar(
+                select(DonationCash).where(DonationCash.id == donation_id)
+            )
+            if donation is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Cash donation not found",
+                )
+
+            await db.delete(donation)
+            await db.flush()
+            return None
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete cash donation",
+        ) from exc
+
+
+@router.patch("/goods/{donation_id}", response_model=DonationGoodsOut)
+async def update_goods_donation(
+    donation_id: uuid.UUID,
+    donation_in: DonationGoodsUpdate,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+
+    updates = donation_in.model_dump(exclude_unset=True, exclude={"items"})
+    items_payload = donation_in.items if "items" in donation_in.model_fields_set else None
+    if not updates and items_payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields provided to update",
+        )
+
+    try:
+        async with db.begin():
+            donation = await _load_goods_donation(db, donation_id)
+            if donation is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Goods donation not found",
+                )
+
+            previous_status = donation.status
+            selected_food_bank: FoodBank | None = None
+            if "food_bank_id" in donation_in.model_fields_set and donation_in.food_bank_id is not None:
+                selected_food_bank = await _resolve_food_bank(donation_in.food_bank_id, db)
+                updates["food_bank_id"] = selected_food_bank.id
+                updates["food_bank_name"] = selected_food_bank.name
+                updates["food_bank_address"] = selected_food_bank.address
+
+            for field, value in updates.items():
+                setattr(donation, field, value)
+
+            if items_payload is not None:
+                donation.items.clear()
+                await db.flush()
+                for item in items_payload:
+                    donation.items.append(
+                        DonationGoodsItem(
+                            donation_id=donation.id,
+                            item_name=item.item_name,
+                            quantity=item.quantity,
+                            expiry_date=item.expiry_date,
+                        )
+                    )
+
+            if previous_status != "received" and donation.status == "received":
+                await _sync_goods_donation_inventory(donation, db)
+
+            await db.flush()
+
+        refreshed = await _load_goods_donation(db, donation_id)
+        if refreshed is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Goods donation not found",
+            )
+        return refreshed
+    except HTTPException:
+        raise
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Goods donation conflict detected",
+        ) from exc
+    except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update goods donation",
+        ) from exc
+
+
+@router.delete("/goods/{donation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_goods_donation(
+    donation_id: uuid.UUID,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+
+    try:
+        async with db.begin():
+            donation = await _load_goods_donation(db, donation_id)
+            if donation is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Goods donation not found",
+                )
+
+            await db.delete(donation)
+            await db.flush()
+            return None
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete goods donation",
         ) from exc
 
 

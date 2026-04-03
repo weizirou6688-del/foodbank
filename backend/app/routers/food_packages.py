@@ -7,7 +7,7 @@ Spec § 2.3: GET (for food bank), GET/:id, POST, PATCH, DELETE
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -21,6 +21,7 @@ from app.core.security import require_admin
 from app.models.food_bank import FoodBank
 from app.models.food_package import FoodPackage
 from app.models.inventory_item import InventoryItem
+from app.models.application_item import ApplicationItem
 from app.models.package_item import PackageItem
 from app.schemas.food_package import (
     FoodPackageCreateRequest,
@@ -199,7 +200,9 @@ async def update_package(
     _ = admin_user
     
     result = await db.execute(
-        select(FoodPackage).where(FoodPackage.id == package_id)
+        select(FoodPackage)
+        .options(selectinload(FoodPackage.package_items))
+        .where(FoodPackage.id == package_id)
     )
     package = result.scalar_one_or_none()
     
@@ -208,13 +211,62 @@ async def update_package(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Package not found",
         )
-    
-    # Update non-null fields only
-    update_data = package_in.model_dump(exclude_unset=True)
+
+    update_data = package_in.model_dump(exclude_unset=True, exclude={"contents"})
+    contents_payload = package_in.contents if "contents" in package_in.model_fields_set else None
+
+    if "food_bank_id" in package_in.model_fields_set and package_in.food_bank_id is not None:
+        food_bank_exists = await db.scalar(
+            select(FoodBank.id).where(FoodBank.id == package_in.food_bank_id)
+        )
+        if food_bank_exists is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Food bank not found",
+            )
+
     for key, value in update_data.items():
         if value is not None:
             setattr(package, key, value)
-    
+
+    if contents_payload is not None:
+        item_ids = [content.item_id for content in contents_payload]
+        if len(set(item_ids)) != len(item_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Duplicate item_id in package contents",
+            )
+
+        inventory_rows = (
+            await db.execute(
+                select(InventoryItem.id).where(InventoryItem.id.in_(item_ids))
+            )
+        ).scalars().all()
+        if len(inventory_rows) != len(item_ids):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="One or more inventory items do not exist",
+            )
+
+        existing_items = (
+            await db.execute(
+                select(PackageItem).where(PackageItem.package_id == package_id)
+            )
+        ).scalars().all()
+        for existing_item in existing_items:
+            await db.delete(existing_item)
+
+        await db.flush()
+
+        for content in contents_payload:
+            db.add(
+                PackageItem(
+                    package_id=package.id,
+                    inventory_item_id=content.item_id,
+                    quantity=content.quantity,
+                )
+            )
+
     await db.flush()
     await db.refresh(package)
     
@@ -227,7 +279,7 @@ async def delete_package(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete/soft-delete a food package (admin only)."""
+    """Delete a package when safe, otherwise soft-delete it for history retention."""
     _ = admin_user
     
     result = await db.execute(
@@ -240,9 +292,15 @@ async def delete_package(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Package not found",
         )
-    
-    # Soft delete: mark as inactive
-    package.is_active = False
+
+    application_usage_count = await db.scalar(
+        select(func.count(ApplicationItem.id)).where(ApplicationItem.package_id == package_id)
+    )
+
+    if int(application_usage_count or 0) > 0:
+        package.is_active = False
+    else:
+        await db.delete(package)
     await db.flush()
     
     return None

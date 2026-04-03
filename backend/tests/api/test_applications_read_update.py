@@ -74,7 +74,7 @@ async def test_get_my_applications_returns_rows():
         id=uuid.uuid4(),
         user_id=user_id,
         food_bank_id=1,
-        redemption_code="FB-ABC123",
+        redemption_code="ABCD-EFGH",
         status="pending",
         week_start=date(2026, 3, 16),  # Monday of W12
         total_quantity=1,
@@ -83,7 +83,7 @@ async def test_get_my_applications_returns_rows():
         id=uuid.uuid4(),
         user_id=user_id,
         food_bank_id=1,
-        redemption_code="FB-DEF456",
+        redemption_code="WXYZ-2345",
         status="collected",
         week_start=date(2026, 3, 9),  # Monday of W11
         total_quantity=2,
@@ -94,7 +94,7 @@ async def test_get_my_applications_returns_rows():
 
     assert result["total"] == 2
     assert len(result["items"]) == 2
-    assert result["items"][0].redemption_code == "FB-ABC123"
+    assert result["items"][0].redemption_code == "ABCD-EFGH"
 
 
 @pytest.mark.asyncio
@@ -104,7 +104,7 @@ async def test_update_application_status_success():
         id=app_id,
         user_id=uuid.uuid4(),
         food_bank_id=1,
-        redemption_code="FB-ABC123",
+        redemption_code="ABCD-EFGH",
         status="pending",
         week_start=date(2026, 3, 16),  # Monday of W12
         total_quantity=1,
@@ -113,13 +113,13 @@ async def test_update_application_status_success():
 
     result = await update_application_status(
         application_id=app_id,
-        application_in=ApplicationUpdate(status="collected", redemption_code="FB-ZZZ999"),
+        application_in=ApplicationUpdate(status="collected", redemption_code="ZZZZ-9999"),
         admin_user={"role": "admin"},
         db=db,
     )
 
     assert result.status == "collected"
-    assert result.redemption_code == "FB-ZZZ999"
+    assert result.redemption_code == "ZZZZ-9999"
 
 
 @pytest.mark.asyncio
@@ -145,7 +145,7 @@ async def test_update_application_status_code_conflict():
         id=app_id,
         user_id=uuid.uuid4(),
         food_bank_id=1,
-        redemption_code="FB-ABC123",
+        redemption_code="ABCD-EFGH",
         status="pending",
         week_start=date(2026, 3, 16),  # Monday of W12
         total_quantity=1,
@@ -155,7 +155,7 @@ async def test_update_application_status_code_conflict():
     with pytest.raises(HTTPException) as exc:
         await update_application_status(
             application_id=app_id,
-            application_in=ApplicationUpdate(redemption_code="FB-NEW123"),
+            application_in=ApplicationUpdate(redemption_code="LMNP-2345"),
             admin_user={"role": "admin"},
             db=db,
         )
@@ -172,7 +172,7 @@ async def test_update_application_status_empty_payload_rejected():
             id=app_id,
             user_id=uuid.uuid4(),
             food_bank_id=1,
-            redemption_code="FB-ABC123",
+            redemption_code="ABCD-EFGH",
             status="pending",
             week_start=date(2026, 3, 16),  # Monday of W12
             total_quantity=1,

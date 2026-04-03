@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useAuthStore } from '@/app/store/authStore'
 import LoginModal from './LoginModal'
 
@@ -10,6 +10,10 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
   const { isAuthenticated, user } = useAuthStore()
   const [showModal, setShowModal] = useState(!isAuthenticated)
+
+  useEffect(() => {
+    setShowModal(!isAuthenticated)
+  }, [isAuthenticated])
 
   if (!isAuthenticated) {
     return (

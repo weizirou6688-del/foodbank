@@ -11,6 +11,7 @@ from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.routers.inventory import (
     create_inventory_item,
+    delete_inventory_lot,
     delete_inventory_item,
     list_inventory,
     stock_in,
@@ -231,6 +232,29 @@ async def test_stock_in_success():
 
 
 @pytest.mark.asyncio
+async def test_stock_in_uses_supplied_expiry_date():
+    item = InventoryItem(
+        id=1,
+        name="Milk",
+        category="Dairy",
+        unit="box",
+        threshold=1,
+    )
+    db = FakeSession(scalar_values=[item, 5])
+    expiry_date = date(2026, 5, 1)
+
+    await stock_in(
+        item_id=1,
+        adjustment_in=StockAdjustment(quantity=3, reason="donation", expiry_date=expiry_date),
+        admin_user={"role": "admin"},
+        db=db,
+    )
+
+    created_lot = next(obj for obj in db.added if isinstance(obj, InventoryLot))
+    assert created_lot.expiry_date == expiry_date
+
+
+@pytest.mark.asyncio
 async def test_stock_out_insufficient_stock():
     item = InventoryItem(
         id=1,
@@ -293,3 +317,21 @@ async def test_delete_inventory_item_success():
 
     assert result is None
     assert db.deleted == [item]
+
+
+@pytest.mark.asyncio
+async def test_delete_inventory_lot_success():
+    lot = InventoryLot(
+        id=7,
+        inventory_item_id=1,
+        quantity=2,
+        received_date=date.today(),
+        expiry_date=date.today(),
+        batch_reference="lot-7",
+    )
+    db = FakeSession(scalar_values=[lot])
+
+    result = await delete_inventory_lot(lot_id=7, admin_user={"role": "admin"}, db=db)
+
+    assert result is None
+    assert db.deleted == [lot]

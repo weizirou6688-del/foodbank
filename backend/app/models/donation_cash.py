@@ -51,6 +51,9 @@ class DonationCash(Base):
     # Kept nullable to preserve support for anonymous/manual cash donations.
     donor_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Optional donor type captured by staff recording/admin flows.
+    donor_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
     # From spec: amount_pence: INTEGER, NOT NULL
     # Amount in pence (1/100 of currency unit) to avoid floating-point
     # precision issues common in financial systems.

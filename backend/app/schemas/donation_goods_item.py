@@ -11,6 +11,7 @@ Unlike inventory items, donation items use free-form names for ad-hoc contributi
 """
 
 import uuid
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -31,6 +32,8 @@ class DonationGoodsItemBase(BaseModel):
     # Quantity of the item donated. Validation: ge=1 (at least 1).
     quantity: int = Field(ge=1)
 
+    expiry_date: date | None = None
+
 
 # Schema for adding items to donations.
 class DonationGoodsItemCreate(DonationGoodsItemBase):
@@ -45,6 +48,7 @@ class DonationGoodsItemUpdate(BaseModel):
 
     item_name: str | None = Field(default=None, min_length=1, max_length=200)
     quantity: int | None = Field(default=None, ge=1)
+    expiry_date: date | None = None
 
 
 # Schema for API responses (reading donation item data).

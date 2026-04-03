@@ -35,6 +35,22 @@ cd scripts
 stop.bat
 ```
 
+### Cleanup Synthetic Analytics Data
+
+Preview what the local analytics-data cleanup would remove:
+
+```batch
+cd scripts
+cleanup_analytics_data.bat
+```
+
+Apply the cleanup:
+
+```batch
+cd scripts
+cleanup_analytics_data.bat --apply
+```
+
 ## Manual Setup
 
 ### Prerequisites

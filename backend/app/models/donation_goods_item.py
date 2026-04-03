@@ -11,8 +11,9 @@ may be ad-hoc contributions not in the standard inventory.
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import Date, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,6 +46,8 @@ class DonationGoodsItem(Base):
     # From spec: quantity: INTEGER, NOT NULL
     # Quantity of this item in the donation (e.g., 5 cans, 2 boxes).
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     # Relationship: DonationGoodsItem -> DonationGoods (many-to-one)
     # From spec § 2 "donations_goods → donation_goods_items: one-to-many"

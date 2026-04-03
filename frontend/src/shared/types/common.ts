@@ -77,6 +77,7 @@ export interface GoodsDonationApiItem {
   donation_id: string
   item_name: string
   quantity: number
+  expiry_date?: string | null
 }
 
 export interface GoodsDonationResponse {
@@ -86,6 +87,7 @@ export interface GoodsDonationResponse {
   food_bank_name?: string | null
   food_bank_address?: string | null
   donor_name: string
+  donor_type?: 'supermarket' | 'individual' | 'organization' | null
   donor_email: string
   donor_phone: string
   postcode?: string | null
@@ -99,9 +101,11 @@ export interface GoodsDonationResponse {
 }
 
 export interface DonationListRow {
+  id: string
   donation_type: 'cash' | 'goods'
   donor_email?: string
   donor_name?: string
+  donor_type?: 'supermarket' | 'individual' | 'organization' | null
   donor_phone?: string
   food_bank_id?: number | null
   food_bank_name?: string | null
@@ -111,6 +115,7 @@ export interface DonationListRow {
   item_condition?: string | null
   estimated_quantity?: string | null
   amount_pence?: number
+  payment_reference?: string | null
   status?: string
   notes?: string | null
   created_at?: string

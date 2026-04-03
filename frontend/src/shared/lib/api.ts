@@ -92,6 +92,7 @@ const apiClient = new APIClient(API_BASE_URL)
 export interface CashDonationResponse {
   id: string
   donor_name?: string | null
+  donor_type?: 'supermarket' | 'individual' | 'organization' | null
   donor_email: string
   amount_pence: number
   payment_reference?: string | null
@@ -125,15 +126,126 @@ export interface InventoryItemListResponse {
   pages: number
 }
 
+export interface AdminInventoryItemRecord {
+  id: number
+  name: string
+  category: string
+  stock: number
+  total_stock: number
+  unit: string
+  threshold: number
+  food_bank_id?: number | null
+  updated_at: string
+}
+
+export interface InventoryItemMutationPayload {
+  name: string
+  category: string
+  initial_stock?: number
+  unit: string
+  threshold: number
+  food_bank_id?: number
+}
+
+export interface FoodPackageSummaryRecord {
+  id: number
+  name: string
+  category: string
+  description?: string | null
+  stock: number
+  threshold: number
+  applied_count: number
+  image_url?: string | null
+  food_bank_id?: number | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface FoodPackageContentRecord {
+  id: number
+  inventory_item_id: number
+  quantity: number
+  inventory_item_name: string
+  inventory_item_unit: string
+}
+
+export interface FoodPackageDetailRecord extends FoodPackageSummaryRecord {
+  package_items: FoodPackageContentRecord[]
+}
+
+export interface FoodPackageMutationPayload {
+  name?: string
+  category?: string
+  threshold?: number
+  description?: string | null
+  image_url?: string | null
+  food_bank_id?: number
+  contents?: Array<{
+    item_id: number
+    quantity: number
+  }>
+}
+
+export interface PackPackageResponse {
+  package_id: number
+  package_name: string
+  quantity: number
+  new_stock: number
+  consumed_lots: Array<{
+    item_id: number
+    lot_id: number
+    quantity_used: number
+    remaining_in_lot: number
+    expiry_date: string
+    batch_reference?: string | null
+  }>
+  timestamp: string
+}
+
 export interface GeocodeResponse {
   lat: number
   lng: number
   source: string
 }
 
+export interface AdminApplicationItem {
+  id: number
+  package_id?: number | null
+  inventory_item_id?: number | null
+  name: string
+  quantity: number
+}
+
+export interface AdminApplicationRecord {
+  id: string
+  user_id: string
+  food_bank_id: number
+  redemption_code: string
+  status: ApplicationStatus
+  week_start: string
+  total_quantity: number
+  created_at: string
+  updated_at: string
+  redeemed_at?: string | null
+  deleted_at?: string | null
+  items: AdminApplicationItem[]
+  package_name?: string | null
+  is_voided: boolean
+  voided_at?: string | null
+}
+
+export interface AdminApplicationListResponse {
+  items: AdminApplicationRecord[]
+  total: number
+  page: number
+  size: number
+  pages: number
+}
+
 export const donationsAPI = {
   donateCash: (data: {
     donor_name?: string
+    donor_type?: 'supermarket' | 'individual' | 'organization'
     donor_email: string
     amount_pence: number
     payment_reference?: string
@@ -141,6 +253,7 @@ export const donationsAPI = {
 
   donateGoods: (data: {
     donor_name: string
+    donor_type?: 'supermarket' | 'individual' | 'organization'
     donor_email: string
     donor_phone: string
     food_bank_id?: number
@@ -151,7 +264,8 @@ export const donationsAPI = {
     item_condition?: string
     estimated_quantity?: string
     notes?: string
-    items: Array<{ item_name: string; quantity: number }>
+    status?: 'pending' | 'received' | 'rejected'
+    items: Array<{ item_name: string; quantity: number; expiry_date?: string }>
   }) => apiClient.post('/api/v1/donations/goods', data) as Promise<GoodsDonationResponse>,
 }
 
@@ -215,9 +329,24 @@ export const adminAPI = {
   getFoodPackages: (token: string) =>
     apiClient.get('/api/v1/stats/packages', token),
 
+  listFoodBankPackages: (
+    foodBankId: number | string,
+    token: string
+  ) => apiClient.get(`/api/v1/food-banks/${foodBankId}/packages`, token) as Promise<FoodPackageSummaryRecord[]>,
+
+  getFoodPackageDetail: (
+    id: number | string,
+    token: string
+  ) => apiClient.get(`/api/v1/packages/${id}`, token) as Promise<FoodPackageDetailRecord>,
+
+  createFoodPackage: (
+    data: FoodPackageMutationPayload,
+    token: string
+  ) => apiClient.post('/api/v1/packages', data, token) as Promise<FoodPackageDetailRecord>,
+
   updateFoodPackage: (
     id: number | string,
-    data: Record<string, any>,
+    data: FoodPackageMutationPayload,
     token: string
   ) => apiClient.patch(`/api/v1/packages/${id}`, data, token),
 
@@ -230,10 +359,15 @@ export const adminAPI = {
     id: number | string,
     quantity: number,
     token: string
-  ) => apiClient.post(`/api/v1/packages/${id}/pack`, { quantity }, token),
+  ) => apiClient.post(`/api/v1/packages/${id}/pack`, { quantity }, token) as Promise<PackPackageResponse>,
 
   getInventoryItems: (token: string) =>
-    apiClient.get('/api/v1/inventory', token),
+    apiClient.get('/api/v1/inventory', token) as Promise<InventoryItemListResponse>,
+
+  createInventoryItem: (
+    data: InventoryItemMutationPayload,
+    token: string
+  ) => apiClient.post('/api/v1/inventory', data, token) as Promise<AdminInventoryItemRecord>,
 
   getInventoryLots: (token: string, includeInactive = true) =>
     apiClient.get(`/api/v1/inventory/lots?include_inactive=${includeInactive}`, token),
@@ -244,11 +378,28 @@ export const adminAPI = {
     token: string
   ) => apiClient.patch(`/api/v1/inventory/lots/${lotId}`, data, token),
 
+  deleteInventoryLot: (
+    lotId: number | string,
+    token: string
+  ) => apiClient.delete(`/api/v1/inventory/lots/${lotId}`, token),
+
   updateInventoryItem: (
     id: number | string,
     data: Record<string, any>,
     token: string
   ) => apiClient.patch(`/api/v1/inventory/${id}`, data, token),
+
+  stockInInventoryItem: (
+    id: number | string,
+    data: { quantity: number; reason: string; expiry_date?: string },
+    token: string
+  ) => apiClient.post(`/api/v1/inventory/${id}/stock-in`, data, token) as Promise<AdminInventoryItemRecord>,
+
+  stockOutInventoryItem: (
+    id: number | string,
+    data: { quantity: number; reason: string },
+    token: string
+  ) => apiClient.post(`/api/v1/inventory/${id}/stock-out`, data, token) as Promise<AdminInventoryItemRecord>,
 
   deleteInventoryItem: (
     id: number | string,
@@ -266,6 +417,41 @@ export const adminAPI = {
     const query = type ? `?type=${type}` : ''
     return apiClient.get(`/api/v1/donations${query}`, token) as Promise<DonationListRow[]>
   },
+
+  createGoodsDonation: (
+    data: {
+      donor_name: string
+      donor_type?: 'supermarket' | 'individual' | 'organization'
+      donor_email: string
+      donor_phone: string
+      pickup_date?: string
+      items: Array<{ item_name: string; quantity: number; expiry_date?: string }>
+      status?: 'pending' | 'received' | 'rejected'
+    },
+    token: string
+  ) => apiClient.post('/api/v1/donations/goods', data, token) as Promise<GoodsDonationResponse>,
+
+  updateGoodsDonation: (
+    id: string,
+    data: Record<string, any>,
+    token: string
+  ) => apiClient.patch(`/api/v1/donations/goods/${id}`, data, token) as Promise<GoodsDonationResponse>,
+
+  deleteGoodsDonation: (
+    id: string,
+    token: string
+  ) => apiClient.delete(`/api/v1/donations/goods/${id}`, token),
+
+  updateCashDonation: (
+    id: string,
+    data: Record<string, any>,
+    token: string
+  ) => apiClient.patch(`/api/v1/donations/cash/${id}`, data, token) as Promise<CashDonationResponse>,
+
+  deleteCashDonation: (
+    id: string,
+    token: string
+  ) => apiClient.delete(`/api/v1/donations/cash/${id}`, token),
 }
 
 export const applicationsAPI = {
@@ -286,4 +472,16 @@ export const applicationsAPI = {
     data: { status: ApplicationStatus },
     token: string
   ) => apiClient.patch(`/api/v1/applications/${id}`, data, token),
+
+  getAdminApplications: (token: string) =>
+    apiClient.get('/api/v1/applications/admin/records', token) as Promise<AdminApplicationListResponse>,
+
+  getApplicationByCode: (code: string, token: string) =>
+    apiClient.get(`/api/v1/applications/admin/by-code/${encodeURIComponent(code)}`, token) as Promise<AdminApplicationRecord>,
+
+  redeemApplication: (id: string, token: string) =>
+    apiClient.post(`/api/v1/applications/admin/${id}/redeem`, {}, token) as Promise<AdminApplicationRecord>,
+
+  voidApplication: (id: string, token: string) =>
+    apiClient.post(`/api/v1/applications/admin/${id}/void`, {}, token) as Promise<AdminApplicationRecord>,
 }

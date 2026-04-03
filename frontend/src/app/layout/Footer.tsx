@@ -4,8 +4,12 @@ export default function Footer() {
   const location = useLocation()
   const isHomePage = location.pathname === '/'
   const isFindFoodBankPage = location.pathname === '/find-foodbank'
+  const adminSection = new URLSearchParams(location.search).get('section')
+  const isFoodManagementPage =
+    location.pathname === '/food-management-preview' ||
+    (location.pathname === '/admin' && adminSection !== 'statistics')
 
-  if (isHomePage || isFindFoodBankPage) {
+  if (isHomePage || isFindFoodBankPage || isFoodManagementPage) {
     return null
   }
 

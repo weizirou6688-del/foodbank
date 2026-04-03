@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 ApplicationStatus = Literal["pending", "collected", "expired"]
+APPLICATION_REDEMPTION_CODE_PATTERN = r"^(?:[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}|[A-Z]{2}\d{8})$"
 
 
 # ==================== INNER PAYLOADS ====================
@@ -56,7 +57,10 @@ class ApplicationBase(BaseModel):
     # Local UX uses a 4-4 collection code such as ABCD-EFGH.
     # Excludes visually ambiguous characters like I, O, 0, and 1.
     # Usually generated server-side; included here for full repr.
-    redemption_code: str = Field(pattern=r"^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$", max_length=20)
+    redemption_code: str = Field(
+        pattern=APPLICATION_REDEMPTION_CODE_PATTERN,
+        max_length=20,
+    )
 
     # From spec: status: VARCHAR(20), NOT NULL, DEFAULT 'pending'
     # Lifecycle: pending -> collected | expired.
@@ -113,7 +117,11 @@ class ApplicationUpdate(BaseModel):
     # From spec: redemption_code: VARCHAR(20), UNIQUE
     # Admin can regenerate code if original lost/damaged.
     # Regex enforces the 4-4 collection code format.
-    redemption_code: str | None = Field(default=None, pattern=r"^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$", max_length=20)
+    redemption_code: str | None = Field(
+        default=None,
+        pattern=APPLICATION_REDEMPTION_CODE_PATTERN,
+        max_length=20,
+    )
 
     # Admin approval/rejection comment.
     admin_comment: str | None = None
@@ -135,13 +143,38 @@ class ApplicationOut(ApplicationBase):
     # Audit field: when application was last updated.
     updated_at: datetime
 
+    redeemed_at: datetime | None = None
+
     # Soft-delete field: null if active, timestamp if soft-deleted.
     deleted_at: datetime | None = None
+
+
+class ApplicationAdminItemOut(BaseModel):
+    id: int
+    package_id: int | None = None
+    inventory_item_id: int | None = None
+    name: str
+    quantity: int
+
+
+class ApplicationAdminRecordOut(ApplicationOut):
+    items: list[ApplicationAdminItemOut] = Field(default_factory=list)
+    package_name: str | None = None
+    is_voided: bool = False
+    voided_at: datetime | None = None
 
 
 class ApplicationListResponse(BaseModel):
     # TODO: 实现真实分页
     items: list[ApplicationOut]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class ApplicationAdminListResponse(BaseModel):
+    items: list[ApplicationAdminRecordOut]
     total: int
     page: int
     size: int
