@@ -517,16 +517,16 @@ export default function Home() {
                 <h4 className="text-[13px] font-semibold mb-4 uppercase tracking-wide text-[#8B949E]">Resources</h4>
                 <ul className="space-y-3">
                   <li><button type="button" onClick={() => setLoginModal({ open: true, tab: 'signin' })} className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Sign In</button></li>
-                  <li><a href="#volunteer" className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Volunteer</a></li>
-                  <li><a href="#support" className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Support</a></li>
+                  <li><button type="button" onClick={() => scrollTo('about')} className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Volunteer</button></li>
+                  <li><button type="button" onClick={() => navigate('/find-foodbank')} className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Support</button></li>
                 </ul>
               </div>
 
               <div className="md:col-span-2">
                 <h4 className="text-[13px] font-semibold mb-4 uppercase tracking-wide text-[#8B949E]">Legal</h4>
                 <ul className="space-y-3">
-                  <li><a href="#privacy" className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Privacy</a></li>
-                  <li><a href="#security" className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Security</a></li>
+                  <li><button type="button" onClick={() => navigate('/home')} className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Privacy</button></li>
+                  <li><button type="button" onClick={() => navigate('/home')} className="text-[15px] text-white hover:text-[#FFB800] transition-colors">Security</button></li>
                 </ul>
               </div>
             </div>

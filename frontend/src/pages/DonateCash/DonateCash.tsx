@@ -9,6 +9,7 @@ import {
   isValidEmail,
   isValidExpiry,
 } from '@/shared/lib/validation'
+import LoginModal from '@/features/auth/components/LoginModal'
 import { ImageWithFallback } from './components/figma/ImageWithFallback'
 import styles from './DonateCash.module.css'
 
@@ -25,6 +26,10 @@ export default function DonateCash() {
     type: 'success' | 'error'
     message: string
   } | null>(null)
+  const [loginModal, setLoginModal] = useState<{ open: boolean; tab: 'signin' | 'register' }>({
+    open: false,
+    tab: 'signin',
+  })
   const [formData, setFormData] = useState({
     email: '',
     cardholderName: '',
@@ -165,7 +170,7 @@ export default function DonateCash() {
       <nav className={styles.nav}>
         <div className={styles.navInner}>
           <div className={styles.navBar}>
-            <button type="button" onClick={() => navigate('/')} className={styles.brand}>
+            <button type="button" onClick={() => navigate('/home')} className={styles.brand}>
               <span className={styles.brandSmall}>ABC</span>
               <span className={styles.brandMain}>Foodbank</span>
             </button>
@@ -191,7 +196,7 @@ export default function DonateCash() {
                 <span className={styles.navLine}>Get</span>
                 <span className={styles.navLine}>Supports</span>
               </button>
-              <button type="button" onClick={() => navigate('/')} className={styles.navSingle}>
+              <button type="button" onClick={() => navigate('/home')} className={styles.navSingle}>
                 Volunteering
               </button>
               <div className={styles.navActionGroup}>
@@ -204,7 +209,7 @@ export default function DonateCash() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => setLoginModal({ open: true, tab: 'signin' })}
                   className={styles.signInButton}
                 >
                   Sign In
@@ -652,7 +657,7 @@ export default function DonateCash() {
               <h4 className={styles.footerHeading}>Platform</h4>
               <ul className={styles.footerList}>
                 <li>
-                  <button type="button" onClick={() => navigate('/')} className={styles.footerLink}>
+                  <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
                     About Us
                   </button>
                 </li>
@@ -686,12 +691,16 @@ export default function DonateCash() {
               <h4 className={styles.footerHeading}>Resources</h4>
               <ul className={styles.footerList}>
                 <li>
-                  <button type="button" onClick={() => navigate('/')} className={styles.footerLink}>
+                  <button
+                    type="button"
+                    onClick={() => setLoginModal({ open: true, tab: 'signin' })}
+                    className={styles.footerLink}
+                  >
                     Sign In
                   </button>
                 </li>
                 <li>
-                  <button type="button" onClick={() => navigate('/')} className={styles.footerLink}>
+                  <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
                     Volunteer
                   </button>
                 </li>
@@ -731,6 +740,11 @@ export default function DonateCash() {
           </div>
         </div>
       </footer>
+      <LoginModal
+        isOpen={loginModal.open}
+        onClose={() => setLoginModal((state) => ({ ...state, open: false }))}
+        initialTab={loginModal.tab}
+      />
     </div>
   )
 }

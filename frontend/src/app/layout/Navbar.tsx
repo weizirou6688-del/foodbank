@@ -23,7 +23,7 @@ export default function Navbar() {
   const handleLogout = () => {
     logout()
     setMobileOpen(false)
-    navigate('/')
+    navigate('/home')
   }
 
   useEffect(() => {
@@ -47,10 +47,10 @@ export default function Navbar() {
   const isLoggedIn = isAuthenticated && !!user
   const isHomePage = location.pathname === '/'
   const isFindFoodBankPage = location.pathname === '/find-foodbank'
-  const adminSection = new URLSearchParams(location.search).get('section')
-  const isFoodManagementPage =
+  const isAdminPreviewPage = location.pathname === '/admin'
+  const isStandalonePreviewPage =
     location.pathname === '/food-management-preview' ||
-    (location.pathname === '/admin' && adminSection !== 'statistics')
+    location.pathname === '/data-dashboard-preview'
 
   const roleBadgeLabel =
     user?.role === 'admin' ? 'Admin' : user?.role === 'supermarket' ? 'Supermarket' : 'Account'
@@ -72,7 +72,7 @@ export default function Navbar() {
         }}
       >
         <Link
-          to="/"
+          to="/home"
           style={{
             fontWeight: 900,
             fontSize: '1.25rem',
@@ -120,7 +120,7 @@ export default function Navbar() {
     return null
   }
 
-  if (isFoodManagementPage) {
+  if (isAdminPreviewPage || isStandalonePreviewPage) {
     return null
   }
 
@@ -128,7 +128,7 @@ export default function Navbar() {
     <>
       <nav className="sticky top-0 z-50 flex h-[72px] items-center justify-between border-b-[1.5px] border-[#E8E8E8] bg-white px-4 md:px-8">
         <Link
-          to="/"
+          to="/home"
           className="whitespace-nowrap text-xl font-bold tracking-wide text-[#1A1A1A] no-underline"
           style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 800 }}
         >
@@ -155,7 +155,7 @@ export default function Navbar() {
             Get Supports
           </Link>
           <Link
-            to="/"
+            to="/home"
             className="text-sm font-medium text-gray-500 no-underline transition-colors hover:text-[#1A1A1A]"
           >
             Volunteering
@@ -182,7 +182,7 @@ export default function Navbar() {
                 <div className="absolute right-0 top-full z-50 mt-2 flex w-48 flex-col rounded-xl border-[1.5px] border-[#E8E8E8] bg-white py-2 shadow-lg">
                   <button
                     onClick={() => {
-                      navigate('/admin')
+                      navigate('/admin?section=statistics')
                       setDropdownOpen(false)
                     }}
                     className="bg-[#F7DC6F] px-6 py-2 text-left text-sm font-semibold hover:bg-[#F7DC6F]/80"
@@ -295,7 +295,7 @@ export default function Navbar() {
             Get Supports
           </Link>
           <Link
-            to="/"
+            to="/home"
             className="rounded-lg p-2 text-sm font-medium text-[#1A1A1A] no-underline hover:bg-[#F7DC6F]/10"
           >
             Volunteering
@@ -312,7 +312,7 @@ export default function Navbar() {
             <>
               <button
                 onClick={() => {
-                  navigate('/admin')
+                  navigate('/admin?section=statistics')
                   setMobileOpen(false)
                 }}
                 className="rounded-full border-[1.5px] border-[#E8E8E8] bg-white px-4 py-2 text-sm font-medium text-center"

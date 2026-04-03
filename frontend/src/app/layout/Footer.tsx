@@ -1,15 +1,16 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 export default function Footer() {
   const location = useLocation()
+  const navigate = useNavigate()
   const isHomePage = location.pathname === '/'
   const isFindFoodBankPage = location.pathname === '/find-foodbank'
-  const adminSection = new URLSearchParams(location.search).get('section')
-  const isFoodManagementPage =
+  const isAdminPreviewPage = location.pathname === '/admin'
+  const isStandalonePreviewPage =
     location.pathname === '/food-management-preview' ||
-    (location.pathname === '/admin' && adminSection !== 'statistics')
+    location.pathname === '/data-dashboard-preview'
 
-  if (isHomePage || isFindFoodBankPage || isFoodManagementPage) {
+  if (isHomePage || isFindFoodBankPage || isAdminPreviewPage || isStandalonePreviewPage) {
     return null
   }
 
@@ -20,18 +21,34 @@ export default function Footer() {
           ABC <span className="text-[#F4C542]">Foodbank</span>
         </div>
         <div className="mb-10 flex flex-wrap justify-center gap-8 text-sm md:gap-12 md:text-base">
-          <a href="#" className="text-[#2B4A5A] no-underline transition-colors hover:text-[#F4C542]">
+          <button
+            type="button"
+            onClick={() => navigate('/home')}
+            className="text-[#2B4A5A] no-underline transition-colors hover:text-[#F4C542]"
+          >
             About Us
-          </a>
-          <a href="#" className="text-[#2B4A5A] no-underline transition-colors hover:text-[#F4C542]">
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/find-foodbank')}
+            className="text-[#2B4A5A] no-underline transition-colors hover:text-[#F4C542]"
+          >
             Contact
-          </a>
-          <a href="#" className="text-[#2B4A5A] no-underline transition-colors hover:text-[#F4C542]">
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/home')}
+            className="text-[#2B4A5A] no-underline transition-colors hover:text-[#F4C542]"
+          >
             FAQs
-          </a>
-          <a href="#" className="text-[#2B4A5A] no-underline transition-colors hover:text-[#F4C542]">
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/home')}
+            className="text-[#2B4A5A] no-underline transition-colors hover:text-[#F4C542]"
+          >
             Privacy Policy
-          </a>
+          </button>
         </div>
         <div className="text-xs tracking-wide text-[#2B4A5A]/60 md:text-sm">
           Copyright 2026 ABC Community Food Bank. Registered Charity No. 1234567. All Rights

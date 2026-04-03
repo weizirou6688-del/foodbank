@@ -51,8 +51,11 @@ const apiProxyTarget = getConfigValue(
 )
 
 const foodManagementReferencePath = path.resolve(projectRoot, 'scripts', 'food_management.html')
+const dataDashboardReferencePath = path.resolve(projectRoot, 'scripts', 'Data_dashboard.html')
 const FOOD_MANAGEMENT_VIRTUAL_MODULE = 'virtual:food-management-reference'
 const FOOD_MANAGEMENT_VIRTUAL_MODULE_ID = `\0${FOOD_MANAGEMENT_VIRTUAL_MODULE}`
+const DATA_DASHBOARD_VIRTUAL_MODULE = 'virtual:data-dashboard-reference'
+const DATA_DASHBOARD_VIRTUAL_MODULE_ID = `\0${DATA_DASHBOARD_VIRTUAL_MODULE}`
 
 const listFilesRecursively = (dirPath: string): string[] => {
   if (!fs.existsSync(dirPath)) {
@@ -99,11 +102,23 @@ const loadFoodManagementReference = (): string => {
   return readFoodManagementBackup()
 }
 
-const foodManagementReferencePlugin = () => ({
-  name: 'food-management-reference-plugin',
+const loadDataDashboardReference = (): string => {
+  if (fs.existsSync(dataDashboardReferencePath) && fs.statSync(dataDashboardReferencePath).size > 0) {
+    return fs.readFileSync(dataDashboardReferencePath, 'utf8')
+  }
+
+  return ''
+}
+
+const htmlReferencePlugin = () => ({
+  name: 'html-reference-plugin',
   resolveId(id: string) {
     if (id === FOOD_MANAGEMENT_VIRTUAL_MODULE) {
       return FOOD_MANAGEMENT_VIRTUAL_MODULE_ID
+    }
+
+    if (id === DATA_DASHBOARD_VIRTUAL_MODULE) {
+      return DATA_DASHBOARD_VIRTUAL_MODULE_ID
     }
 
     return null
@@ -113,12 +128,16 @@ const foodManagementReferencePlugin = () => ({
       return `export default ${JSON.stringify(loadFoodManagementReference())};`
     }
 
+    if (id === DATA_DASHBOARD_VIRTUAL_MODULE_ID) {
+      return `export default ${JSON.stringify(loadDataDashboardReference())};`
+    }
+
     return null
   },
 })
 
 export default defineConfig({
-  plugins: [react(), foodManagementReferencePlugin()],
+  plugins: [react(), htmlReferencePlugin()],
   build: {
     rollupOptions: {
       output: {

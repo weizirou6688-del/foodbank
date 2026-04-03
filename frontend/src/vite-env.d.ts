@@ -21,3 +21,8 @@ declare module 'virtual:food-management-reference' {
   const html: string
   export default html
 }
+
+declare module 'virtual:data-dashboard-reference' {
+  const html: string
+  export default html
+}

@@ -242,6 +242,103 @@ export interface AdminApplicationListResponse {
   pages: number
 }
 
+export interface DashboardChartData {
+  labels: string[]
+  data: number[]
+}
+
+export interface DashboardImpactMetric {
+  key: string
+  value: string
+  label: string
+}
+
+export interface DashboardKpi {
+  totalDonation: number
+  totalSku: number
+  totalPackageDistributed: number
+  lowStockCount: number
+  expiringLotCount: number
+  redemptionRate: number
+  trends: {
+    donation: string
+    package: string
+    lowStock: string
+    wastage: string
+  }
+}
+
+export interface DashboardDisplayCard {
+  title: string
+  value: string
+  subtitle: string
+  trend?: string | null
+}
+
+export interface DashboardLowStockAlert {
+  item_name: string
+  category: string
+  current_stock: number
+  current_stock_label: string
+  threshold: number
+  threshold_label: string
+  deficit: number
+  status: string
+  status_tone: 'success' | 'warning' | 'error' | 'muted' | string
+}
+
+export interface DashboardExpiringLot {
+  item_name: string
+  lot_number: string
+  expiry_date: string
+  remaining_stock: number
+  remaining_stock_label: string
+  days_until_expiry: number
+  status_tone: 'success' | 'warning' | 'error' | 'muted' | string
+}
+
+export interface DashboardVerificationRecord {
+  redemption_code: string
+  package_type: string
+  verified_at: string
+  status: string
+  status_tone: 'success' | 'warning' | 'error' | 'muted' | string
+}
+
+export interface DashboardAnalyticsResponse {
+  impactMetrics: DashboardImpactMetric[]
+  kpi: DashboardKpi
+  donation: {
+    source: DashboardChartData
+    trend: DashboardChartData
+    category: DashboardChartData
+    donorType: DashboardChartData
+    averageValue: DashboardDisplayCard
+  }
+  inventory: {
+    health: DashboardChartData
+    category: DashboardChartData
+    lowStockAlerts: DashboardLowStockAlert[]
+  }
+  package: {
+    trend: DashboardChartData
+    redemption: DashboardChartData
+    packageType: DashboardChartData
+    averageSupportDuration: DashboardDisplayCard
+    itemsPerPackage: DashboardDisplayCard
+  }
+  expiry: {
+    distribution: DashboardChartData
+    wastage: DashboardChartData & { label: string }
+    expiringLots: DashboardExpiringLot[]
+  }
+  redemption: {
+    rateTrend: DashboardChartData
+    breakdown: DashboardChartData
+    recentVerificationRecords: DashboardVerificationRecord[]
+  }
+}
+
 export const donationsAPI = {
   donateCash: (data: {
     donor_name?: string
@@ -322,6 +419,11 @@ export const adminAPI = {
 
   getPackageStats: (token: string) =>
     apiClient.get('/api/v1/stats/packages', token),
+
+  getDashboardAnalytics: (
+    token: string,
+    range: 'month' | 'quarter' | 'year' = 'month'
+  ) => apiClient.get(`/api/v1/stats/dashboard?range=${range}`, token) as Promise<DashboardAnalyticsResponse>,
 
   getStockGap: (token: string) =>
     apiClient.get('/api/v1/stats/stock-gap', token),

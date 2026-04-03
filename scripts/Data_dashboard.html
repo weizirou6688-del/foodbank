@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Dashboard - ABC Foodbank</title>
+    <style>
+        /* ========== 全局设计规范（和Inventory页面100%统一） ========== */
+        :root {
+            --color-primary: #FFB703;
+            --color-primary-dark: #FB8500;
+            --color-primary-light: #FFF8E6;
+            --color-text-dark: #000000;
+            --color-text-medium: #333333;
+            --color-text-light: #666666;
+            --color-bg-page: #FFFFFF;
+            --color-bg-white: #FFFFFF;
+            --color-bg-gray: #F9F9F9;
+            --color-border: #E5E5E5;
+            --color-success: #2E7D32;
+            --color-warning: #F57C00;
+            --color-error: #D32F2F;
+            --color-blue: #1976D2;
+            --color-purple: #7B1FA2;
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-full: 999px;
+            
+            --spacing-xs: 8px;
+            --spacing-sm: 16px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+            --spacing-xl: 48px;
+            --spacing-2xl: 64px;
+            --spacing-3xl: 80px;
+            
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-family);
+            color: var(--color-text-medium);
+            line-height: 1.6;
+            background-color: var(--color-bg-page);
+            scroll-behavior: smooth;
+        }
+
+        /* ========== 回到顶部浮窗按钮 ========== */
+        .scroll-top-btn {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            color: var(--color-text-dark);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            z-index: 500;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            transform: translateY(10px);
+        }
+
+        .scroll-top-btn.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .scroll-top-btn:hover {
+            background: var(--color-primary-dark);
+            box-shadow: 0 6px 24px rgba(0,0,0,0.22);
+            transform: translateY(-2px);
+        }
+
+        .scroll-top-btn:active {
+            transform: scale(0.92);
+        }
+
+        .scroll-top-btn svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        /* ========== 顶部导航栏（和Inventory页面完全一致） ========== */
+        .header {
+            background-color: var(--color-bg-white);
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border-bottom: 1px solid var(--color-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--color-text-dark);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: var(--spacing-lg);
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--color-text-medium);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--color-text-dark);
+            border-bottom: 2px solid var(--color-primary);
+            padding-bottom: 2px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: center;
+        }
+
+        .admin-tag {
+            padding: 6px 16px;
+            border-radius: 100px;
+            background-color: var(--color-primary);
+            color: var(--color-text-dark);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* ========== 按钮规范 ========== */
+        .btn {
+            padding: 12px 28px;
+            border-radius: var(--radius-sm);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: var(--color-text-dark);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: #F5F5F5;
+            color: var(--color-text-dark);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-secondary:hover {
+            background-color: #E0E0E0;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ========== 全局容器规范 ========== */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-lg);
+        }
+
+        /* ========== 页面模块白灰交错 ========== */
+        .section {
+            padding: var(--spacing-3xl) 0;
+            border-top: 1px solid var(--color-border);
+            scroll-margin-top: 80px;
+        }
+
+        .section:first-child {
+            border-top: none;
+            background-color: var(--color-bg-white);
+        }
+
+        .section:nth-child(even) {
+            background-color: var(--color-bg-white);
+        }
+
+        .section:nth-child(odd):not(:first-child) {
+            background-color: var(--color-bg-gray);
+        }
+
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--color-text-dark);
+            text-align: center;
+            margin-bottom: var(--spacing-sm);
+            line-height: 1.2;
+        }
+
+        .section-subtitle {
+            font-size: 18px;
+            color: var(--color-text-light);
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto var(--spacing-lg) auto;
+        }
+
+        /* ========== Hero区域 ========== */
+        .hero-section {
+            background-color: var(--color-bg-white);
+            padding: var(--spacing-3xl) 0;
+            text-align: center;
+        }
+
+        .hero-text h1 {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--color-text-dark);
+            line-height: 1.1;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .hero-text p {
+            font-size: 18px;
+            color: var(--color-text-medium);
+            margin-bottom: var(--spacing-lg);
+            line-height: 1.6;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-features {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-xl);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--color-text-dark);
+        }
+
+        .feature-item::before {
+            content: "✓";
+            color: var(--color-success);
+            font-weight: 700;
+        }
+
+        .hero-buttons {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        /* ========== 社会价值核心KPI卡片 ========== */
+        .impact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .impact-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 1px solid var(--color-border);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .impact-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        .impact-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .impact-label {
+            font-size: 14px;
+            color: var(--color-text-light);
+            font-weight: 500;
+        }
+
+        /* ========== 核心运营KPI区 ========== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 1px solid var(--color-border);
+            transition: all 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        .kpi-label {
+            font-size: 14px;
+            color: var(--color-text-light);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--color-text-dark);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .kpi-trend {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .trend-up {
+            color: var(--color-success);
+        }
+
+        .trend-down {
+            color: var(--color-error);
+        }
+
+        /* ========== 图表网格布局 ========== */
+        .chart-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .chart-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 1px solid var(--color-border);
+        }
+
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text-dark);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            position: relative;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            color: var(--color-text-light);
+        }
+
+        /* ========== 表格规范 ========== */
+        .table-wrapper {
+            max-width: 100%;
+            margin: 0 auto;
+            overflow-x: auto;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+            background: white;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table thead {
+            background-color: #F9F9F9;
+        }
+
+        .data-table th {
+            padding: var(--spacing-sm) var(--spacing-md);
+            text-align: left;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-dark);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .data-table td {
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-bottom: 1px solid var(--color-border);
+            font-size: 14px;
+            color: var(--color-text-medium);
+        }
+
+        .data-table tbody tr {
+            background-color: var(--color-bg-white);
+            transition: background-color 0.2s ease;
+        }
+
+        .data-table tbody tr:hover {
+            background-color: var(--color-primary-light);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* ========== 筛选区规范 ========== */
+        .filter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: var(--spacing-md);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-md);
+            max-width: 100%;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: var(--spacing-sm);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-select {
+            padding: 10px 16px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: var(--font-family);
+        }
+
+        /* ========== 页脚规范 ========== */
+        .footer {
+            background-color: var(--color-text-dark);
+            color: #FFFFFF;
+            padding: var(--spacing-xl) var(--spacing-lg);
+            margin-top: var(--spacing-3xl);
+        }
+
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: var(--spacing-lg);
+        }
+
+        .footer-logo {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .footer-desc {
+            font-size: 14px;
+            opacity: 0.7;
+            line-height: 1.6;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .footer-column h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .footer-links a {
+            color: #FFFFFF;
+            text-decoration: none;
+            font-size: 14px;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            opacity: 1;
+        }
+
+        .footer-copyright {
+            max-width: 1400px;
+            margin: var(--spacing-lg) auto 0 auto;
+            padding-top: var(--spacing-md);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 12px;
+            opacity: 0.6;
+            text-align: center;
+        }
+
+        /* ========== 响应式适配 ========== */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero-text h1 {
+                font-size: 36px;
+            }
+
+            .hero-text p {
+                font-size: 18px;
+            }
+
+            .hero-features {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--spacing-sm);
+                max-width: 300px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .feature-item {
+                font-size: 18px;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .hero-buttons .btn {
+                width: 100%;
+            }
+
+            .impact-grid, .kpi-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .section-title {
+                font-size: 28px;
+            }
+
+            .chart-grid-2, .chart-grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .scroll-top-btn {
+                bottom: 24px;
+                right: 24px;
+                width: 42px;
+                height: 42px;
+            }
+        }
+    </style>
+    <!-- 图表库稳定CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- 回到顶部按钮 -->
+    <button class="scroll-top-btn" id="scroll-top-btn" title="Back to top">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+    </button>
+
+    <!-- 顶部导航栏 -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">ABC Foodbank</div>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="inventory-management.html">Inventory Management</a></li>
+                    <li><a href="data-dashboard.html" class="active">Data Dashboard</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <div class="admin-tag">Admin</div>
+                <a href="#" class="btn btn-secondary btn-sm">Sign Out</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 页面主体内容 -->
+    <main>
+        <!-- Hero区域（1:1匹配Inventory Management设计图） -->
+        <section class="hero-section section" id="top">
+            <div class="container">
+                <div class="hero-text">
+                    <h1>Data Dashboard, Simplified</h1>
+                    <p>Real-time insights for food bank operations, donations, and community impact. Track performance, optimize workflows, and measure your social impact in one unified platform.</p>
+                </div>
+
+                <!-- 特性标签（和Inventory页面完全一致） -->
+                <div class="hero-features">
+                    <div class="feature-item">Real-time operational data</div>
+                    <div class="feature-item">Automated trend analysis</div>
+                    <div class="feature-item">End-to-end impact tracking</div>
+                </div>
+
+                <!-- 快速跳转按钮（和Inventory页面完全一致） -->
+                <div class="hero-buttons">
+                    <a href="#donation-analysis" class="btn btn-primary">Donation Analysis</a>
+                    <a href="#inventory-health" class="btn btn-primary">Inventory Health</a>
+                    <a href="#distribution-analysis" class="btn btn-primary">Package Management</a>
+                    <a href="#waste-analysis" class="btn btn-primary">Expiry Tracking</a>
+                    <a href="#code-verification" class="btn btn-primary">Code Verification</a>
+                </div>
+
+                <!-- 社会价值数据模块 -->
+                <div class="impact-grid">
+                    <div class="impact-card" id="impact-card-families-supported">
+                        <div class="impact-value">--</div>
+                        <div class="impact-label">Families Supported</div>
+                    </div>
+                    <div class="impact-card" id="impact-card-food-units-distributed">
+                        <div class="impact-value">--</div>
+                        <div class="impact-label">Food Units Distributed</div>
+                    </div>
+                    <div class="impact-card" id="impact-card-partner-supermarkets">
+                        <div class="impact-value">--</div>
+                        <div class="impact-label">Partner Supermarkets</div>
+                    </div>
+                    <div class="impact-card" id="impact-card-goods-units-year">
+                        <div class="impact-value">--</div>
+                        <div class="impact-label">Goods Donation Units / Year</div>
+                    </div>
+                    <div class="impact-card" id="impact-card-aid-packages-distributed">
+                        <div class="impact-value">--</div>
+                        <div class="impact-label">Aid Packages Distributed</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 核心运营KPI区 -->
+        <section class="section">
+            <div class="container">
+                <h2 class="section-title">Core Operational KPIs</h2>
+                <p class="section-subtitle">At-a-glance view of your food bank's key performance metrics.</p>
+                
+                <!-- 时间筛选器 -->
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label style="font-size: 14px; font-weight: 500;">Time Range:</label>
+                        <select class="filter-select" id="time-range-select">
+                            <option value="month">This Month</option>
+                            <option value="quarter">This Quarter</option>
+                            <option value="year">This Year</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="refresh-data-btn">Refresh Data</button>
+                </div>
+
+                <!-- KPI卡片网格 -->
+                <p id="time-range-summary" style="margin-top: 12px; font-size: 14px; color: var(--color-text-light);">Live range: Loading...</p>
+                <div class="kpi-grid" id="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Loading...</div>
+                        <div class="kpi-value">--</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Loading...</div>
+                        <div class="kpi-value">--</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Loading...</div>
+                        <div class="kpi-value">--</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Loading...</div>
+                        <div class="kpi-value">--</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Loading...</div>
+                        <div class="kpi-value">--</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Loading...</div>
+                        <div class="kpi-value">--</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 模块1：捐赠分析 -->
+        <section class="section" id="donation-analysis">
+            <div class="container">
+                <h2 class="section-title">Donation Analysis</h2>
+                <p class="section-subtitle">Track donation sources, trends, and category distribution to optimize your fundraising efforts.</p>
+                
+                <div class="chart-grid-2">
+                    <!-- 捐赠来源分布 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Donation Source Distribution</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="donation-source-loading">Loading chart...</div>
+                            <canvas id="donation-source-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- 月度捐赠趋势 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Monthly Donation Trend</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="donation-trend-loading">Loading chart...</div>
+                            <canvas id="donation-trend-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-grid-3">
+                    <!-- 捐赠品类分布 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Donation Category Distribution</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="donation-category-loading">Loading chart...</div>
+                            <canvas id="donation-category-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- 捐赠者类型占比 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Donor Type Breakdown</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="donor-type-loading">Loading chart...</div>
+                            <canvas id="donor-type-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- 平均捐赠价值 -->
+                    <div class="chart-card" id="average-donation-card">
+                        <h3 class="chart-title">Average Donation Value</h3>
+                        <div class="chart-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div id="average-donation-value" style="font-size: 48px; font-weight: 700; color: var(--color-primary);">--</div>
+                            <div id="average-donation-subtitle" style="font-size: 16px; color: var(--color-text-light);">Per completed cash donation</div>
+                            <p id="average-donation-trend" style="margin-top: var(--spacing-sm); font-size: 14px; text-align: center;">Loading live trend...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 模块2：库存健康度分析 -->
+        <section class="section" id="inventory-health">
+            <div class="container">
+                <h2 class="section-title">Inventory Health Analysis</h2>
+                <p class="section-subtitle">Monitor stock levels, low stock risks, and category distribution to avoid supply shortages.</p>
+                
+                <div class="chart-grid-2">
+                    <!-- 库存健康度占比 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Inventory Health Status</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="inventory-health-loading">Loading chart...</div>
+                            <canvas id="inventory-health-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- 品类库存分布 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Stock by Category</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="inventory-category-loading">Loading chart...</div>
+                            <canvas id="inventory-category-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 低库存预警表格 -->
+                <h3 class="chart-title" style="margin-top: var(--spacing-lg);">Low Stock Alerts</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Category</th>
+                                <th>Current Stock</th>
+                                <th>Safety Threshold</th>
+                                <th>Deficit</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="low-stock-alerts-body">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--color-text-light);">Loading live inventory alerts...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 模块3：救助包发放分析 -->
+        <section class="section" id="distribution-analysis">
+            <div class="container">
+                <h2 class="section-title">Aid Package & Distribution Analysis</h2>
+                <p class="section-subtitle">Track aid package distribution, redemption rates, and community support scale.</p>
+                
+                <div class="chart-grid-2">
+                    <!-- 月度发放趋势 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Monthly Package Distribution</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="package-trend-loading">Loading chart...</div>
+                            <canvas id="package-trend-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- 核销码状态统计 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Redemption Code Status</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="redemption-status-loading">Loading chart...</div>
+                            <canvas id="redemption-status-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-grid-3">
+                    <!-- 救助包类型占比 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Package Type Distribution</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="package-type-loading">Loading chart...</div>
+                            <canvas id="package-type-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- 平均家庭帮扶时长 -->
+                    <div class="chart-card" id="average-support-card">
+                        <h3 class="chart-title" id="average-support-title">Average Family Support Duration</h3>
+                        <div class="chart-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div id="average-support-value" style="font-size: 48px; font-weight: 700; color: var(--color-primary);">--</div>
+                            <div id="average-support-unit" style="font-size: 16px; color: var(--color-text-light);">Weeks</div>
+                        </div>
+                    </div>
+                    <!-- 单包平均餐数 -->
+                    <div class="chart-card" id="items-per-package-card">
+                        <h3 class="chart-title" id="items-per-package-title">Items Per Package</h3>
+                        <div class="chart-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div id="items-per-package-value" style="font-size: 48px; font-weight: 700; color: var(--color-primary);">--</div>
+                            <div id="items-per-package-unit" style="font-size: 16px; color: var(--color-text-light);">Loading live calculation...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 模块4：保质期&食物浪费分析 -->
+        <section class="section" id="waste-analysis">
+            <div class="container">
+                <h2 class="section-title">Expiry & Food Waste Reduction Analysis</h2>
+                <p class="section-subtitle">Monitor expiry dates, track food waste, and optimize stock rotation to reduce waste.</p>
+                
+                <div class="chart-grid-2">
+                    <!-- 保质期分布 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Lot Expiry Distribution</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="expiry-distribution-loading">Loading chart...</div>
+                            <canvas id="expiry-distribution-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- 月度报损趋势 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Monthly Food Wastage Trend</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="wastage-trend-loading">Loading chart...</div>
+                            <canvas id="wastage-trend-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 临期批次表格 -->
+                <h3 class="chart-title" style="margin-top: var(--spacing-lg);">Expiring Soon (Within 30 Days)</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Lot Number</th>
+                                <th>Expiry Date</th>
+                                <th>Remaining Stock</th>
+                                <th>Days Until Expiry</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expiring-lots-body">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--color-text-light);">Loading live expiry data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 模块5：核销码验证（对应按钮跳转） -->
+        <section class="section" id="code-verification">
+            <div class="container">
+                <h2 class="section-title">Code Verification Analytics</h2>
+                <p class="section-subtitle">Track redemption code performance, success rates, and verification trends.</p>
+                
+                <div class="chart-grid-2">
+                    <!-- 核销率月度趋势 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Monthly Redemption Rate Trend</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="redemption-rate-loading">Loading chart...</div>
+                            <canvas id="redemption-rate-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- 核销状态分布 -->
+                    <div class="chart-card">
+                        <h3 class="chart-title">Redemption Status Breakdown</h3>
+                        <div class="chart-container">
+                            <div class="loading" id="redemption-breakdown-loading">Loading chart...</div>
+                            <canvas id="redemption-breakdown-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 近期核销记录表格 -->
+                <h3 class="chart-title" style="margin-top: var(--spacing-lg);">Recent Verification Records</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Redemption Code</th>
+                                <th>Package Type</th>
+                                <th>Verified At</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-verification-body">
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--color-text-light);">Loading live verification records...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-column">
+                <div class="footer-logo">ABC Foodbank</div>
+                <p class="footer-desc">Building the infrastructure for food security. A transparent platform connecting communities with local resources.</p>
+            </div>
+            <div class="footer-column">
+                <h4>Platform</h4>
+                <ul class="footer-links">
+                    <li><a href="#">About Us</a></li>
+                    <li><a href="#">Donate Cash</a></li>
+                    <li><a href="#">Donate Goods</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>Resources</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Volunteer</a></li>
+                    <li><a href="#">Support</a></li>
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h4>Legal</h4>
+                <ul class="footer-links">
+                    <li><a href="#">Privacy</a></li>
+                    <li><a href="#">Security</a></li>
+                </ul>
+            </div>
+        </div>
+        <p class="footer-copyright">© 2026 ABC Foodbank. All rights reserved. Registered Charity No. 1234567.</p>
+    </footer>
+
+    <script>
+        // ========== Mock API 模拟服务 ==========
+        const mockApi = {
+            // 模拟网络延迟
+            delay: () => new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 300)),
+
+            // 获取核心KPI数据
+            getKpiData: async (timeRange = 'month') => {
+                await mockApi.delay();
+                const data = {
+                    month: {
+                        totalDonation: 1245,
+                        totalSku: 32,
+                        totalPackageDistributed: 186,
+                        lowStockCount: 2,
+                        expiringLotCount: 2,
+                        redemptionRate: 98.2,
+                        trends: {
+                            donation: '+12.5% vs last month',
+                            package: '+8.2% vs last month',
+                            lowStock: '-1 vs last month',
+                            wastage: '-5.3% vs last month'
+                        }
+                    },
+                    year: {
+                        totalDonation: 14280,
+                        totalSku: 32,
+                        totalPackageDistributed: 2140,
+                        lowStockCount: 2,
+                        expiringLotCount: 2,
+                        redemptionRate: 97.8,
+                        trends: {
+                            donation: '+22.3% vs last year',
+                            package: '+18.7% vs last year',
+                            lowStock: '-3 vs last year',
+                            wastage: '-12.4% vs last year'
+                        }
+                    }
+                };
+                return data[timeRange] || data.month;
+            },
+
+            // 获取捐赠分析数据
+            getDonationData: async () => {
+                await mockApi.delay();
+                return {
+                    source: {
+                        labels: ['Supermarket', 'Individual', 'Organization', 'Government'],
+                        data: [65, 20, 12, 3]
+                    },
+                    trend: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                        data: [850, 920, 1050, 1245, 1100, 980, 890, 950, 1150, 1300, 1450, 1600]
+                    },
+                    category: {
+                        labels: ['Grains', 'Canned Goods', 'Dairy', 'Snacks', 'Spices'],
+                        data: [420, 850, 180, 120, 90]
+                    },
+                    donorType: {
+                        labels: ['Regular Donors', 'One-Time Donors', 'Corporate Partners'],
+                        data: [45, 35, 20]
+                    }
+                };
+            },
+
+            // 获取库存分析数据
+            getInventoryData: async () => {
+                await mockApi.delay();
+                return {
+                    health: {
+                        labels: ['In Stock', 'Low Stock', 'Out of Stock'],
+                        data: [28, 3, 1]
+                    },
+                    category: {
+                        labels: ['Grains', 'Canned Goods', 'Dairy', 'Snacks', 'Spices'],
+                        data: [420, 850, 180, 120, 90]
+                    }
+                };
+            },
+
+            // 获取发放分析数据
+            getPackageData: async () => {
+                await mockApi.delay();
+                return {
+                    trend: {
+                        labels: ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
+                        data: [120, 145, 160, 172, 180, 186]
+                    },
+                    redemption: {
+                        labels: ['Redeemed', 'Pending', 'Void'],
+                        data: [72, 22, 6]
+                    },
+                    packageType: {
+                        labels: ['Emergency Pack', 'Family Bundle', 'Breakfast Pack'],
+                        data: [60, 30, 10]
+                    }
+                };
+            },
+
+            // 获取浪费分析数据
+            getExpiryData: async () => {
+                await mockApi.delay();
+                return {
+                    distribution: {
+                        labels: ['Expiring in 30 Days', '30-90 Days', '90+ Days'],
+                        data: [2, 4, 12]
+                    },
+                    wastage: {
+                        labels: ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
+                        data: [24, 32, 28, 22, 18, 12]
+                    }
+                };
+            },
+
+            // 获取核销分析数据
+            getRedemptionData: async () => {
+                await mockApi.delay();
+                return {
+                    rateTrend: {
+                        labels: ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
+                        data: [92.5, 94.2, 95.8, 97.1, 98.0, 98.2]
+                    },
+                    breakdown: {
+                        labels: ['Success', 'Invalid', 'Expired'],
+                        data: [98.2, 1.2, 0.6]
+                    }
+                };
+            }
+        };
+
+        // ========== 全局变量 ==========
+        const getDashboardApi = () => window.dashboardDataService || mockApi;
+
+        let charts = {};
+        let currentTimeRange = 'month';
+
+        function getRangeBounds(range) {
+            const today = new Date();
+            const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+            if (range === 'year') {
+                return {
+                    start: new Date(today.getFullYear(), 0, 1),
+                    end
+                };
+            }
+
+            if (range === 'quarter') {
+                const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+                return {
+                    start: new Date(today.getFullYear(), quarterStartMonth, 1),
+                    end
+                };
+            }
+
+            return {
+                start: new Date(today.getFullYear(), today.getMonth(), 1),
+                end
+            };
+        }
+
+        function formatSummaryDate(value) {
+            return value.toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function getTimeRangeLabel(range) {
+            if (range === 'quarter') return 'This Quarter';
+            if (range === 'year') return 'This Year';
+            return 'This Month';
+        }
+
+        function updateTimeRangeSummary() {
+            const summary = document.getElementById('time-range-summary');
+            if (!summary) return;
+
+            const bounds = getRangeBounds(currentTimeRange);
+            let text = `Live range: ${formatSummaryDate(bounds.start)} to ${formatSummaryDate(bounds.end)}.`;
+
+            if (currentTimeRange === 'quarter') {
+                const monthBounds = getRangeBounds('month');
+                if (monthBounds.start.getTime() === bounds.start.getTime()) {
+                    text += ' The current calendar quarter started this month, so month and quarter can match early in the quarter.';
+                }
+            }
+
+            summary.textContent = text;
+        }
+
+        // ========== 页面加载完成后初始化 ==========
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 初始化所有数据和图表
+            updateTimeRangeSummary();
+            if (!window.__skipDashboardAutoInit) {
+                await initAllData();
+            }
+
+            // 时间范围切换事件
+            document.getElementById('time-range-select').addEventListener('change', async function(e) {
+                currentTimeRange = e.target.value;
+                updateTimeRangeSummary();
+                await initAllData();
+            });
+
+            // 刷新数据按钮事件
+            document.getElementById('refresh-data-btn').addEventListener('click', async function() {
+                this.disabled = true;
+                this.textContent = 'Refreshing...';
+                await initAllData();
+                this.disabled = false;
+                this.textContent = 'Refresh Data';
+            });
+
+            // 回到顶部按钮逻辑
+            const scrollTopBtn = document.getElementById('scroll-top-btn');
+            window.addEventListener('scroll', function() {
+                scrollTopBtn.classList.toggle('show', window.scrollY > 400);
+            });
+            scrollTopBtn.addEventListener('click', function() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+
+        // ========== 初始化所有数据和图表 ==========
+        async function initAllData() {
+            await Promise.all([
+                initKpiData(),
+                initDonationCharts(),
+                initInventoryCharts(),
+                initPackageCharts(),
+                initExpiryCharts(),
+                initRedemptionCharts()
+            ]);
+
+            if (typeof window.dashboardPostRender === 'function') {
+                await window.dashboardPostRender(currentTimeRange);
+            }
+        }
+
+        // ========== 初始化核心KPI数据 ==========
+        async function initKpiData() {
+            const kpiGrid = document.getElementById('kpi-grid');
+            kpiGrid.innerHTML = '<div class="kpi-card"><div class="kpi-label">Loading...</div><div class="kpi-value">--</div></div>'.repeat(6);
+            
+            try {
+                const kpiData = await getDashboardApi().getKpiData(currentTimeRange);
+                kpiGrid.innerHTML = `
+                    <div class="kpi-card">
+                        <div class="kpi-label">Goods Donation Units (${getTimeRangeLabel(currentTimeRange)})</div>
+                        <div class="kpi-value">${kpiData.totalDonation.toLocaleString()}</div>
+                        <div class="kpi-trend trend-up">${kpiData.trends.donation}</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Inventory SKU</div>
+                        <div class="kpi-value">${kpiData.totalSku}</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Packages Distributed (${getTimeRangeLabel(currentTimeRange)})</div>
+                        <div class="kpi-value">${kpiData.totalPackageDistributed}</div>
+                        <div class="kpi-trend trend-up">${kpiData.trends.package}</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Low Stock Items</div>
+                        <div class="kpi-value" style="color: ${kpiData.lowStockCount > 0 ? 'var(--color-warning)' : 'var(--color-success)'}">${kpiData.lowStockCount}</div>
+                        <div class="kpi-trend trend-down">${kpiData.trends.lowStock}</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Expiring Soon Lots</div>
+                        <div class="kpi-value" style="color: ${kpiData.expiringLotCount > 0 ? 'var(--color-warning)' : 'var(--color-success)'}">${kpiData.expiringLotCount}</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Redemption Success Rate</div>
+                        <div class="kpi-value">${kpiData.redemptionRate}%</div>
+                    </div>
+                `;
+            } catch (error) {
+                kpiGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: var(--spacing-md);">Failed to load KPI data</div>';
+            }
+        }
+
+        // ========== 辅助函数：销毁旧图表 ==========
+        function destroyChart(key) {
+            if (charts[key]) {
+                charts[key].destroy();
+                delete charts[key];
+            }
+        }
+
+        // ========== 初始化捐赠分析图表 ==========
+        async function initDonationCharts() {
+            document.getElementById('donation-source-loading').style.display = 'block';
+            document.getElementById('donation-trend-loading').style.display = 'block';
+            document.getElementById('donation-category-loading').style.display = 'block';
+            document.getElementById('donor-type-loading').style.display = 'block';
+
+            try {
+                const data = await getDashboardApi().getDonationData(currentTimeRange);
+
+                // 捐赠来源分布 - Doughnut
+                document.getElementById('donation-source-loading').style.display = 'none';
+                destroyChart('donationSource');
+                charts.donationSource = new Chart(document.getElementById('donation-source-chart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.source.labels,
+                        datasets: [{
+                            data: data.source.data,
+                            backgroundColor: ['#FFB703', '#FB8500', '#1976D2', '#7B1FA2']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+
+                // 月度捐赠趋势 - Line
+                document.getElementById('donation-trend-loading').style.display = 'none';
+                destroyChart('donationTrend');
+                charts.donationTrend = new Chart(document.getElementById('donation-trend-chart'), {
+                    type: 'line',
+                    data: {
+                        labels: data.trend.labels,
+                        datasets: [{
+                            label: 'Donations',
+                            data: data.trend.data,
+                            borderColor: '#FFB703',
+                            backgroundColor: 'rgba(255, 183, 3, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                });
+
+                // 捐赠品类分布 - Bar
+                document.getElementById('donation-category-loading').style.display = 'none';
+                destroyChart('donationCategory');
+                charts.donationCategory = new Chart(document.getElementById('donation-category-chart'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.category.labels,
+                        datasets: [{
+                            label: 'Items',
+                            data: data.category.data,
+                            backgroundColor: ['#FFB703', '#FB8500', '#1976D2', '#7B1FA2', '#2E7D32']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                });
+
+                // 捐赠者类型占比 - Pie
+                document.getElementById('donor-type-loading').style.display = 'none';
+                destroyChart('donorType');
+                charts.donorType = new Chart(document.getElementById('donor-type-chart'), {
+                    type: 'pie',
+                    data: {
+                        labels: data.donorType.labels,
+                        datasets: [{
+                            data: data.donorType.data,
+                            backgroundColor: ['#FFB703', '#FB8500', '#1976D2']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+            } catch (error) {
+                console.error('Failed to load donation charts:', error);
+            }
+        }
+
+        // ========== 初始化库存分析图表 ==========
+        async function initInventoryCharts() {
+            document.getElementById('inventory-health-loading').style.display = 'block';
+            document.getElementById('inventory-category-loading').style.display = 'block';
+
+            try {
+                const data = await getDashboardApi().getInventoryData(currentTimeRange);
+
+                // 库存健康度 - Doughnut
+                document.getElementById('inventory-health-loading').style.display = 'none';
+                destroyChart('inventoryHealth');
+                charts.inventoryHealth = new Chart(document.getElementById('inventory-health-chart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.health.labels,
+                        datasets: [{
+                            data: data.health.data,
+                            backgroundColor: ['#2E7D32', '#F57C00', '#D32F2F']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+
+                // 品类库存分布 - Bar
+                document.getElementById('inventory-category-loading').style.display = 'none';
+                destroyChart('inventoryCategory');
+                charts.inventoryCategory = new Chart(document.getElementById('inventory-category-chart'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.category.labels,
+                        datasets: [{
+                            label: 'Stock',
+                            data: data.category.data,
+                            backgroundColor: '#1976D2'
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                });
+            } catch (error) {
+                console.error('Failed to load inventory charts:', error);
+            }
+        }
+
+        // ========== 初始化发放分析图表 ==========
+        async function initPackageCharts() {
+            document.getElementById('package-trend-loading').style.display = 'block';
+            document.getElementById('redemption-status-loading').style.display = 'block';
+            document.getElementById('package-type-loading').style.display = 'block';
+
+            try {
+                const data = await getDashboardApi().getPackageData(currentTimeRange);
+
+                // 月度发放趋势 - Line
+                document.getElementById('package-trend-loading').style.display = 'none';
+                destroyChart('packageTrend');
+                charts.packageTrend = new Chart(document.getElementById('package-trend-chart'), {
+                    type: 'line',
+                    data: {
+                        labels: data.trend.labels,
+                        datasets: [{
+                            label: 'Packages',
+                            data: data.trend.data,
+                            borderColor: '#1976D2',
+                            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                });
+
+                // 核销码状态 - Doughnut
+                document.getElementById('redemption-status-loading').style.display = 'none';
+                destroyChart('redemptionStatus');
+                charts.redemptionStatus = new Chart(document.getElementById('redemption-status-chart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.redemption.labels,
+                        datasets: [{
+                            data: data.redemption.data,
+                            backgroundColor: ['#2E7D32', '#F57C00', '#D32F2F']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+
+                // 救助包类型 - Pie
+                document.getElementById('package-type-loading').style.display = 'none';
+                destroyChart('packageType');
+                charts.packageType = new Chart(document.getElementById('package-type-chart'), {
+                    type: 'pie',
+                    data: {
+                        labels: data.packageType.labels,
+                        datasets: [{
+                            data: data.packageType.data,
+                            backgroundColor: ['#FFB703', '#FB8500', '#1976D2']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+            } catch (error) {
+                console.error('Failed to load package charts:', error);
+            }
+        }
+
+        // ========== 初始化保质期&浪费分析图表 ==========
+        async function initExpiryCharts() {
+            document.getElementById('expiry-distribution-loading').style.display = 'block';
+            document.getElementById('wastage-trend-loading').style.display = 'block';
+
+            try {
+                const data = await getDashboardApi().getExpiryData(currentTimeRange);
+
+                // 保质期分布 - Doughnut
+                document.getElementById('expiry-distribution-loading').style.display = 'none';
+                destroyChart('expiryDistribution');
+                charts.expiryDistribution = new Chart(document.getElementById('expiry-distribution-chart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.distribution.labels,
+                        datasets: [{
+                            data: data.distribution.data,
+                            backgroundColor: ['#D32F2F', '#F57C00', '#2E7D32']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+
+                // 月度报损趋势 - Bar
+                document.getElementById('wastage-trend-loading').style.display = 'none';
+                destroyChart('wastageTrend');
+                charts.wastageTrend = new Chart(document.getElementById('wastage-trend-chart'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.wastage.labels,
+                        datasets: [{
+                            label: data.wastage.label || 'Wastage',
+                            data: data.wastage.data,
+                            backgroundColor: '#D32F2F'
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                });
+            } catch (error) {
+                console.error('Failed to load expiry charts:', error);
+            }
+        }
+
+        // ========== 初始化核销分析图表 ==========
+        async function initRedemptionCharts() {
+            document.getElementById('redemption-rate-loading').style.display = 'block';
+            document.getElementById('redemption-breakdown-loading').style.display = 'block';
+
+            try {
+                const data = await getDashboardApi().getRedemptionData(currentTimeRange);
+
+                // 核销率趋势 - Line
+                document.getElementById('redemption-rate-loading').style.display = 'none';
+                destroyChart('redemptionRate');
+                charts.redemptionRate = new Chart(document.getElementById('redemption-rate-chart'), {
+                    type: 'line',
+                    data: {
+                        labels: data.rateTrend.labels,
+                        datasets: [{
+                            label: 'Redemption Rate (%)',
+                            data: data.rateTrend.data,
+                            borderColor: '#2E7D32',
+                            backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 85, max: 100 } } }
+                });
+
+                // 核销状态分布 - Doughnut
+                document.getElementById('redemption-breakdown-loading').style.display = 'none';
+                destroyChart('redemptionBreakdown');
+                charts.redemptionBreakdown = new Chart(document.getElementById('redemption-breakdown-chart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.breakdown.labels,
+                        datasets: [{
+                            data: data.breakdown.data,
+                            backgroundColor: ['#2E7D32', '#D32F2F', '#F57C00']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+            } catch (error) {
+                console.error('Failed to load redemption charts:', error);
+            }
+        }
+    </script>
+</body>
+</html>
+            document.getElementById('donation-category-loading').style.display = 'block';
