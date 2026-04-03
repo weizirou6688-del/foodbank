@@ -35,6 +35,9 @@ from app.schemas.application import (
     ApplicationUpdate,
 )
 from app.services.inventory_service import consume_inventory_lots
+from app.services.dashboard_history_service import (
+    record_application_distribution_snapshots,
+)
 
 
 router = APIRouter(tags=["Applications"])
@@ -257,10 +260,14 @@ async def submit_application(
                     )
 
             packages: dict[int, FoodPackage] = {}
+            inventory_items: dict[int, InventoryItem] = {}
             if requested_package_quantities:
                 package_ids = list(requested_package_quantities.keys())
                 packages_result = await db.execute(
                     select(FoodPackage)
+                    .options(
+                        selectinload(FoodPackage.package_items).selectinload(PackageItem.inventory_item)
+                    )
                     .where(
                         FoodPackage.id.in_(package_ids),
                     )
@@ -384,6 +391,16 @@ async def submit_application(
                         quantity=requested_qty,
                     )
                 )
+
+            await record_application_distribution_snapshots(
+                db,
+                application.id,
+                requested_package_quantities,
+                packages,
+                requested_inventory_quantities,
+                inventory_items,
+                snapshot_created_at=application.created_at,
+            )
 
             await db.flush()
             await db.refresh(application)

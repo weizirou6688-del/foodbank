@@ -22,6 +22,7 @@ from app.core.bootstrap import (
 )
 from app.core.database import check_database_connection, close_db, init_db
 from app.core.database_errors import DATABASE_UNAVAILABLE_DETAIL
+from app.services.dashboard_history_service import ensure_dashboard_history
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
             await ensure_demo_food_banks()
             await ensure_demo_inventory_and_packages()
 
+        await ensure_dashboard_history()
         print("Database initialized and connected")
     except Exception as exc:
         db_error = str(exc)

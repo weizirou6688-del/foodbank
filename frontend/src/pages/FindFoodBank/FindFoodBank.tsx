@@ -96,7 +96,7 @@ export default function FindFoodBank() {
               <div className="flex-shrink-0">
                 <button
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/home')}
                   className="text-xl font-semibold text-gray-900"
                 >
                   ABC Foodbank
@@ -127,7 +127,7 @@ export default function FindFoodBank() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/home')}
                   className="text-gray-700 hover:text-gray-900 transition-colors text-sm"
                 >
                   Volunteering
@@ -137,7 +137,7 @@ export default function FindFoodBank() {
               <div className="hidden lg:flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/find-foodbank')}
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-all h-9 py-2 bg-[#F5A623] hover:bg-[#F5A623] text-gray-900 text-sm font-medium px-4"
                 >
                   Public
@@ -490,7 +490,7 @@ export default function FindFoodBank() {
                       </button>
                     </li>
                     <li>
-                      <button type="button" onClick={() => navigate('/')} className="hover:text-white transition-colors">
+                      <button type="button" onClick={() => navigate('/home')} className="hover:text-white transition-colors">
                         Volunteering
                       </button>
                     </li>
@@ -508,12 +508,12 @@ export default function FindFoodBank() {
                       </button>
                     </li>
                     <li>
-                      <button type="button" onClick={() => navigate('/')} className="hover:text-white transition-colors">
+                      <button type="button" onClick={() => navigate('/home')} className="hover:text-white transition-colors">
                         Volunteer
                       </button>
                     </li>
                     <li>
-                      <button type="button" onClick={() => navigate('/')} className="hover:text-white transition-colors">
+                      <button type="button" onClick={() => navigate('/find-foodbank')} className="hover:text-white transition-colors">
                         Support
                       </button>
                     </li>
@@ -526,14 +526,14 @@ export default function FindFoodBank() {
                   </h3>
                   <ul className="space-y-2 text-sm text-gray-400">
                     <li>
-                      <a href="#privacy" className="hover:text-white transition-colors">
+                      <button type="button" onClick={() => navigate('/home')} className="hover:text-white transition-colors">
                         Privacy
-                      </a>
+                      </button>
                     </li>
                     <li>
-                      <a href="#security" className="hover:text-white transition-colors">
+                      <button type="button" onClick={() => navigate('/home')} className="hover:text-white transition-colors">
                         Security
-                      </a>
+                      </button>
                     </li>
                   </ul>
                 </div>

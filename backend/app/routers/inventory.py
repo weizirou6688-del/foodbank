@@ -32,6 +32,10 @@ from app.schemas.inventory_item import (
     StockAdjustment,
 )
 from app.services.inventory_service import consume_inventory_lots
+from app.services.dashboard_history_service import (
+    lot_has_waste_event,
+    record_inventory_waste_event,
+)
 from app.schemas.inventory_lot import InventoryLotAdjustRequest, InventoryLotOut
 
 
@@ -231,6 +235,14 @@ async def adjust_inventory_lot(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Inventory lot not found",
                 )
+            inventory_item = await db.scalar(
+                select(InventoryItem).where(InventoryItem.id == lot.inventory_item_id)
+            )
+            if inventory_item is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Inventory item not found for lot",
+                )
 
             if adjustment_in.expiry_date is not None:
                 lot.expiry_date = adjustment_in.expiry_date
@@ -248,6 +260,13 @@ async def adjust_inventory_lot(
                         detail="Damage quantity exceeds lot quantity",
                     )
 
+                record_inventory_waste_event(
+                    db,
+                    lot,
+                    inventory_item,
+                    adjustment_in.damage_quantity,
+                    "damaged",
+                )
                 remaining = lot.quantity - adjustment_in.damage_quantity
                 if remaining == 0:
                     lot.deleted_at = datetime.now(timezone.utc)
@@ -255,15 +274,19 @@ async def adjust_inventory_lot(
                     lot.quantity = remaining
 
             if adjustment_in.status == "wasted":
+                if lot.deleted_at is None:
+                    record_inventory_waste_event(
+                        db,
+                        lot,
+                        inventory_item,
+                        lot.quantity,
+                        "manual_waste",
+                    )
                 lot.deleted_at = datetime.now(timezone.utc)
             elif adjustment_in.status == "active":
                 lot.deleted_at = None
 
             await db.flush()
-
-            item_name = await db.scalar(
-                select(InventoryItem.name).where(InventoryItem.id == lot.inventory_item_id)
-            )
 
             today = date.today()
             if lot.deleted_at is not None:
@@ -276,7 +299,7 @@ async def adjust_inventory_lot(
             return InventoryLotOut(
                 id=lot.id,
                 inventory_item_id=lot.inventory_item_id,
-                item_name=item_name or f"Item #{lot.inventory_item_id}",
+                item_name=inventory_item.name,
                 quantity=lot.quantity,
                 expiry_date=lot.expiry_date,
                 received_date=lot.received_date,
@@ -493,6 +516,33 @@ async def delete_inventory_lot(
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Inventory lot not found",
+                )
+
+            inventory_item = await db.scalar(
+                select(InventoryItem).where(InventoryItem.id == lot.inventory_item_id)
+            )
+            if inventory_item is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Inventory item not found for lot",
+                )
+
+            if not await lot_has_waste_event(db, lot.id):
+                reason = "deleted"
+                occurred_at = datetime.now(timezone.utc)
+                if lot.deleted_at is not None:
+                    reason = "manual_waste"
+                    occurred_at = lot.deleted_at
+                elif lot.expiry_date < date.today():
+                    reason = "expired"
+
+                record_inventory_waste_event(
+                    db,
+                    lot,
+                    inventory_item,
+                    lot.quantity,
+                    reason,
+                    occurred_at=occurred_at,
                 )
 
             await db.delete(lot)

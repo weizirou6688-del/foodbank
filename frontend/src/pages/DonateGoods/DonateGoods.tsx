@@ -398,7 +398,7 @@ export default function DonateGoods() {
       <nav className={styles.navbar}>
         <div className={styles.shell}>
           <div className={styles.navInner}>
-            <button type="button" onClick={() => navigate('/')} className={styles.brand}>
+            <button type="button" onClick={() => navigate('/home')} className={styles.brand}>
               <span>Donation</span>
               <span className={styles.brandAccent}>Hub</span>
             </button>
@@ -1006,27 +1006,27 @@ export default function DonateGoods() {
                 <button type="button" onClick={() => scrollToSection('impact')} className={styles.footerLink}>
                   Our Impact
                 </button>
-                <a href="#faq" className={styles.footerLink}>
+                <button type="button" onClick={() => scrollToSection('how-it-works')} className={styles.footerLink}>
                   FAQ
-                </a>
+                </button>
               </div>
             </div>
 
             <div>
               <h3 className={styles.footerHeading}>Resources</h3>
               <div className={styles.footerLinks}>
-                <a href="#partners" className={styles.footerLink}>
+                <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
                   Partner Organizations
-                </a>
-                <a href="#volunteer" className={styles.footerLink}>
+                </button>
+                <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
                   Volunteer
-                </a>
-                <a href="#blog" className={styles.footerLink}>
+                </button>
+                <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
                   Blog
-                </a>
-                <a href="#contact" className={styles.footerLink}>
+                </button>
+                <button type="button" onClick={() => navigate('/find-foodbank')} className={styles.footerLink}>
                   Contact Us
-                </a>
+                </button>
               </div>
             </div>
 
@@ -1052,12 +1052,12 @@ export default function DonateGoods() {
           <div className={styles.footerBottom}>
             <p>{'\u00A9'} 2026 Donation Platform. All rights reserved.</p>
             <div className={styles.footerBottomLinks}>
-              <a href="#privacy" className={styles.footerLink}>
+              <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
                 Privacy Policy
-              </a>
-              <a href="#terms" className={styles.footerLink}>
+              </button>
+              <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
                 Terms of Service
-              </a>
+              </button>
             </div>
           </div>
         </div>

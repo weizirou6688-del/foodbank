@@ -530,14 +530,19 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
       if (isFrameHTMLAnchorElement(signOutButton)) {
         signOutButton.href = '#'
         signOutButton.textContent = isAuthenticated ? 'Sign Out' : 'Sign In'
+        signOutButton.target = ''
+        signOutButton.rel = ''
+        signOutButton.style.cursor = 'pointer'
       }
 
-      bindClick('.header-actions .btn.btn-secondary', (event) => {
+      bindCaptureClick('.header-actions .btn.btn-secondary', (event) => {
         event.preventDefault()
+        event.stopPropagation()
+        event.stopImmediatePropagation()
         if (isAuthenticated) {
           logout()
           setLoginModal({ open: false, tab: 'signin' })
-          navigate('/', { replace: true })
+          navigate('/home', { replace: true })
           return
         }
 
@@ -546,11 +551,11 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
       const primaryNavLink = doc.querySelector('.nav-links li:first-child a')
       if (isFrameHTMLAnchorElement(primaryNavLink)) {
-        primaryNavLink.href = '/admin'
+        primaryNavLink.href = '/admin?section=food'
       }
       bindClick('.nav-links li:first-child a', (event) => {
         event.preventDefault()
-        navigate('/admin')
+        navigate('/admin?section=food')
       })
 
       const statisticsNavLink = doc.querySelector('.nav-links li:nth-child(2) a')
@@ -565,9 +570,9 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
       const footerRouteMap: Array<{ label: string; path: string }> = [
         { label: 'Donate Cash', path: '/donate/cash' },
         { label: 'Donate Goods', path: '/donate/goods' },
-        { label: 'About Us', path: '/' },
-        { label: 'Volunteer', path: '/' },
-        { label: 'Support', path: '/' },
+        { label: 'About Us', path: '/home' },
+        { label: 'Volunteer', path: '/home' },
+        { label: 'Support', path: '/find-foodbank' },
       ]
 
       for (const { label, path } of footerRouteMap) {
