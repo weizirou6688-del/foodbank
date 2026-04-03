@@ -68,7 +68,7 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin' }: L
     if (result.success) {
       onClose()
       const { user } = useAuthStore.getState()
-      if (user?.role === 'admin')       navigate('/admin')
+      if (user?.role === 'admin')       navigate('/admin?section=food', { replace: true })
       else if (user?.role === 'supermarket') navigate('/supermarket')
     } else {
       setSignInError(result.message ?? 'Login failed.')

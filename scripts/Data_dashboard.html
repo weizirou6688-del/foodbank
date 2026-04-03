@@ -794,7 +794,7 @@
                     </div>
                     <!-- 月度捐赠趋势 -->
                     <div class="chart-card">
-                        <h3 class="chart-title">Monthly Donation Trend</h3>
+                        <h3 class="chart-title">Goods Donation Trend</h3>
                         <div class="chart-container">
                             <div class="loading" id="donation-trend-loading">Loading chart...</div>
                             <canvas id="donation-trend-chart"></canvas>
@@ -890,7 +890,7 @@
                 <div class="chart-grid-2">
                     <!-- 月度发放趋势 -->
                     <div class="chart-card">
-                        <h3 class="chart-title">Monthly Package Distribution</h3>
+                        <h3 class="chart-title">Aid Package Distribution Trend</h3>
                         <div class="chart-container">
                             <div class="loading" id="package-trend-loading">Loading chart...</div>
                             <canvas id="package-trend-chart"></canvas>
@@ -952,7 +952,7 @@
                     </div>
                     <!-- 月度报损趋势 -->
                     <div class="chart-card">
-                        <h3 class="chart-title">Monthly Food Wastage Trend</h3>
+                        <h3 class="chart-title">Food Wastage Trend</h3>
                         <div class="chart-container">
                             <div class="loading" id="wastage-trend-loading">Loading chart...</div>
                             <canvas id="wastage-trend-chart"></canvas>
@@ -992,7 +992,7 @@
                 <div class="chart-grid-2">
                     <!-- 核销率月度趋势 -->
                     <div class="chart-card">
-                        <h3 class="chart-title">Monthly Redemption Rate Trend</h3>
+                        <h3 class="chart-title">Redemption Rate Trend</h3>
                         <div class="chart-container">
                             <div class="loading" id="redemption-rate-loading">Loading chart...</div>
                             <canvas id="redemption-rate-chart"></canvas>
@@ -1239,6 +1239,13 @@
             return 'This Month';
         }
 
+        function getTrendGroupingText(range) {
+            if (range === 'month') {
+                return 'Trend charts are grouped by day within the current month.';
+            }
+            return 'Trend charts are grouped by month within the selected range.';
+        }
+
         function updateTimeRangeSummary() {
             const summary = document.getElementById('time-range-summary');
             if (!summary) return;
@@ -1252,6 +1259,8 @@
                     text += ' The current calendar quarter started this month, so month and quarter can match early in the quarter.';
                 }
             }
+
+            text += ` ${getTrendGroupingText(currentTimeRange)}`;
 
             summary.textContent = text;
         }
