@@ -3,9 +3,17 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from datetime import date, datetime
+from types import SimpleNamespace
+
 import pytest
 
-from app.routers.stats import get_donation_stats, get_package_stats, get_stock_gap_analysis
+from app.routers.stats import (
+    get_donation_stats,
+    get_package_stats,
+    get_public_impact_metrics,
+    get_stock_gap_analysis,
+)
 
 
 class _ScalarResult:
@@ -118,3 +126,83 @@ async def test_get_stock_gap_analysis_filters_and_sorts():
     assert result[0]["gap"] == 5
     assert result[1]["package_id"] == 2
     assert result[1]["gap"] == 2
+
+
+@pytest.mark.asyncio
+async def test_get_public_impact_metrics_empty():
+    db = FakeSession(execute_rows_seq=[[], [], [], []])
+
+    result = await get_public_impact_metrics(range_key="year", db=db)
+
+    assert len(result.impactMetrics) == 4
+    assert result.impactMetrics[0].label == 'Food Units Distributed'
+    assert result.impactMetrics[0].value == '0'
+    assert result.impactMetrics[0].note == 'All Time'
+    assert result.impactMetrics[2].value == '0.0%'
+    assert result.impactMetrics[3].note == 'This Year'
+
+
+@pytest.mark.asyncio
+async def test_get_public_impact_metrics_aggregates_current_period():
+    current_year = date.today().year
+
+    goods_current = SimpleNamespace(
+        status='received',
+        pickup_date=date(current_year, 1, 10),
+        created_at=datetime(current_year, 1, 10),
+        items=[SimpleNamespace(quantity=8), SimpleNamespace(quantity=4)],
+    )
+    goods_previous = SimpleNamespace(
+        status='received',
+        pickup_date=date(current_year - 1, 2, 12),
+        created_at=datetime(current_year - 1, 2, 12),
+        items=[SimpleNamespace(quantity=5)],
+    )
+
+    current_application = SimpleNamespace(
+        id='app-current',
+        user_id='user-1',
+        created_at=datetime(current_year, 1, 15),
+        deleted_at=None,
+        status='collected',
+        items=[],
+    )
+    previous_application = SimpleNamespace(
+        id='app-previous',
+        user_id='user-2',
+        created_at=datetime(current_year - 1, 3, 20),
+        deleted_at=None,
+        status='collected',
+        items=[],
+    )
+
+    current_snapshot = SimpleNamespace(
+        application_id='app-current',
+        snapshot_type='direct_item',
+        distributed_quantity=18,
+    )
+    previous_snapshot = SimpleNamespace(
+        application_id='app-previous',
+        snapshot_type='direct_item',
+        distributed_quantity=9,
+    )
+
+    db = FakeSession(
+        execute_rows_seq=[
+            [goods_current, goods_previous],
+            [],
+            [current_application, previous_application],
+            [current_snapshot, previous_snapshot],
+        ]
+    )
+
+    result = await get_public_impact_metrics(range_key="year", db=db)
+    metrics = {metric.key: metric for metric in result.impactMetrics}
+
+    assert metrics['food_units_distributed'].value == '27'
+    assert metrics['food_units_distributed'].change == '+100.0%'
+    assert metrics['families_supported'].value == '2'
+    assert metrics['families_supported'].note == 'All Time'
+    assert metrics['aid_redemption_success_rate'].value == '100.0%'
+    assert metrics['goods_units_year'].value == '12'
+

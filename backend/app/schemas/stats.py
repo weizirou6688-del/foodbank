@@ -20,6 +20,19 @@ class DashboardImpactMetricOut(BaseModel):
     label: str
 
 
+class PublicImpactMetricOut(BaseModel):
+    key: str
+    change: str
+    value: str
+    label: str
+    note: str
+    positive: bool = True
+
+
+class PublicImpactMetricsOut(BaseModel):
+    impactMetrics: list[PublicImpactMetricOut]
+
+
 class DashboardKpiTrendsOut(BaseModel):
     donation: str
     package: str
@@ -120,3 +133,4 @@ class DashboardAnalyticsOut(BaseModel):
     package: DashboardPackageAnalyticsOut
     expiry: DashboardExpiryAnalyticsOut
     redemption: DashboardRedemptionAnalyticsOut
+

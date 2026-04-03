@@ -45,6 +45,8 @@ from app.schemas.stats import (
     DashboardPackageAnalyticsOut,
     DashboardRedemptionAnalyticsOut,
     DashboardVerificationRecordOut,
+    PublicImpactMetricOut,
+    PublicImpactMetricsOut,
     StockGapPackageOut,
 )
 
@@ -55,6 +57,12 @@ COMPARISON_LABELS = {
     "month": "last month",
     "quarter": "last quarter",
     "year": "last year",
+}
+
+RANGE_NOTES = {
+    "month": "This Month",
+    "quarter": "This Quarter",
+    "year": "This Year",
 }
 
 
@@ -180,6 +188,13 @@ def _format_currency_from_pence(value: float) -> str:
 
 def _format_decimal(value: float, decimals: int = 1) -> str:
     return f"{value:.{decimals}f}"
+
+
+def _format_short_change(current: float, previous: float) -> tuple[str, bool]:
+    change = _percent_change(current, previous)
+    if change is None:
+        return "New", True
+    return f"{'+' if change >= 0 else ''}{change:.1f}%", change >= 0
 
 
 def _format_table_quantity(value: int, unit: str) -> str:
@@ -379,6 +394,216 @@ async def get_stock_gap_analysis(
         for package_id, package_name, stock, threshold, gap in rows
     ]
 
+
+@router.get("/public-impact", response_model=PublicImpactMetricsOut)
+async def get_public_impact_metrics(
+    range_key: Literal["month", "quarter", "year"] = Query("month", alias="range"),
+    db: AsyncSession = Depends(get_db),
+):
+    today = date.today()
+    current_start, next_start, previous_start = _period_bounds(range_key, today)
+    range_note = RANGE_NOTES[range_key]
+
+    goods_donations = list(
+        (
+            await db.execute(
+                select(DonationGoods)
+                .options(selectinload(DonationGoods.items))
+                .order_by(DonationGoods.created_at.asc())
+            )
+        ).scalars().all()
+    )
+    packages = list(
+        (
+            await db.execute(
+                select(FoodPackage)
+                .options(selectinload(FoodPackage.package_items))
+                .order_by(FoodPackage.name.asc())
+            )
+        ).scalars().all()
+    )
+    applications = list(
+        (
+            await db.execute(
+                select(Application)
+                .options(
+                    selectinload(Application.items).selectinload(ApplicationItem.package),
+                    selectinload(Application.items).selectinload(ApplicationItem.inventory_item),
+                )
+                .order_by(Application.created_at.asc())
+            )
+        ).scalars().all()
+    )
+    distribution_snapshots = list(
+        (
+            await db.execute(
+                select(ApplicationDistributionSnapshot).order_by(
+                    ApplicationDistributionSnapshot.created_at.asc(),
+                    ApplicationDistributionSnapshot.id.asc(),
+                )
+            )
+        ).scalars().all()
+    )
+
+    distribution_snapshots_by_application_id: dict[object, list[ApplicationDistributionSnapshot]] = defaultdict(list)
+    for snapshot in distribution_snapshots:
+        distribution_snapshots_by_application_id[snapshot.application_id].append(snapshot)
+
+    package_recipe_units = {
+        package.id: sum(package_item.quantity for package_item in package.package_items)
+        for package in packages
+    }
+
+    current_goods_units = 0
+    previous_goods_units = 0
+    current_year_goods_units = 0
+    for donation in goods_donations:
+        if donation.status != "received":
+            continue
+        donation_date = donation.pickup_date or _event_date(donation.created_at)
+        donation_quantity = sum(item.quantity for item in donation.items)
+        if _in_period(donation_date, current_start, next_start):
+            current_goods_units += donation_quantity
+        if _in_period(donation_date, previous_start, current_start):
+            previous_goods_units += donation_quantity
+        if donation_date is not None and donation_date.year == today.year:
+            current_year_goods_units += donation_quantity
+
+    all_time_families_supported: set[str] = set()
+    current_families_supported: set[str] = set()
+    previous_families_supported: set[str] = set()
+    all_time_food_units_distributed = 0
+    current_food_units_distributed = 0
+    previous_food_units_distributed = 0
+    resolved_current_total = 0
+    resolved_current_success = 0
+    resolved_previous_total = 0
+    resolved_previous_success = 0
+
+    for application in applications:
+        application_created = _event_date(application.created_at)
+        in_current_period = _in_period(application_created, current_start, next_start)
+        in_previous_period = _in_period(application_created, previous_start, current_start)
+
+        if in_current_period:
+            if application.deleted_at is not None or application.status == "expired":
+                resolved_current_total += 1
+            elif application.status == "collected":
+                resolved_current_total += 1
+                resolved_current_success += 1
+        if in_previous_period:
+            if application.deleted_at is not None or application.status == "expired":
+                resolved_previous_total += 1
+            elif application.status == "collected":
+                resolved_previous_total += 1
+                resolved_previous_success += 1
+
+        if application.deleted_at is not None:
+            continue
+
+        all_time_families_supported.add(str(application.user_id))
+        if in_current_period:
+            current_families_supported.add(str(application.user_id))
+        if in_previous_period:
+            previous_families_supported.add(str(application.user_id))
+
+        application_snapshots = distribution_snapshots_by_application_id.get(application.id, [])
+        component_snapshots = [
+            snapshot
+            for snapshot in application_snapshots
+            if snapshot.snapshot_type == "package_component"
+        ]
+        direct_item_snapshots = [
+            snapshot
+            for snapshot in application_snapshots
+            if snapshot.snapshot_type == "direct_item"
+        ]
+
+        application_food_units = 0
+        if component_snapshots or direct_item_snapshots:
+            application_food_units += sum(
+                snapshot.distributed_quantity for snapshot in component_snapshots
+            )
+            application_food_units += sum(
+                snapshot.distributed_quantity for snapshot in direct_item_snapshots
+            )
+        else:
+            for item in application.items:
+                if item.package_id is not None:
+                    application_food_units += package_recipe_units.get(item.package_id, 0) * item.quantity
+                elif item.inventory_item_id is not None:
+                    application_food_units += item.quantity
+
+        all_time_food_units_distributed += application_food_units
+        if in_current_period:
+            current_food_units_distributed += application_food_units
+        if in_previous_period:
+            previous_food_units_distributed += application_food_units
+
+    current_redemption_rate = (
+        round((resolved_current_success / resolved_current_total) * 100, 1)
+        if resolved_current_total
+        else 0.0
+    )
+    previous_redemption_rate = (
+        round((resolved_previous_success / resolved_previous_total) * 100, 1)
+        if resolved_previous_total
+        else 0.0
+    )
+
+    food_units_change, food_units_positive = _format_short_change(
+        float(current_food_units_distributed),
+        float(previous_food_units_distributed),
+    )
+    families_change, families_positive = _format_short_change(
+        float(len(current_families_supported)),
+        float(len(previous_families_supported)),
+    )
+    redemption_change, redemption_positive = _format_short_change(
+        float(current_redemption_rate),
+        float(previous_redemption_rate),
+    )
+    goods_change, goods_positive = _format_short_change(
+        float(current_goods_units),
+        float(previous_goods_units),
+    )
+
+    return PublicImpactMetricsOut(
+        impactMetrics=[
+            PublicImpactMetricOut(
+                key="food_units_distributed",
+                change=food_units_change,
+                positive=food_units_positive,
+                value=_format_int(all_time_food_units_distributed),
+                label="Food Units Distributed",
+                note="All Time",
+            ),
+            PublicImpactMetricOut(
+                key="families_supported",
+                change=families_change,
+                positive=families_positive,
+                value=_format_int(len(all_time_families_supported)),
+                label="Families Supported",
+                note="All Time",
+            ),
+            PublicImpactMetricOut(
+                key="aid_redemption_success_rate",
+                change=redemption_change,
+                positive=redemption_positive,
+                value=f"{_format_decimal(current_redemption_rate)}%",
+                label="Aid Redemption Success Rate",
+                note=range_note,
+            ),
+            PublicImpactMetricOut(
+                key="goods_units_year",
+                change=goods_change,
+                positive=goods_positive,
+                value=_format_int(current_year_goods_units),
+                label="Goods Donation Units",
+                note="This Year",
+            ),
+        ]
+    )
 
 @router.get("/dashboard", response_model=DashboardAnalyticsOut)
 async def get_dashboard_analytics(
@@ -1027,3 +1252,4 @@ async def get_dashboard_analytics(
         expiry=expiry_analytics,
         redemption=redemption_analytics,
     )
+

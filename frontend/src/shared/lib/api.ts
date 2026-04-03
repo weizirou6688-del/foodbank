@@ -253,6 +253,19 @@ export interface DashboardImpactMetric {
   label: string
 }
 
+export interface PublicImpactMetric {
+  key: string
+  change: string
+  value: string
+  label: string
+  note: string
+  positive?: boolean
+}
+
+export interface PublicImpactMetricsResponse {
+  impactMetrics: PublicImpactMetric[]
+}
+
 export interface DashboardKpi {
   totalDonation: number
   totalSku: number
@@ -385,6 +398,9 @@ export const foodBanksAPI = {
 
 export const statsAPI = {
   getOverview: () => apiClient.get('/api/v1/stats/donations'),
+  getPublicImpact: (
+    range: 'month' | 'quarter' | 'year' = 'month'
+  ) => apiClient.get(`/api/v1/stats/public-impact?range=${range}`) as Promise<PublicImpactMetricsResponse>,
 }
 
 export const restockAPI = {
@@ -587,3 +603,4 @@ export const applicationsAPI = {
   voidApplication: (id: string, token: string) =>
     apiClient.post(`/api/v1/applications/admin/${id}/void`, {}, token) as Promise<AdminApplicationRecord>,
 }
+
