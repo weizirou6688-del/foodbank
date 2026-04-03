@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/app/store/authStore'
 import { isStrongPassword, isValidEmail } from '@/shared/lib/validation'
@@ -50,6 +50,12 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin' }: L
   const [regLoading, setRegLoading] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
   const [showRegisterConfirm, setShowRegisterConfirm] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setTab(initialTab)
+    }
+  }, [initialTab, isOpen])
 
   if (!isOpen) return null
 

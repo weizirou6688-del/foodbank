@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.food_package import FoodPackage
+from app.models.package_item import PackageItem
 from app.routers.food_packages import (
     list_packages_for_bank,
     get_package_details,
@@ -44,6 +45,7 @@ class FakeSession:
         self.execute_rows_seq = list(execute_rows_seq or [])
         self.scalar_values = list(scalar_values or [])
         self.added = []
+        self.deleted = []
         self.updated = []
         self.did_commit = False
         self.did_rollback = False
@@ -63,6 +65,9 @@ class FakeSession:
         if isinstance(obj, FoodPackage) and getattr(obj, "id", None) is None:
             obj.id = 999
             obj.created_at = datetime.utcnow()
+
+    async def delete(self, obj):
+        self.deleted.append(obj)
 
     async def flush(self):
         return None
@@ -224,6 +229,52 @@ async def test_update_package_success():
 
 
 @pytest.mark.asyncio
+async def test_update_package_replaces_package_contents():
+    pkg = FoodPackage(
+        id=1,
+        name="Old Pack",
+        category="Breakfast",
+        stock=5,
+        threshold=3,
+        applied_count=1,
+        food_bank_id=1,
+        is_active=True,
+        created_at=datetime.utcnow(),
+    )
+    existing_item = PackageItem(
+        id=10,
+        package_id=1,
+        inventory_item_id=99,
+        quantity=4,
+    )
+    db = FakeSession(execute_rows_seq=[[pkg], [1, 2], [existing_item]])
+    admin = {"role": "admin"}
+
+    payload = FoodPackageUpdate(
+        name="Updated Pack",
+        contents=[
+            {"item_id": 1, "quantity": 2},
+            {"item_id": 2, "quantity": 3},
+        ],
+    )
+
+    result = await update_package(
+        package_id=1,
+        package_in=payload,
+        admin_user=admin,
+        db=db,
+    )
+
+    new_package_items = [obj for obj in db.added if isinstance(obj, PackageItem)]
+
+    assert result.name == "Updated Pack"
+    assert db.deleted == [existing_item]
+    assert len(new_package_items) == 2
+    assert [item.inventory_item_id for item in new_package_items] == [1, 2]
+    assert [item.quantity for item in new_package_items] == [2, 3]
+
+
+@pytest.mark.asyncio
 async def test_update_package_not_found():
     db = FakeSession(packages={})
     admin = {"role": "admin"}
@@ -251,13 +302,36 @@ async def test_delete_package_success():
         is_active=True,
         created_at=datetime.utcnow(),
     )
-    db = FakeSession(packages={1: pkg})
+    db = FakeSession(packages={1: pkg}, scalar_values=[0])
     admin = {"role": "admin"}
 
     result = await delete_package(package_id=1, admin_user=admin, db=db)
 
     assert result is None
-    assert pkg.is_active is False  # Soft delete
+    assert db.deleted == [pkg]
+
+
+@pytest.mark.asyncio
+async def test_delete_package_soft_deletes_when_used_in_applications():
+    pkg = FoodPackage(
+        id=1,
+        name="Keep History",
+        category="Breakfast",
+        stock=0,
+        threshold=5,
+        applied_count=0,
+        food_bank_id=1,
+        is_active=True,
+        created_at=datetime.utcnow(),
+    )
+    db = FakeSession(packages={1: pkg}, scalar_values=[2])
+    admin = {"role": "admin"}
+
+    result = await delete_package(package_id=1, admin_user=admin, db=db)
+
+    assert result is None
+    assert pkg.is_active is False
+    assert db.deleted == []
 
 
 @pytest.mark.asyncio

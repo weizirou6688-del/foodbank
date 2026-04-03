@@ -12,6 +12,7 @@ from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
 from app.models.donation_goods_item import DonationGoodsItem
 from app.models.food_bank import FoodBank
+from app.routers import donations as donations_router
 from app.routers.donations import list_donations, submit_cash_donation, submit_goods_donation
 from app.schemas.donation_cash import DonationCashCreate
 from app.schemas.donation_goods import DonationGoodsCreate, DonationGoodsItemCreatePayload
@@ -182,6 +183,42 @@ async def test_submit_goods_donation_supports_external_food_bank_metadata():
     assert len(goods_rows) == 1
     assert len(item_rows) == 1
     assert item_rows[0].donation_id == goods_rows[0].id
+
+
+@pytest.mark.asyncio
+async def test_submit_goods_donation_received_uses_created_items_for_inventory_sync(monkeypatch):
+    captured = {}
+    db = FakeSession()
+
+    async def fake_sync(donation, db_session, items=None):
+        captured["donation_id"] = donation.id
+        captured["db"] = db_session
+        captured["items"] = list(items or [])
+
+    monkeypatch.setattr(donations_router, "_sync_goods_donation_inventory", fake_sync)
+
+    payload = DonationGoodsCreate(
+        donor_name="Alice",
+        donor_email="alice@example.com",
+        donor_phone="123456",
+        pickup_date="2026-04-03",
+        items=[
+            DonationGoodsItemCreatePayload(item_name="Rice", quantity=2),
+            DonationGoodsItemCreatePayload(item_name="Beans", quantity=1),
+        ],
+        status="received",
+    )
+
+    result = await submit_goods_donation(donation_in=payload, db=db)
+
+    assert isinstance(result, DonationGoods)
+    assert result.status == "received"
+    assert captured["donation_id"] == result.id
+    assert captured["db"] is db
+    assert len(captured["items"]) == 2
+    assert all(isinstance(item, DonationGoodsItem) for item in captured["items"])
+    assert [item.item_name for item in captured["items"]] == ["Rice", "Beans"]
+    assert [item.quantity for item in captured["items"]] == [2, 1]
 
 
 @pytest.mark.asyncio

@@ -10,7 +10,7 @@ Stock and threshold are non-negative integers.
 Category and name are used for filtering/searching inventory.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -85,6 +85,7 @@ class InventoryItemListResponse(BaseModel):
 class StockAdjustment(BaseModel):
     quantity: int = Field(gt=0, description="Positive integer quantity to add or remove")
     reason: str = Field(min_length=1, max_length=500, description="Reason for stock adjustment")
+    expiry_date: date | None = Field(default=None, description="Optional expiry date for stock-in lots")
 
 
 class LowStockItem(BaseModel):

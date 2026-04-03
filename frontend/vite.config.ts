@@ -50,8 +50,75 @@ const apiProxyTarget = getConfigValue(
   `http://${devHost}:${backendPort}`,
 )
 
+const foodManagementReferencePath = path.resolve(projectRoot, 'scripts', 'food_management.html')
+const FOOD_MANAGEMENT_VIRTUAL_MODULE = 'virtual:food-management-reference'
+const FOOD_MANAGEMENT_VIRTUAL_MODULE_ID = `\0${FOOD_MANAGEMENT_VIRTUAL_MODULE}`
+
+const listFilesRecursively = (dirPath: string): string[] => {
+  if (!fs.existsSync(dirPath)) {
+    return []
+  }
+
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+  return entries.flatMap((entry) => {
+    const fullPath = path.join(dirPath, entry.name)
+    return entry.isDirectory() ? listFilesRecursively(fullPath) : [fullPath]
+  })
+}
+
+const readFoodManagementBackup = (): string => {
+  const appDataPath = process.env.APPDATA
+  if (!appDataPath) {
+    return ''
+  }
+
+  const backupsRoot = path.join(appDataPath, 'Code', 'Backups')
+  const backupFiles = listFilesRecursively(backupsRoot)
+
+  for (const backupFile of backupFiles) {
+    try {
+      const content = fs.readFileSync(backupFile, 'utf8')
+      if (!content.includes('scripts/food_management.html')) {
+        continue
+      }
+
+      return content.replace(/^.*\r?\n/, '')
+    } catch {
+      continue
+    }
+  }
+
+  return ''
+}
+
+const loadFoodManagementReference = (): string => {
+  if (fs.existsSync(foodManagementReferencePath) && fs.statSync(foodManagementReferencePath).size > 0) {
+    return fs.readFileSync(foodManagementReferencePath, 'utf8')
+  }
+
+  return readFoodManagementBackup()
+}
+
+const foodManagementReferencePlugin = () => ({
+  name: 'food-management-reference-plugin',
+  resolveId(id: string) {
+    if (id === FOOD_MANAGEMENT_VIRTUAL_MODULE) {
+      return FOOD_MANAGEMENT_VIRTUAL_MODULE_ID
+    }
+
+    return null
+  },
+  load(id: string) {
+    if (id === FOOD_MANAGEMENT_VIRTUAL_MODULE_ID) {
+      return `export default ${JSON.stringify(loadFoodManagementReference())};`
+    }
+
+    return null
+  },
+})
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), foodManagementReferencePlugin()],
   build: {
     rollupOptions: {
       output: {

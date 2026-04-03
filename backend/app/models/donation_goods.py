@@ -69,6 +69,8 @@ class DonationGoods(Base):
     # Required even if user is NULL (anonymous donations still need contact info).
     donor_name: Mapped[str] = mapped_column(String(100), nullable=False)
 
+    donor_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor's email for sending receipt and thank-you message.
     # index=True enables quick lookup by donor email.

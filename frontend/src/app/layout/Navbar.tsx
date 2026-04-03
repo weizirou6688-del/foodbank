@@ -47,6 +47,10 @@ export default function Navbar() {
   const isLoggedIn = isAuthenticated && !!user
   const isHomePage = location.pathname === '/'
   const isFindFoodBankPage = location.pathname === '/find-foodbank'
+  const adminSection = new URLSearchParams(location.search).get('section')
+  const isFoodManagementPage =
+    location.pathname === '/food-management-preview' ||
+    (location.pathname === '/admin' && adminSection !== 'statistics')
 
   const roleBadgeLabel =
     user?.role === 'admin' ? 'Admin' : user?.role === 'supermarket' ? 'Supermarket' : 'Account'
@@ -113,6 +117,10 @@ export default function Navbar() {
   }
 
   if (isHomePage || isFindFoodBankPage) {
+    return null
+  }
+
+  if (isFoodManagementPage) {
     return null
   }
 

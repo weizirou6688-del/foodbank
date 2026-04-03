@@ -17,11 +17,16 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
+DONATION_DONOR_TYPE_PATTERN = "^(supermarket|individual|organization)$"
+
+
 # Common fields for cash donation creation and responses.
 class DonationCashBase(BaseModel):
     # Optional donor name captured from checkout/contact form.
     # Nullable to preserve support for anonymous/offline donations.
     donor_name: str | None = Field(default=None, min_length=1, max_length=100)
+
+    donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
 
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor email for receipt and contact. Validated as EmailStr per RFC 5332.
@@ -51,6 +56,8 @@ class DonationCashCreate(BaseModel):
     # Optional donor name captured from the payment/contact form.
     donor_name: str | None = Field(default=None, min_length=1, max_length=100)
 
+    donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
+
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor email for receipt.
     donor_email: EmailStr
@@ -71,6 +78,14 @@ class DonationCashCreate(BaseModel):
 class DonationCashUpdate(BaseModel):
     # Typically used for post-donation status changes (failed, refunded).
     # All fields optional for flexibility.
+
+    donor_name: str | None = Field(default=None, min_length=1, max_length=100)
+
+    donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
+
+    donor_email: EmailStr | None = None
+
+    amount_pence: int | None = Field(default=None, ge=1)
 
     # From spec: payment_reference: VARCHAR(100)
     # Can update if linking to external processor later.

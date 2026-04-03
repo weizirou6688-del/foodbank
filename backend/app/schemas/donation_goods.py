@@ -19,6 +19,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from app.schemas.donation_goods_item import DonationGoodsItemOut
 
 
+DONATION_DONOR_TYPE_PATTERN = "^(supermarket|individual|organization)$"
+
+
 # ==================== INNER PAYLOADS ====================
 # Used only in DonationGoodsCreate to specify donation items
 class DonationGoodsItemCreatePayload(BaseModel):
@@ -29,6 +32,7 @@ class DonationGoodsItemCreatePayload(BaseModel):
         description="Name of donated food item (e.g., 'Tinned Beans')"
     )
     quantity: int = Field(ge=1, description="Quantity of this item donated")
+    expiry_date: date | None = None
 
 
 # Common fields for goods donation creation and responses.
@@ -46,6 +50,8 @@ class DonationGoodsBase(BaseModel):
     # Donor name (required even if user NULL, for thank-you/follow-up).
     # Validation: 1-100 characters.
     donor_name: str = Field(min_length=1, max_length=100)
+
+    donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
 
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor email for receipt and follow-up. Validated as EmailStr.
@@ -90,6 +96,8 @@ class DonationGoodsCreate(BaseModel):
     # Donor name (required regardless of user authentication).
     donor_name: str = Field(min_length=1, max_length=100)
 
+    donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
+
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor email for receipt.
     donor_email: EmailStr
@@ -117,7 +125,7 @@ class DonationGoodsCreate(BaseModel):
         description="List of food items donated (item_name + quantity)"
     )
 
-    # Note: status intentionally omitted; defaults to 'pending' server-side.
+    status: str | None = Field(default=None, pattern="^(pending|received|rejected)$")
 
 
 # Schema for updating goods donations.
@@ -128,6 +136,8 @@ class DonationGoodsUpdate(BaseModel):
     # From spec: donor_name: VARCHAR(100)
     # Can update if incorrectly entered initially.
     donor_name: str | None = Field(default=None, min_length=1, max_length=100)
+
+    donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
 
     # From spec: donor_email: VARCHAR(255)
     # Can update if contact info needs correction.
@@ -156,6 +166,8 @@ class DonationGoodsUpdate(BaseModel):
     # From spec: status: VARCHAR(20)
     # Admin changes status: pending -> received (accepted) or rejected.
     status: str | None = Field(default=None, pattern="^(pending|received|rejected)$")
+
+    items: list[DonationGoodsItemCreatePayload] | None = Field(default=None, min_length=1)
 
 
 # Schema for API responses (reading donation data).

@@ -6,11 +6,12 @@ Spec § 2.4: POST (submit), GET /my (user's), PATCH/:id (admin status update)
 
 import secrets
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.database_errors import (
@@ -26,6 +27,9 @@ from app.models.inventory_item import InventoryItem
 from app.models.package_item import PackageItem
 from app.schemas.application import (
     ApplicationCreate,
+    ApplicationAdminItemOut,
+    ApplicationAdminListResponse,
+    ApplicationAdminRecordOut,
     ApplicationListResponse,
     ApplicationOut,
     ApplicationUpdate,
@@ -45,6 +49,15 @@ def _new_redemption_code() -> str:
     left = "".join(secrets.choice(alphabet) for _ in range(4))
     right = "".join(secrets.choice(alphabet) for _ in range(4))
     return f"{left}-{right}"
+
+
+def _normalize_redemption_code(raw_code: str) -> str:
+    compact = "".join(char for char in raw_code.upper() if char.isalnum())
+    if len(compact) == 8:
+        return f"{compact[:4]}-{compact[4:]}"
+    if len(compact) == 10 and compact[:2].isalpha() and compact[2:].isdigit():
+        return compact
+    return raw_code.strip().upper()
 
 
 async def _generate_unique_redemption_code(db: AsyncSession) -> str:
@@ -81,6 +94,55 @@ def _extract_user_id(current_user: dict | object) -> uuid.UUID:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid user identifier in token",
         ) from exc
+
+
+async def _load_admin_application(
+    db: AsyncSession,
+    application_id: uuid.UUID,
+) -> Application | None:
+    result = await db.execute(
+        select(Application)
+        .options(
+            selectinload(Application.items).selectinload(ApplicationItem.package),
+            selectinload(Application.items).selectinload(ApplicationItem.inventory_item),
+        )
+        .where(Application.id == application_id)
+    )
+    return result.scalar_one_or_none()
+
+
+def _serialize_admin_application(application: Application) -> ApplicationAdminRecordOut:
+    items: list[ApplicationAdminItemOut] = []
+    display_names: list[str] = []
+
+    for item in application.items:
+        if item.package is not None:
+            item_name = item.package.name
+        elif item.inventory_item is not None:
+            item_name = item.inventory_item.name
+        else:
+            item_name = f"Item #{item.id}"
+
+        items.append(
+            ApplicationAdminItemOut(
+                id=item.id,
+                package_id=item.package_id,
+                inventory_item_id=item.inventory_item_id,
+                name=item_name,
+                quantity=item.quantity,
+            )
+        )
+        display_names.append(item_name)
+
+    package_name = ", ".join(dict.fromkeys(display_names)) if display_names else None
+    base_payload = ApplicationOut.model_validate(application).model_dump()
+    return ApplicationAdminRecordOut(
+        **base_payload,
+        items=items,
+        package_name=package_name,
+        is_voided=application.deleted_at is not None,
+        voided_at=application.deleted_at,
+    )
 
 
 @router.post("", response_model=ApplicationOut, status_code=status.HTTP_201_CREATED)
@@ -287,6 +349,7 @@ async def submit_application(
                 status="pending",
                 week_start=week_start,
                 total_quantity=package_quantity,
+                redeemed_at=None,
             )
             db.add(application)
             await db.flush()
@@ -383,7 +446,7 @@ async def list_all_applications(
     Spec § 2.4: Admin application listing endpoint.
     """
     _ = admin_user
-    result = await db.execute(select(Application))
+    result = await db.execute(select(Application).order_by(Application.created_at.desc()))
     items = list(result.scalars().all())
     total = len(items)
     # TODO: 实现真实分页
@@ -394,6 +457,164 @@ async def list_all_applications(
         "size": total,
         "pages": 1,
     }
+
+
+@router.get("/admin/records", response_model=ApplicationAdminListResponse)
+async def list_admin_application_records(
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+    result = await db.execute(
+        select(Application)
+        .options(
+            selectinload(Application.items).selectinload(ApplicationItem.package),
+            selectinload(Application.items).selectinload(ApplicationItem.inventory_item),
+        )
+        .order_by(Application.created_at.desc())
+    )
+    applications = list(result.scalars().all())
+    items = [_serialize_admin_application(application) for application in applications]
+    total = len(items)
+    return {
+        "items": items,
+        "total": total,
+        "page": 1,
+        "size": total,
+        "pages": 1,
+    }
+
+
+@router.get("/admin/by-code/{redemption_code}", response_model=ApplicationAdminRecordOut)
+async def get_application_by_redemption_code(
+    redemption_code: str,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+    normalized_code = _normalize_redemption_code(redemption_code)
+    result = await db.execute(
+        select(Application)
+        .options(
+            selectinload(Application.items).selectinload(ApplicationItem.package),
+            selectinload(Application.items).selectinload(ApplicationItem.inventory_item),
+        )
+        .where(Application.redemption_code == normalized_code)
+    )
+    application = result.scalar_one_or_none()
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found for redemption code",
+        )
+    return _serialize_admin_application(application)
+
+
+@router.post("/admin/{application_id}/redeem", response_model=ApplicationAdminRecordOut)
+async def redeem_application(
+    application_id: uuid.UUID,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+
+    try:
+        async with db.begin():
+            application = await _load_admin_application(db, application_id)
+            if application is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Application not found",
+                )
+
+            if application.deleted_at is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Voided redemption code cannot be redeemed",
+                )
+
+            if application.status == "collected":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Application already redeemed",
+                )
+
+            if application.status == "expired":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Expired redemption code cannot be redeemed",
+                )
+
+            application.status = "collected"
+            application.redeemed_at = datetime.now(timezone.utc)
+            await db.flush()
+
+        refreshed = await _load_admin_application(db, application_id)
+        if refreshed is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Application not found",
+            )
+        return _serialize_admin_application(refreshed)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to redeem application",
+        ) from exc
+
+
+@router.post("/admin/{application_id}/void", response_model=ApplicationAdminRecordOut)
+async def void_application(
+    application_id: uuid.UUID,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+
+    try:
+        async with db.begin():
+            application = await _load_admin_application(db, application_id)
+            if application is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Application not found",
+                )
+
+            if application.deleted_at is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Application already voided",
+                )
+
+            if application.status == "collected":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Redeemed application cannot be voided",
+                )
+
+            application.deleted_at = datetime.now(timezone.utc)
+            await db.flush()
+
+        refreshed = await _load_admin_application(db, application_id)
+        if refreshed is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Application not found",
+            )
+        return _serialize_admin_application(refreshed)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to void application",
+        ) from exc
 
 
 @router.patch("/{application_id}", response_model=ApplicationOut)
@@ -438,9 +659,10 @@ async def update_application_status(
                 )
 
             if application_in.redemption_code is not None:
+                normalized_code = _normalize_redemption_code(application_in.redemption_code)
                 code_owner = await db.scalar(
                     select(Application.id).where(
-                        Application.redemption_code == application_in.redemption_code,
+                        Application.redemption_code == normalized_code,
                         Application.id != application_id,
                     )
                 )
@@ -449,10 +671,14 @@ async def update_application_status(
                         status_code=status.HTTP_409_CONFLICT,
                         detail="Redemption code already in use",
                     )
-                application.redemption_code = application_in.redemption_code
+                application.redemption_code = normalized_code
 
             if application_in.status is not None:
                 application.status = application_in.status
+                if application_in.status == "collected":
+                    application.redeemed_at = application.redeemed_at or datetime.now(timezone.utc)
+                elif application_in.status != "collected":
+                    application.redeemed_at = None
 
             _ = application_in.admin_comment
 

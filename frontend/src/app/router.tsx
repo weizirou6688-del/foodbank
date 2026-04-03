@@ -10,6 +10,7 @@ const ApplicationForm = lazy(() => import('@/pages/ApplicationForm/ApplicationFo
 const DonateCash = lazy(() => import('@/pages/DonateCash/DonateCash'))
 const DonateGoods = lazy(() => import('@/pages/DonateGoods/DonateGoods'))
 const Admin = lazy(() => import('@/pages/Admin/Admin'))
+const FoodManagementPreview = lazy(() => import('@/pages/Admin/AdminFoodManagementPreview'))
 const Supermarket = lazy(() => import('@/pages/Supermarket/Supermarket'))
 
 function RouteFallback() {
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
   { path: '/', element: withSuspense(<Home />) },
   { path: '/donate/cash', element: withSuspense(<DonateCash />) },
   { path: '/donate/goods', element: withSuspense(<DonateGoods />) },
+  { path: '/food-management-preview', element: withSuspense(<FoodManagementPreview />) },
   {
     path: '/',
     element: withSuspense(<Layout />),

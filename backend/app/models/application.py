@@ -66,6 +66,10 @@ class Application(Base):
         nullable=False,
         server_default=text("now()"),
     )
+    redeemed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

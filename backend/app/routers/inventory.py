@@ -372,7 +372,7 @@ async def stock_in(
                     inventory_item_id=item.id,
                     quantity=adjustment_in.quantity,
                     received_date=date.today(),
-                    expiry_date=_future_expiry_date(),
+                    expiry_date=adjustment_in.expiry_date or _future_expiry_date(),
                     batch_reference=adjustment_in.reason[:100],
                 )
             )
@@ -473,6 +473,39 @@ async def delete_inventory_item(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete inventory item",
+        ) from exc
+
+
+@router.delete("/lots/{lot_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_inventory_lot(
+    lot_id: int,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = admin_user
+
+    try:
+        async with db.begin():
+            lot = await db.scalar(
+                select(InventoryLot).where(InventoryLot.id == lot_id)
+            )
+            if lot is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Inventory lot not found",
+                )
+
+            await db.delete(lot)
+            await db.flush()
+            return None
+    except HTTPException:
+        raise
+    except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete inventory lot",
         ) from exc
 
 

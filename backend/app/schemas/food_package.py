@@ -127,6 +127,7 @@ class FoodPackageUpdate(BaseModel):
     image_url: str | None = None
     food_bank_id: int | None = Field(default=None, gt=0)
     is_active: bool | None = None
+    contents: list[PackageContentCreate] | None = Field(default=None, min_length=1)
 
 
 # Schema for API responses (reading package data).
@@ -149,6 +150,7 @@ class PackageItemDetail(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
     id: int
+    inventory_item_id: int = Field(description="Inventory item ID")
     quantity: int
     # Note: inventory_item details populated by service layer (name, category, unit, etc.)
     inventory_item_name: str = Field(description="Name of physical item in package")
