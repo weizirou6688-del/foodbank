@@ -95,12 +95,12 @@ export default function FindFoodBank() {
         <PrimaryNavbar variant="public" />
 
         <div className="bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="max-w-3xl">
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 md:pt-16 pb-8">
+            <div className="max-w-4xl mx-auto text-center">
+              <h1 className="text-4xl md:text-5xl font-bold leading-tight text-gray-900 mb-4">
                 Food security, <span className="text-[#F5A623]">engineered</span>
               </h1>
-              <p className="text-base text-gray-600">
+              <p className="max-w-3xl mx-auto text-base md:text-lg text-gray-600 leading-7">
                 Search by postcode to find food banks near you, check opening information, and see
                 whether a location can accept online package applications.
               </p>
@@ -367,4 +367,6 @@ export default function FindFoodBank() {
     </>
   )
 }
+
+
 
