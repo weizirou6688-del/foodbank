@@ -14,7 +14,7 @@ Donor contact info always captured for follow-up communication.
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.schemas.donation_goods_item import DonationGoodsItemOut
 
@@ -26,7 +26,7 @@ DONATION_DONOR_TYPE_PATTERN = "^(supermarket|individual|organization)$"
 # Used only in DonationGoodsCreate to specify donation items
 class DonationGoodsItemCreatePayload(BaseModel):
     """Inner payload: specifies each item type and quantity in goods donation."""
-    # From spec § 1.11: item_name and quantity per donated item
+    # From spec 搂 1.11: item_name and quantity per donated item
     item_name: str = Field(
         min_length=1, max_length=200,
         description="Name of donated food item (e.g., 'Tinned Beans')"
@@ -34,6 +34,25 @@ class DonationGoodsItemCreatePayload(BaseModel):
     quantity: int = Field(ge=1, description="Quantity of this item donated")
     expiry_date: date | None = None
 
+
+class SupermarketDonationItemPayload(BaseModel):
+    inventory_item_id: int | None = Field(default=None, gt=0)
+    item_name: str | None = Field(default=None, min_length=1, max_length=200)
+    quantity: int = Field(ge=1)
+    expiry_date: date | None = None
+
+    @model_validator(mode="after")
+    def validate_inventory_target(self):
+        if self.inventory_item_id is None and not self.item_name:
+            raise ValueError("Either inventory_item_id or item_name is required")
+        return self
+
+
+class SupermarketDonationCreate(BaseModel):
+    items: list[SupermarketDonationItemPayload] = Field(min_length=1)
+    donor_phone: str | None = Field(default=None, min_length=3, max_length=30)
+    pickup_date: date | None = None
+    notes: str | None = None
 
 # Common fields for goods donation creation and responses.
 class DonationGoodsBase(BaseModel):
@@ -118,7 +137,7 @@ class DonationGoodsCreate(BaseModel):
     # Optional donation notes.
     notes: str | None = None
 
-    # From spec § 1.11: donation_goods_items — client submits item list.
+    # From spec 搂 1.11: donation_goods_items 鈥?client submits item list.
     # Service layer writes both donations_goods and donation_goods_items atomically.
     items: list[DonationGoodsItemCreatePayload] = Field(
         min_length=1,

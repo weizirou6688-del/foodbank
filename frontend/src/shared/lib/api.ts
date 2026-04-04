@@ -377,6 +377,21 @@ export const donationsAPI = {
     status?: 'pending' | 'received' | 'rejected'
     items: Array<{ item_name: string; quantity: number; expiry_date?: string }>
   }) => apiClient.post('/api/v1/donations/goods', data) as Promise<GoodsDonationResponse>,
+
+  submitSupermarketDonation: (
+    data: {
+      donor_phone?: string
+      pickup_date?: string
+      notes?: string
+      items: Array<{
+        inventory_item_id?: number
+        item_name?: string
+        quantity: number
+        expiry_date?: string
+      }>
+    },
+    token: string
+  ) => apiClient.post('/api/v1/donations/goods/supermarket', data, token) as Promise<GoodsDonationResponse>,
 }
 
 export const foodBanksAPI = {
@@ -603,4 +618,3 @@ export const applicationsAPI = {
   voidApplication: (id: string, token: string) =>
     apiClient.post(`/api/v1/applications/admin/${id}/void`, {}, token) as Promise<AdminApplicationRecord>,
 }
-

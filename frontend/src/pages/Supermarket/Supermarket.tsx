@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
-import { donationsAPI, restockAPI, adminAPI } from '@/shared/lib/api'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Plus } from 'lucide-react'
+import { donationsAPI, adminAPI } from '@/shared/lib/api'
 import { useAuthStore } from '@/app/store/authStore'
-import styles from './Supermarket.module.css'
+import { Footer } from './components/Footer'
+import { Header } from './components/Header'
+import { LowStockBanner, LowStockModal, type SupermarketLowStockItem } from './components/LowStockModal'
 
 interface DonationRow {
   id: string
-  name: string
+  foodName: string
   quantity: string
+  inventoryItemId: number | null
 }
 
 interface LowStockItem {
@@ -17,48 +21,61 @@ interface LowStockItem {
   unit: string
 }
 
-interface RestockRequestRow {
-  id: number
-  inventory_item_id: number
-  status: 'open' | 'fulfilled' | 'cancelled'
-}
-
 function makeId() {
   return `row_${Date.now()}${Math.random().toString(36).slice(2, 7)}`
 }
 
-function createRow(name = ''): DonationRow {
-  return { id: makeId(), name, quantity: '' }
+function createRow(foodName = '', inventoryItemId: number | null = null): DonationRow {
+  return { id: makeId(), foodName, quantity: '', inventoryItemId }
 }
-
-const TrashIcon = () => (
-  <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ width: 20, height: 20 }}>
-    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0h10" />
-    <line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
-  </svg>
-)
 
 export default function Supermarket() {
   const accessToken = useAuthStore((state) => state.accessToken)
-  const user = useAuthStore((state) => state.user)
 
   const [rows, setRows] = useState<DonationRow[]>([createRow()])
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([])
-  const [requestedItemIds, setRequestedItemIds] = useState<number[]>([])
-  const [modalOpen, setModalOpen] = useState(false)
+  const [dismissedItemIds, setDismissedItemIds] = useState<number[]>([])
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isBannerVisible, setIsBannerVisible] = useState(true)
   const [isLoadingLowStock, setIsLoadingLowStock] = useState(false)
-  const [isLoadingRequests, setIsLoadingRequests] = useState(false)
   const [isSubmittingDonation, setIsSubmittingDonation] = useState(false)
   const [pageError, setPageError] = useState('')
+  const [formError, setFormError] = useState('')
 
-  const updateRow = (id: string, field: 'name' | 'quantity', value: string) =>
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
+  const updateRow = (id: string, field: 'foodName' | 'quantity', value: string) => {
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) {
+          return row
+        }
 
-  const addRow = () => setRows((prev) => [...prev, createRow()])
+        if (field === 'foodName') {
+          return { ...row, foodName: value, inventoryItemId: null }
+        }
+
+        return { ...row, [field]: value }
+      }),
+    )
+    if (formError) {
+      setFormError('')
+    }
+  }
+
+  const addRow = () => {
+    setRows((prev) => [...prev, createRow()])
+    if (formError) {
+      setFormError('')
+    }
+  }
 
   const removeRow = (id: string) => {
-    if (!window.confirm('Permanently delete this row? This cannot be undone.')) return
-    setRows((prev) => prev.filter((r) => r.id !== id))
+    setRows((prev) => {
+      if (prev.length === 1) return [createRow()]
+      return prev.filter((row) => row.id !== id)
+    })
+    if (formError) {
+      setFormError('')
+    }
   }
 
   const loadLowStock = async () => {
@@ -81,233 +98,254 @@ export default function Supermarket() {
     }
   }
 
-  const loadExistingRequests = async () => {
-    if (!accessToken) {
-      setRequestedItemIds([])
-      return
-    }
-
-    setIsLoadingRequests(true)
-    try {
-      const data = await restockAPI.getRequests(accessToken) as { items?: RestockRequestRow[] }
-      const items = Array.isArray(data?.items) ? data.items : []
-      const openItemIds = items
-        .filter((item) => item.status === 'open')
-        .map((item) => item.inventory_item_id)
-
-      setRequestedItemIds(Array.from(new Set(openItemIds)))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load restock requests.'
-      setPageError((prev) => prev || message)
-      setRequestedItemIds([])
-    } finally {
-      setIsLoadingRequests(false)
-    }
-  }
-
   useEffect(() => {
     void loadLowStock()
   }, [accessToken])
 
   useEffect(() => {
-    void loadExistingRequests()
-  }, [accessToken])
-
-  const fillFood = (food: string) => {
-    const empty = rows.find((r) => r.name.trim() === '')
-    if (empty) {
-      updateRow(empty.id, 'name', food)
-    } else {
-      setRows((prev) => [...prev, createRow(food)])
+    if (lowStockItems.length > 0) {
+      setIsBannerVisible(true)
     }
-    window.alert(`"${food}" added to the donation form. Please fill in the quantity.`)
-    setModalOpen(false)
+    setDismissedItemIds((prev) => prev.filter((id) => lowStockItems.some((item) => item.id === id)))
+  }, [lowStockItems])
+
+  const visibleLowStockItems = useMemo(
+    () => lowStockItems.filter((item) => !dismissedItemIds.includes(item.id)),
+    [dismissedItemIds, lowStockItems],
+  )
+
+  const fillFood = (item: SupermarketLowStockItem) => {
+    setRows((prev) => {
+      const emptyRow = prev.find((row) => row.foodName.trim() === '')
+      if (emptyRow) {
+        return prev.map((row) =>
+          row.id === emptyRow.id
+            ? { ...row, foodName: item.name, inventoryItemId: item.id }
+            : row,
+        )
+      }
+      return [...prev, createRow(item.name, item.id)]
+    })
+    setFormError('')
+    setIsModalOpen(false)
   }
 
-  const createRestockRequest = async (item: LowStockItem) => {
+  const dismissLowStockItem = (itemId: number) => {
+    setDismissedItemIds((prev) => (prev.includes(itemId) ? prev : [...prev, itemId]))
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setFormError('')
+
     if (!accessToken) {
-      window.alert('Please sign in again before creating a restock request.')
+      setFormError('Please log in again before submitting restock items.')
       return
     }
 
-    try {
-      await restockAPI.submitRequest({
-        inventory_item_id: item.id,
-        current_stock: item.current_stock,
-        threshold: item.threshold,
-        urgency: item.current_stock === 0 ? 'high' : item.current_stock <= Math.max(1, Math.floor(item.threshold / 2)) ? 'medium' : 'low',
-      }, accessToken)
-
-      setRequestedItemIds((prev) => Array.from(new Set([...prev, item.id])))
-      await loadExistingRequests()
-      window.alert(`Restock request created for ${item.name}.`)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create restock request.'
-      if (message.toLowerCase().includes('already exists')) {
-        setRequestedItemIds((prev) => Array.from(new Set([...prev, item.id])))
+    const invalidRowIndex = rows.findIndex((row) => {
+      const hasAnyValue = row.foodName.trim() !== '' || row.quantity.trim() !== ''
+      if (!hasAnyValue) {
+        return false
       }
-      window.alert(message)
-    }
-  }
 
-  const handleSubmit = async () => {
+      const quantity = Number(row.quantity)
+      return !row.foodName.trim() || !Number.isFinite(quantity) || quantity <= 0
+    })
+
+    if (invalidRowIndex !== -1) {
+      setFormError(`Row ${invalidRowIndex + 1}: enter an inventory item name and a quantity greater than 0.`)
+      return
+    }
+
     const filled = rows
       .map((row) => ({
-        item_name: row.name.trim(),
+        inventory_item_id: row.inventoryItemId ?? undefined,
+        item_name: row.foodName.trim() || undefined,
         quantity: Number(row.quantity),
       }))
       .filter((row) => row.item_name && Number.isFinite(row.quantity) && row.quantity > 0)
 
     if (!filled.length) {
-      window.alert('Please fill in at least one valid item before submitting.')
+      setFormError('Add at least one item before submitting your restock.')
       return
     }
 
     setIsSubmittingDonation(true)
     try {
-      await donationsAPI.donateGoods({
-        donor_name: user?.name || 'Supermarket Donation',
-        donor_email: user?.email || 'supermarket@example.com',
-        donor_phone: '0000000000',
-        notes: 'Submitted from supermarket dashboard',
-        items: filled,
-      })
+      await donationsAPI.submitSupermarketDonation(
+        {
+          notes: 'Submitted from supermarket dashboard',
+          items: filled,
+        },
+        accessToken,
+      )
 
       setRows([createRow()])
-      window.alert('Donation submitted successfully.')
+      setDismissedItemIds([])
+      await loadLowStock()
+      window.alert('Restock submitted successfully. Inventory and low-stock status have been updated.')
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to submit donation.'
-      window.alert(message)
+      const message = error instanceof Error ? error.message : 'Failed to submit restock.'
+      setFormError(message)
     } finally {
       setIsSubmittingDonation(false)
     }
   }
 
-  const previewText = useMemo(
-    () => lowStockItems.slice(0, 4).map((r) => `${r.name} (${r.current_stock})`).join(' | '),
-    [lowStockItems],
-  )
+  const modalItems: SupermarketLowStockItem[] = visibleLowStockItems.map((item) => ({
+    id: item.id,
+    name: item.name,
+    currentStock: item.current_stock,
+    threshold: item.threshold,
+    unit: item.unit,
+  }))
 
   return (
-    <div className={styles.page}>
-      <div className={styles.container}>
-        {pageError && (
-          <div className={styles.warningMessage}>
-            <div className={styles.warningText}>
-              <span className={styles.infoIcon}>i</span>
-              <span>{pageError}</span>
-            </div>
-          </div>
-        )}
+    <div
+      className="home-figma-font flex min-h-screen flex-col"
+      style={{ backgroundColor: '#FFFFFF', fontFamily: 'Inter, system-ui, sans-serif' }}
+    >
+      <Header />
 
-        {lowStockItems.length > 0 && (
-          <div className={styles.warningMessage} onClick={() => setModalOpen(true)}>
-            <div className={styles.warningText}>
-              <span className={styles.infoIcon}>i</span>
-              <span>Restock needed:</span>
-            </div>
-            <div className={styles.previewList}>
-              {previewText}
-              <span>view all</span>
-            </div>
-          </div>
-        )}
+      <main className="flex-1 py-12" style={{ backgroundColor: '#F2F4F3' }}>
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="rounded-lg bg-white p-12 shadow-sm">
+            {isBannerVisible && visibleLowStockItems.length > 0 && (
+              <LowStockBanner
+                items={modalItems}
+                onViewFullList={() => setIsModalOpen(true)}
+                onDismiss={() => setIsBannerVisible(false)}
+              />
+            )}
 
-        <div className={styles.dashboardCard}>
-          <div className={styles.sectionHeader}>
-            <h2>Donation Form</h2>
-          </div>
-          <div className={styles.donationForm}>
-            <div className={styles.formRows}>
-              {rows.map((row) => (
-                <div key={row.id} className={styles.itemRow}>
-                  <input
-                    type="text"
-                    className={styles.itemInput}
-                    placeholder="Food name (for example Rice)"
-                    value={row.name}
-                    onChange={(e) => updateRow(row.id, 'name', e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    className={styles.qtyInput}
-                    placeholder="Quantity"
-                    min="1"
-                    value={row.quantity}
-                    onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
-                  />
-                  <button
-                    className={styles.btnDelete}
-                    title="Delete item"
-                    onClick={() => removeRow(row.id)}
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
-              ))}
+            {pageError && (
+              <div
+                className="mb-6 rounded-lg border px-4 py-3 text-[14px]"
+                style={{ backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', color: '#B91C1C' }}
+              >
+                {pageError}
+              </div>
+            )}
+
+            <div className="mb-6 rounded-lg border px-4 py-3 text-[14px]" style={{ backgroundColor: '#F8FAFC', borderColor: '#CBD5E1', color: '#334155' }}>
+              Submissions from this page are saved as received supermarket donations and added to inventory immediately. Use the low stock list or an exact inventory item name so stock stays aligned with the database.
             </div>
 
-            <button className={styles.addRowBtn} onClick={addRow}>
-              <span style={{ fontSize: '1.2rem' }}>+</span> Add row
-            </button>
+            <div className="mb-8">
+              <h1 className="mb-2 text-[40px] font-bold" style={{ color: '#1A1A1A' }}>
+                Restock Submission
+              </h1>
+              <div className="h-1 w-20" style={{ backgroundColor: '#F5A623' }}></div>
+            </div>
 
-            <div className={styles.submitDonation}>
-              <button className={styles.btnPrimary} onClick={() => void handleSubmit()} disabled={isSubmittingDonation}>
-                {isSubmittingDonation ? 'Submitting...' : 'Submit Donation'}
+            {formError && (
+              <div
+                className="mb-6 rounded-lg border px-4 py-3 text-[14px]"
+                style={{ backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', color: '#B91C1C' }}
+              >
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} noValidate>
+              <div className="space-y-6">
+                {rows.map((row) => (
+                  <div key={row.id} className="grid items-end gap-4 md:grid-cols-[1fr_1fr_auto]">
+                    <div>
+                      <label className="mb-2 block text-[15px] font-medium" style={{ color: '#1A1A1A' }}>
+                        Inventory Item <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={row.foodName}
+                        onChange={(event) => updateRow(row.id, 'foodName', event.target.value)}
+                        placeholder="Use low stock list or exact inventory name"
+                        className="w-full rounded-md border px-4 py-3 transition-colors"
+                        style={{ borderColor: '#E5E7EB', color: '#1A1A1A' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-[15px] font-medium" style={{ color: '#1A1A1A' }}>
+                        Quantity <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={row.quantity}
+                        onChange={(event) => updateRow(row.id, 'quantity', event.target.value)}
+                        placeholder="Quantity"
+                        className="w-full rounded-md border px-4 py-3 transition-colors"
+                        style={{ borderColor: '#E5E7EB', color: '#1A1A1A' }}
+                      />
+                    </div>
+
+                    <div>
+                      {rows.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeRow(row.id)}
+                          className="rounded-md px-6 py-3 text-[15px] font-medium transition-colors"
+                          style={{ backgroundColor: '#EF4444', color: '#FFFFFF' }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={addRow}
+                className="mt-8 flex items-center gap-2 rounded-md border px-6 py-3 text-[15px] font-medium transition-colors"
+                style={{ borderColor: '#E5E7EB', color: '#1A1A1A', backgroundColor: '#FFFFFF' }}
+              >
+                <Plus size={18} />
+                Add row
               </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {modalOpen && (
-        <div className={styles.modalOverlay} onClick={() => setModalOpen(false)}>
-          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>Low stock items</h3>
-              <button className={styles.closeModal} onClick={() => setModalOpen(false)}>&times;</button>
-            </div>
-            <div className={styles.modalBody}>
-              {isLoadingLowStock && <p>Loading low stock items...</p>}
-              {!isLoadingLowStock && lowStockItems.length === 0 && (
-                <p>No low stock items right now.</p>
-              )}
-              {!isLoadingLowStock && lowStockItems.length > 0 && (
-                <ul className={styles.restockList}>
-                  {lowStockItems.map((item) => {
-                    const requested = requestedItemIds.includes(item.id)
-
-                    return (
-                      <li key={item.id} className={styles.restockItem} data-food={item.name}>
-                        <div className={styles.itemInfo}>
-                          <span className={styles.itemName}>{item.name}</span>
-                          <span className={styles.itemStock}>
-                            Current stock: <strong>{item.current_stock}</strong> {item.unit} (threshold {item.threshold})
-                          </span>
-                        </div>
-                        <div className={styles.actionButtons}>
-                          <button className={styles.plusBtn} onClick={() => fillFood(item.name)}>+</button>
-                          <button
-                            className={styles.deleteItemBtn}
-                            title="Create restock request"
-                            onClick={() => void createRestockRequest(item)}
-                            disabled={requested || isLoadingRequests}
-                          >
-                            {requested ? 'Requested' : isLoadingRequests ? '...' : 'Request'}
-                          </button>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-              <p style={{ fontSize: '0.75rem', color: '#9CA3AF', marginTop: '1.5rem', textAlign: 'center' }}>
-                Click + to add an item to the donation form, or Request to create a restock request.
+              <p className="mt-3 text-[13px]" style={{ color: '#6B7280' }}>
+                Tip: selecting from the low stock list links the row directly to the existing inventory record.
               </p>
+
+              <button
+                type="submit"
+                className="mt-8 w-full rounded-md py-4 text-[18px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+                style={{ backgroundColor: '#F5A623', color: '#1A1A1A' }}
+                disabled={isSubmittingDonation}
+                onMouseEnter={(event) => {
+                  if (!isSubmittingDonation) {
+                    event.currentTarget.style.backgroundColor = '#D4870A'
+                  }
+                }}
+                onMouseLeave={(event) => {
+                  event.currentTarget.style.backgroundColor = '#F5A623'
+                }}
+              >
+                {isSubmittingDonation ? 'Submitting...' : 'Submit Restock'}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center text-[14px]" style={{ color: '#6B7280' }}>
+              UK Registered Charity No. 1234567 | All Rights Reserved | Secured Data
             </div>
           </div>
         </div>
-      )}
+      </main>
+
+      <Footer />
+
+      <LowStockModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        items={modalItems}
+        isLoading={isLoadingLowStock}
+        onAddToForm={fillFood}
+        onDismissItem={dismissLowStockItem}
+      />
     </div>
   )
 }
