@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
-import { Check, Instagram, Linkedin, Twitter } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { donationsAPI } from '@/shared/lib/api'
 import {
   formatCardNumber,
@@ -10,7 +9,7 @@ import {
   isValidEmail,
   isValidExpiry,
 } from '@/shared/lib/validation'
-import LoginModal from '@/features/auth/components/LoginModal'
+import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { ImageWithFallback } from './components/figma/ImageWithFallback'
 import styles from './DonateCash.module.css'
 
@@ -19,7 +18,6 @@ const POUND_SYMBOL = '\u00A3'
 const HERO_EM_DASH = '\u2014'
 
 export default function DonateCash() {
-  const navigate = useNavigate()
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -27,10 +25,6 @@ export default function DonateCash() {
     type: 'success' | 'error'
     message: string
   } | null>(null)
-  const [loginModal, setLoginModal] = useState<{ open: boolean; tab: 'signin' | 'register' }>({
-    open: false,
-    tab: 'signin',
-  })
   const [formData, setFormData] = useState({
     email: '',
     cardholderName: '',
@@ -576,125 +570,7 @@ export default function DonateCash() {
           </div>
         </section>
       </main>
-
-      <footer className={styles.footer}>
-        <div className={styles.footerInner}>
-          <div className={styles.footerGrid}>
-            <div className={styles.footerBrand}>
-              <h3 className={styles.footerBrandTitle}>ABC Foodbank</h3>
-              <p className={styles.footerDescription}>
-                Building the infrastructure for food security. A transparent platform connecting
-                communities with local resources.
-              </p>
-              <div className={styles.footerOffice}>
-                <h4 className={styles.footerHeading}>Contact Office</h4>
-                <p className={styles.footerOfficeText}>Penglais, Aberystwyth SY23 3FL</p>
-              </div>
-              <div className={styles.socialLinks}>
-                <a href="#" className={styles.socialLink} aria-label="Twitter">
-                  <Twitter className={styles.socialIcon} />
-                </a>
-                <a href="#" className={styles.socialLink} aria-label="LinkedIn">
-                  <Linkedin className={styles.socialIcon} />
-                </a>
-                <a href="#" className={styles.socialLink} aria-label="Instagram">
-                  <Instagram className={styles.socialIcon} />
-                </a>
-              </div>
-            </div>
-
-            <div>
-              <h4 className={styles.footerHeading}>Platform</h4>
-              <ul className={styles.footerList}>
-                <li>
-                  <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
-                    About Us
-                  </button>
-                </li>
-                <li>
-                  <button type="button" onClick={scrollToDonateForm} className={styles.footerLink}>
-                    Donate Cash
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/donate/goods')}
-                    className={styles.footerLink}
-                  >
-                    Donate Goods
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/find-foodbank')}
-                    className={styles.footerLink}
-                  >
-                    Find Food Bank
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className={styles.footerHeading}>Resources</h4>
-              <ul className={styles.footerList}>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setLoginModal({ open: true, tab: 'signin' })}
-                    className={styles.footerLink}
-                  >
-                    Sign In
-                  </button>
-                </li>
-                <li>
-                  <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
-                    Volunteer
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/find-foodbank')}
-                    className={styles.footerLink}
-                  >
-                    Support
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className={styles.footerHeading}>Legal</h4>
-              <ul className={styles.footerList}>
-                <li>
-                  <a href="#" className={styles.footerLink}>
-                    Privacy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className={styles.footerLink}>
-                    Security
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className={styles.footerBottom}>
-            <p className={styles.footerCopyright}>
-              Copyright 2026 ABC Foodbank. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
-      <LoginModal
-        isOpen={loginModal.open}
-        onClose={() => setLoginModal((state) => ({ ...state, open: false }))}
-        initialTab={loginModal.tab}
-      />
+      <PublicSiteFooter />
     </div>
   )
 }
