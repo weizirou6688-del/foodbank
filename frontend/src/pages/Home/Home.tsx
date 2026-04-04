@@ -129,17 +129,17 @@ const donationTiers: DonationTier[] = [
   {
     name: 'Supporter',
     amount: '\u00A35',
-    description: 'Feeds a family for 2 days',
-    cta: 'Donate \u00A35',
-    href: '/donate/cash?amount=5',
+    description: 'Monthly gift that helps feed a family for 2 days',
+    cta: 'Donate \u00A35 Monthly',
+    href: '/donate/cash?type=monthly&amount=5#donate-form',
     features: ['Monthly impact updates', 'Digital donation certificate', 'Community newsletter'],
   },
   {
     name: 'Champion',
     amount: '\u00A315',
-    description: 'Feeds a family for one week',
-    cta: 'Donate \u00A315',
-    href: '/donate/cash?amount=15',
+    description: 'Monthly gift that feeds a family for one week',
+    cta: 'Donate \u00A315 Monthly',
+    href: '/donate/cash?type=monthly&amount=15#donate-form',
     features: [
       'Everything in Supporter',
       'Quarterly impact calls',
@@ -151,9 +151,9 @@ const donationTiers: DonationTier[] = [
   {
     name: 'Hero',
     amount: '\u00A330',
-    description: 'Feeds 2 families for one week',
-    cta: 'Donate \u00A330',
-    href: '/donate/cash?amount=30',
+    description: 'Monthly gift that feeds 2 families for one week',
+    cta: 'Donate \u00A330 Monthly',
+    href: '/donate/cash?type=monthly&amount=30#donate-form',
     features: [
       'Everything in Champion',
       'Annual site visits',
@@ -542,8 +542,8 @@ export default function Home() {
                   Support our mission
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  Every contribution directly funds food distribution and community support. Choose
-                  your impact level.
+                  Every contribution directly funds food distribution and community support. Choose a
+                  recommended monthly giving level or make a one-time gift.
                 </p>
               </div>
 
@@ -571,10 +571,9 @@ export default function Home() {
                       <span className="ml-1 text-[1rem] font-medium text-[#57606A]">/ month</span>
                     </div>
                     <div className="mt-3 text-[15px] leading-relaxed text-[#57606A]">{tier.description}</div>
-                    <a
-                      href={tier.href}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => navigate(tier.href)}
                       className={
                         tier.featured
                           ? 'mt-6 inline-flex w-full items-center justify-center rounded-[6px] bg-[#FFB800] px-4 py-3 text-[15px] font-semibold text-[#121212] transition-all duration-300 hover:-translate-y-px hover:bg-[#FFA900]'
@@ -582,7 +581,7 @@ export default function Home() {
                       }
                     >
                       {tier.cta}
-                    </a>
+                    </button>
                     <ul className="mt-6 space-y-3 border-t border-[#E5E8ED] pt-6">
                       {tier.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-2 text-[15px] leading-relaxed text-[#57606A]">
@@ -602,17 +601,17 @@ export default function Home() {
                   <div className="text-center md:text-left">
                     <p className="text-[1.25rem] font-semibold text-[#0D1117] tracking-tight">Prefer a one-time donation?</p>
                     <p className="mt-1 text-[15px] leading-relaxed text-[#57606A]">
-                      Every contribution makes a difference. Make a single donation of any amount.
+                      Every contribution makes a difference. Make a single donation of any amount in
+                      the same Donate Cash form.
                     </p>
                   </div>
-                  <a
-                    href="/donate/cash?type=onetime"
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => navigate('/donate/cash?type=onetime#donate-form')}
                     className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] bg-[#121212] px-5 py-3 text-[15px] font-semibold text-white transition-colors duration-300 hover:bg-[#2A2A2A]"
                   >
                     One-Time Donation
-                  </a>
+                  </button>
                 </div>
               </div>
 

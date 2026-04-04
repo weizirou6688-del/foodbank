@@ -322,6 +322,14 @@
   margin-bottom: 3rem;
 }
 
+.formSectionIntro {
+  gap: 1.35rem;
+}
+
+.formSectionIntro .sectionTitle {
+  margin-bottom: 0;
+}
+
 .sectionTitle {
   margin-bottom: 1rem;
   margin-left: auto;
