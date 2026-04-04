@@ -4,19 +4,17 @@ import {
   Check,
   ChevronRight,
   Heart,
-  Mail,
   MapPin,
   Package,
-  Phone,
   Search,
   TrendingUp,
   Users,
   X,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { donationsAPI } from '@/shared/lib/api'
 import { isValidEmail } from '@/shared/lib/validation'
+import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { getNearbyFoodbanks } from '@/utils/foodbankApi'
 import { ImageWithFallback } from './components/figma/ImageWithFallback'
 import styles from './DonateGoods.module.css'
@@ -225,7 +223,6 @@ function formatDistanceMiles(distanceKm: number) {
 }
 
 export default function DonateGoods() {
-  const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [postcode, setPostcode] = useState('')
   const [postcodeError, setPostcodeError] = useState('')
@@ -898,90 +895,7 @@ export default function DonateGoods() {
           </div>
         </section>
       </main>
-
-      <footer className={styles.footer}>
-        <div className={styles.shell}>
-          <div className={styles.footerGrid}>
-            <div>
-              <h3 className={styles.footerHeading}>About Us</h3>
-              <p className={styles.footerBody}>
-                We connect donors with communities in need, ensuring unwanted goods find new life
-                where they&apos;re valued most.
-              </p>
-            </div>
-
-            <div>
-              <h3 className={styles.footerHeading}>Quick Links</h3>
-              <div className={styles.footerLinks}>
-                <button type="button" onClick={() => scrollToSection('donate')} className={styles.footerLink}>
-                  Donate Items
-                </button>
-                <button
-                  type="button"
-                  onClick={() => scrollToSection('how-it-works')}
-                  className={styles.footerLink}
-                >
-                  How It Works
-                </button>
-                <button type="button" onClick={() => scrollToSection('impact')} className={styles.footerLink}>
-                  Our Impact
-                </button>
-                <button type="button" onClick={() => scrollToSection('how-it-works')} className={styles.footerLink}>
-                  FAQ
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <h3 className={styles.footerHeading}>Resources</h3>
-              <div className={styles.footerLinks}>
-                <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
-                  Partner Organizations
-                </button>
-                <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
-                  Volunteer
-                </button>
-                <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
-                  Blog
-                </button>
-                <button type="button" onClick={() => navigate('/find-foodbank')} className={styles.footerLink}>
-                  Contact Us
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <h3 className={styles.footerHeading}>Contact</h3>
-              <div className={styles.footerContactList}>
-                <div className={styles.footerContactItem}>
-                  <Mail size={16} />
-                  <span>info@donation.org</span>
-                </div>
-                <div className={styles.footerContactItem}>
-                  <Phone size={16} />
-                  <span>(555) 123-4567</span>
-                </div>
-                <div className={styles.footerContactItem}>
-                  <MapPin size={16} />
-                  <span>123 Charity Lane Community City, CC 12345</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.footerBottom}>
-            <p>{'\u00A9'} 2026 Donation Platform. All rights reserved.</p>
-            <div className={styles.footerBottomLinks}>
-              <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
-                Privacy Policy
-              </button>
-              <button type="button" onClick={() => navigate('/home')} className={styles.footerLink}>
-                Terms of Service
-              </button>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <PublicSiteFooter />
     </div>
   )
 }

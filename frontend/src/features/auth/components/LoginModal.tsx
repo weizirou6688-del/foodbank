@@ -8,11 +8,13 @@ interface LoginModalProps {
   isOpen: boolean
   onClose: () => void
   initialTab?: 'signin' | 'register'
+  redirectTo?: string | null
+  requiredRole?: 'admin' | 'supermarket' | null
 }
 
-const getPasswordEmoji = (visible: boolean) => (visible ? '\u{1F648}' : '\u{1F441}\uFE0F')
+const getPasswordEmoji = (visible: boolean) => (visible ? '\u{1F441}\uFE0F' : '\u{1F648}')
 
-export default function LoginModal({ isOpen, onClose, initialTab = 'signin' }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, initialTab = 'signin', redirectTo = null, requiredRole = null }: LoginModalProps) {
   const [tab, setTab] = useState<'signin' | 'register'>(initialTab)
   const { login, register } = useAuthStore()
   const navigate = useNavigate()
@@ -61,6 +63,16 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin' }: L
     if (result.success) {
       onClose()
       const { user } = useAuthStore.getState()
+
+      if (redirectTo && (!requiredRole || user?.role === requiredRole)) {
+        if (redirectTo.startsWith('/admin')) {
+          navigate(redirectTo, { replace: true })
+        } else {
+          navigate(redirectTo)
+        }
+        return
+      }
+
       if (user?.role === 'admin') navigate('/admin?section=food', { replace: true })
       else if (user?.role === 'supermarket') navigate('/supermarket')
     } else {
