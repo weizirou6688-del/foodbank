@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { Check, Instagram, Linkedin, Twitter } from 'lucide-react'
 import { donationsAPI } from '@/shared/lib/api'
 import {
@@ -167,58 +168,7 @@ export default function DonateCash() {
 
   return (
     <div className={styles.page}>
-      <nav className={styles.nav}>
-        <div className={styles.navInner}>
-          <div className={styles.navBar}>
-            <button type="button" onClick={() => navigate('/home')} className={styles.brand}>
-              <span className={styles.brandSmall}>ABC</span>
-              <span className={styles.brandMain}>Foodbank</span>
-            </button>
-
-            <div className={styles.navMenu}>
-              <button type="button" onClick={scrollToDonateForm} className={styles.navLink}>
-                <span className={styles.navLine}>Donate</span>
-                <span className={styles.navLine}>Cash</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/donate/goods')}
-                className={styles.navLink}
-              >
-                <span className={styles.navLine}>Donate</span>
-                <span className={styles.navLine}>Goods</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/find-foodbank')}
-                className={styles.navLink}
-              >
-                <span className={styles.navLine}>Get</span>
-                <span className={styles.navLine}>Supports</span>
-              </button>
-              <button type="button" onClick={() => navigate('/home')} className={styles.navSingle}>
-                Volunteering
-              </button>
-              <div className={styles.navActionGroup}>
-                <button
-                  type="button"
-                  onClick={() => navigate('/find-foodbank')}
-                  className={styles.publicButton}
-                >
-                  Public
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLoginModal({ open: true, tab: 'signin' })}
-                  className={styles.signInButton}
-                >
-                  Sign In
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <PrimaryNavbar variant="public" />
 
       <main className={styles.main}>
         <section className={styles.section}>
@@ -748,3 +698,4 @@ export default function DonateCash() {
     </div>
   )
 }
+
