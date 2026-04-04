@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 import sys
 
@@ -12,10 +12,24 @@ from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
 from app.models.donation_goods_item import DonationGoodsItem
 from app.models.food_bank import FoodBank
+from app.models.inventory_item import InventoryItem
+from app.models.inventory_lot import InventoryLot
+from app.models.restock_request import RestockRequest
+from app.models.user import User
 from app.routers import donations as donations_router
-from app.routers.donations import list_donations, submit_cash_donation, submit_goods_donation
+from app.routers.donations import (
+    list_donations,
+    submit_cash_donation,
+    submit_goods_donation,
+    submit_supermarket_goods_donation,
+)
 from app.schemas.donation_cash import DonationCashCreate
-from app.schemas.donation_goods import DonationGoodsCreate, DonationGoodsItemCreatePayload
+from app.schemas.donation_goods import (
+    DonationGoodsCreate,
+    DonationGoodsItemCreatePayload,
+    SupermarketDonationCreate,
+    SupermarketDonationItemPayload,
+)
 
 
 class _Begin:
@@ -46,13 +60,30 @@ class _ExecuteResult:
             raise AssertionError(f"Expected exactly one row, got {len(self._rows)}")
         return self._rows[0]
 
+    def all(self):
+        return self._rows
+
 
 class FakeSession:
-    def __init__(self, *, cash_rows=None, goods_rows=None, food_bank_rows=None):
+    def __init__(
+        self,
+        *,
+        cash_rows=None,
+        goods_rows=None,
+        food_bank_rows=None,
+        inventory_rows=None,
+        user_rows=None,
+        restock_rows=None,
+        stock_rows=None,
+    ):
         self.added = []
         self._cash_rows = cash_rows or []
         self._goods_rows = goods_rows or []
         self._food_bank_rows = food_bank_rows or []
+        self._inventory_rows = inventory_rows or []
+        self._user_rows = user_rows or []
+        self._restock_rows = restock_rows or []
+        self._stock_rows = stock_rows or []
 
     def begin(self):
         return _Begin()
@@ -61,9 +92,8 @@ class FakeSession:
         self.added.append(obj)
         if getattr(obj, "id", None) is None and isinstance(obj, (DonationCash, DonationGoods)):
             obj.id = uuid.uuid4()
-        if isinstance(obj, DonationGoodsItem):
-            # nothing special needed; donation_id is set by caller
-            pass
+        if isinstance(obj, InventoryLot) and getattr(obj, "id", None) is None:
+            obj.id = 999
 
     async def flush(self):
         return None
@@ -75,6 +105,12 @@ class FakeSession:
         q = str(query)
         if "food_banks" in q:
             return self._food_bank_rows[0] if self._food_bank_rows else None
+        if "FROM users" in q or "from users" in q:
+            return self._user_rows[0] if self._user_rows else None
+        if "inventory_items.id" in q:
+            return self._inventory_rows[0] if self._inventory_rows else None
+        if "inventory_items.name" in q or "lower(inventory_items.name)" in q:
+            return self._inventory_rows[0] if self._inventory_rows else None
         return None
 
     async def execute(self, query):
@@ -84,9 +120,11 @@ class FakeSession:
         if "donations_goods" in q:
             rows = self._goods_rows or [x for x in self.added if isinstance(x, DonationGoods)]
             return _ExecuteResult(rows)
+        if "restock_requests" in q:
+            return _ExecuteResult(self._restock_rows)
+        if "sum(inventory_lots.quantity)" in q:
+            return _ExecuteResult(self._stock_rows)
         return _ExecuteResult([])
-
-
 @pytest.mark.asyncio
 async def test_submit_cash_donation_success():
     db = FakeSession()
@@ -219,6 +257,99 @@ async def test_submit_goods_donation_received_uses_created_items_for_inventory_s
     assert all(isinstance(item, DonationGoodsItem) for item in captured["items"])
     assert [item.item_name for item in captured["items"]] == ["Rice", "Beans"]
     assert [item.quantity for item in captured["items"]] == [2, 1]
+
+
+@pytest.mark.asyncio
+async def test_submit_supermarket_goods_donation_syncs_inventory_and_restock_state():
+    supermarket_user = User(
+        id=uuid.uuid4(),
+        name="Partner Supermarket",
+        email="supermarket@foodbank.com",
+        password_hash="hashed",
+        role="supermarket",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    inventory_item = InventoryItem(
+        id=12,
+        name="Rice",
+        category="Grains & Pasta",
+        unit="bags",
+        threshold=10,
+    )
+    open_request = RestockRequest(
+        id=5,
+        inventory_item_id=12,
+        current_stock=2,
+        threshold=10,
+        urgency="high",
+        status="open",
+    )
+    db = FakeSession(
+        user_rows=[supermarket_user],
+        inventory_rows=[inventory_item],
+        restock_rows=[open_request],
+        stock_rows=[(12, 12)],
+    )
+    payload = SupermarketDonationCreate(
+        notes="Loaded from supermarket dashboard",
+        items=[
+            SupermarketDonationItemPayload(inventory_item_id=12, quantity=10, expiry_date=date(2026, 7, 1)),
+        ],
+    )
+
+    result = await submit_supermarket_goods_donation(
+        donation_in=payload,
+        current_user={"sub": str(supermarket_user.id), "role": "supermarket"},
+        db=db,
+    )
+
+    assert isinstance(result, DonationGoods)
+    assert result.status == "received"
+    assert result.donor_user_id == supermarket_user.id
+    assert result.donor_name == "Partner Supermarket"
+    assert result.donor_email == "supermarket@foodbank.com"
+
+    item_rows = [row for row in db.added if isinstance(row, DonationGoodsItem)]
+    lots = [row for row in db.added if isinstance(row, InventoryLot)]
+    assert len(item_rows) == 1
+    assert item_rows[0].item_name == "Rice"
+    assert item_rows[0].quantity == 10
+    assert len(lots) == 1
+    assert lots[0].inventory_item_id == 12
+    assert lots[0].quantity == 10
+    assert lots[0].expiry_date == date(2026, 7, 1)
+    assert open_request.current_stock == 12
+    assert open_request.status == "fulfilled"
+
+
+@pytest.mark.asyncio
+async def test_submit_supermarket_goods_donation_rejects_unknown_inventory_name():
+    supermarket_user = User(
+        id=uuid.uuid4(),
+        name="Partner Supermarket",
+        email="supermarket@foodbank.com",
+        password_hash="hashed",
+        role="supermarket",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db = FakeSession(user_rows=[supermarket_user])
+    payload = SupermarketDonationCreate(
+        items=[
+            SupermarketDonationItemPayload(item_name="Unknown Item", quantity=3),
+        ],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await submit_supermarket_goods_donation(
+            donation_in=payload,
+            current_user={"sub": str(supermarket_user.id), "role": "supermarket"},
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert "does not exist" in exc.value.detail
 
 
 @pytest.mark.asyncio

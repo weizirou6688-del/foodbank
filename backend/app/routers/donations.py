@@ -1,7 +1,7 @@
 """
 Donation submission and tracking routes.
 
-Spec § 2.5: POST /cash, POST /goods, GET /list (admin with ?type filter)
+Spec 搂 2.5: POST /cash, POST /goods, GET /list (admin with ?type filter)
 """
 
 import logging
@@ -20,13 +20,15 @@ from app.core.database_errors import (
     is_database_unavailable_exception,
     raise_database_unavailable_http_exception,
 )
-from app.core.security import require_admin
+from app.core.security import require_admin, require_supermarket
 from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
 from app.models.donation_goods_item import DonationGoodsItem
 from app.models.food_bank import FoodBank
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
+from app.models.restock_request import RestockRequest
+from app.models.user import User
 from app.services.email_service import send_thank_you_email
 from app.schemas.donation_cash import DonationCashCreate, DonationCashOut, DonationCashUpdate
 from app.schemas.donation_goods import (
@@ -34,6 +36,8 @@ from app.schemas.donation_goods import (
     DonationGoodsItemCreatePayload,
     DonationGoodsOut,
     DonationGoodsUpdate,
+    SupermarketDonationCreate,
+    SupermarketDonationItemPayload,
 )
 
 
@@ -116,6 +120,76 @@ async def _sync_goods_donation_inventory(
     await db.flush()
 
 
+async def _resolve_supermarket_inventory_item(
+    item_in: SupermarketDonationItemPayload,
+    db: AsyncSession,
+) -> InventoryItem:
+    if item_in.inventory_item_id is not None:
+        inventory_item = await db.scalar(
+            select(InventoryItem).where(InventoryItem.id == item_in.inventory_item_id)
+        )
+        if inventory_item is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Inventory item #{item_in.inventory_item_id} not found",
+            )
+        return inventory_item
+
+    normalized_name = (item_in.item_name or "").strip()
+    inventory_item = await db.scalar(
+        select(InventoryItem).where(func.lower(InventoryItem.name) == normalized_name.lower())
+    )
+    if inventory_item is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Inventory item '{normalized_name}' does not exist. "
+                "Choose a low-stock item or enter an exact inventory name."
+            ),
+        )
+    return inventory_item
+
+
+async def _sync_supermarket_restock_requests(
+    inventory_item_ids: set[int],
+    db: AsyncSession,
+) -> None:
+    if not inventory_item_ids:
+        return
+
+    stock_rows = (
+        await db.execute(
+            select(
+                InventoryLot.inventory_item_id,
+                func.coalesce(func.sum(InventoryLot.quantity), 0).label("total_stock"),
+            )
+            .where(
+                InventoryLot.inventory_item_id.in_(inventory_item_ids),
+                InventoryLot.deleted_at.is_(None),
+                InventoryLot.expiry_date >= date.today(),
+            )
+            .group_by(InventoryLot.inventory_item_id)
+        )
+    ).all()
+    stock_by_item_id = {row[0]: int(row[1] or 0) for row in stock_rows}
+
+    open_requests = (
+        await db.execute(
+            select(RestockRequest).where(
+                RestockRequest.inventory_item_id.in_(inventory_item_ids),
+                RestockRequest.status == "open",
+            )
+        )
+    ).scalars().all()
+
+    for request in open_requests:
+        latest_stock = stock_by_item_id.get(request.inventory_item_id, 0)
+        request.current_stock = latest_stock
+        if latest_stock >= request.threshold:
+            request.status = "fulfilled"
+
+    await db.flush()
+
 @router.post("/cash", response_model=DonationCashOut, status_code=status.HTTP_201_CREATED)
 async def submit_cash_donation(
     donation_in: DonationCashCreate,
@@ -125,7 +199,7 @@ async def submit_cash_donation(
     """
     Submit cash donation (public, no auth required).
     
-    Spec § 2.5: POST /donations/cash (no auth).
+    Spec 搂 2.5: POST /donations/cash (no auth).
     
     DonationCashCreate includes:
     - amount: Decimal USD amount
@@ -189,7 +263,7 @@ async def submit_goods_donation(
     """
     Submit goods donation (public, no auth required).
     
-    Spec § 2.5: POST /donations/goods (no auth).
+    Spec 搂 2.5: POST /donations/goods (no auth).
     
     DonationGoodsCreate includes:
     - donor_name, donor_email, donor_phone: Optional
@@ -292,6 +366,92 @@ async def submit_goods_donation(
             detail="Failed to submit goods donation",
         ) from exc
 
+
+@router.post("/goods/supermarket", response_model=DonationGoodsOut, status_code=status.HTTP_201_CREATED)
+async def submit_supermarket_goods_donation(
+    donation_in: SupermarketDonationCreate,
+    current_user: dict = Depends(require_supermarket),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Submit a supermarket restock donation and sync it directly to inventory.
+    """
+    try:
+        donation_id: uuid.UUID | None = None
+
+        async with db.begin():
+            supermarket_user = await db.scalar(
+                select(User).where(User.id == current_user.get("sub"))
+            )
+            if supermarket_user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Authenticated supermarket user not found",
+                )
+
+            donation = DonationGoods(
+                donor_user_id=supermarket_user.id,
+                donor_name=supermarket_user.name,
+                donor_type="supermarket",
+                donor_email=supermarket_user.email,
+                donor_phone=donation_in.donor_phone or "N/A",
+                pickup_date=donation_in.pickup_date,
+                notes=donation_in.notes,
+                status="received",
+            )
+            db.add(donation)
+            await db.flush()
+            donation_id = donation.id
+
+            received_date = donation.pickup_date or date.today()
+            touched_inventory_item_ids: set[int] = set()
+
+            for item in donation_in.items:
+                inventory_item = await _resolve_supermarket_inventory_item(item, db)
+                touched_inventory_item_ids.add(inventory_item.id)
+
+                db.add(
+                    DonationGoodsItem(
+                        donation_id=donation.id,
+                        donation=donation,
+                        item_name=inventory_item.name,
+                        quantity=item.quantity,
+                        expiry_date=item.expiry_date,
+                    )
+                )
+                db.add(
+                    InventoryLot(
+                        inventory_item_id=inventory_item.id,
+                        quantity=item.quantity,
+                        received_date=received_date,
+                        expiry_date=item.expiry_date or (received_date + timedelta(days=365)),
+                        batch_reference=f"supermarket-donation-{donation.id}",
+                    )
+                )
+
+            await db.flush()
+            await _sync_supermarket_restock_requests(touched_inventory_item_ids, db)
+
+        result = await db.execute(
+            select(DonationGoods)
+            .options(selectinload(DonationGoods.items))
+            .where(DonationGoods.id == donation_id)
+        )
+        return result.scalar_one()
+    except HTTPException:
+        raise
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Supermarket donation conflict detected",
+        ) from exc
+    except Exception as exc:
+        if is_database_unavailable_exception(exc):
+            raise_database_unavailable_http_exception()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to submit supermarket donation",
+        ) from exc
 
 @router.patch("/cash/{donation_id}", response_model=DonationCashOut)
 async def update_cash_donation(
@@ -493,11 +653,11 @@ async def list_donations(
     """
     List all donations (admin only, with optional type filter).
     
-    Spec § 2.5: GET /donations?type= (requires admin).
+    Spec 搂 2.5: GET /donations?type= (requires admin).
     
     Supports filters:
-    - ?type=cash → only DonationCash
-    - ?type=goods → only DonationGoods
+    - ?type=cash 鈫?only DonationCash
+    - ?type=goods 鈫?only DonationGoods
     
     TODO: Query donations with optional type filter
     """
