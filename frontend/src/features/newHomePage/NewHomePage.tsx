@@ -1,22 +1,20 @@
 import React from 'react';
+import PublicSiteFooter from '@/shared/ui/PublicSiteFooter';
 import './NewHomePage.module.css';
 
-// 新首页主组件，完全隔离于现有 Home 页面
 const NewHomePage: React.FC = () => {
   return (
     <div className="new-homepage-container">
-      {/* Banner 区域 */}
       <section className="banner-section">
         <span className="tag">COMMUNITY FIRST</span>
         <h1>Fighting Hunger,<br/>Building <span className="highlight">Community</span></h1>
-        <p>Find your nearest food bank, donate to those in need, or get support for your family — all in one place.</p>
+        <p>Find your nearest food bank, donate to those in need, or get support for your family all in one place.</p>
         <div className="banner-actions">
           <button className="primary">Find a Food Bank</button>
           <button className="secondary">Donate Now</button>
         </div>
       </section>
 
-      {/* 查找最近食物银行 */}
       <section className="find-section">
         <span className="tag">NEAR YOU</span>
         <h2>Find Your Nearest Food Bank</h2>
@@ -27,7 +25,6 @@ const NewHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* How You Can Help 区域 */}
       <section className="help-section">
         <h2>How You Can Help</h2>
         <p>Every contribution makes a real difference to families in need.</p>
@@ -45,17 +42,7 @@ const NewHomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer 区域 */}
-      <footer className="footer">
-        <span>ABC <span className="highlight">Foodbank</span></span>
-        <nav>
-          <a href="#">About Us</a>
-          <a href="#">Contact</a>
-          <a href="#">FAQs</a>
-          <a href="#">Privacy Policy</a>
-        </nav>
-        <small>© 2026 ABC Community Food Bank. Registered Charity No. 1234567. All Rights Reserved.</small>
-      </footer>
+      <PublicSiteFooter />
     </div>
   );
 };

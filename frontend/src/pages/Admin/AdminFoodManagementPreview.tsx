@@ -568,11 +568,13 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
       })
 
       const footerRouteMap: Array<{ label: string; path: string }> = [
+        { label: 'About Us', path: '/home#about' },
+        { label: 'Get Support', path: '/find-foodbank' },
         { label: 'Donate Cash', path: '/donate/cash' },
         { label: 'Donate Goods', path: '/donate/goods' },
-        { label: 'About Us', path: '/home' },
-        { label: 'Volunteer', path: '/home' },
-        { label: 'Support', path: '/find-foodbank' },
+        { label: 'Inventory Management', path: '/admin?section=food' },
+        { label: 'Data Dashboard', path: '/admin?section=statistics' },
+        { label: 'Supermarket Restock', path: '/supermarket' },
       ]
 
       for (const { label, path } of footerRouteMap) {

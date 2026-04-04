@@ -271,11 +271,13 @@ export default function AdminDataDashboardPreview() {
       bindNavigation('.nav-links li:nth-child(2) a', dashboardPath)
 
       const footerRouteMap: Array<{ label: string; path: string }> = [
-        { label: 'About Us', path: '/home' },
+        { label: 'About Us', path: '/home#about' },
+        { label: 'Get Support', path: '/find-foodbank' },
         { label: 'Donate Cash', path: '/donate/cash' },
         { label: 'Donate Goods', path: '/donate/goods' },
-        { label: 'Volunteer', path: '/home' },
-        { label: 'Support', path: '/find-foodbank' },
+        { label: 'Inventory Management', path: foodManagementPath },
+        { label: 'Data Dashboard', path: dashboardPath },
+        { label: 'Supermarket Restock', path: '/supermarket' },
       ]
 
       for (const { label, path } of footerRouteMap) {
