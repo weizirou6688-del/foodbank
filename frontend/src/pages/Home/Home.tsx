@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import LoginModal from '@/features/auth/components/LoginModal'
 import { statsAPI } from '@/shared/lib/api'
 
@@ -214,8 +215,7 @@ function TrustShieldIcon() {
 
 export default function Home() {
   const navigate = useNavigate()
-  // The shared navbar is hidden on `/`, so the homepage owns its own login
-  // modal and top-level actions in order to match the supplied reference page.
+  // Footer actions on this page reuse the shared auth modal state.
   const [loginModal, setLoginModal] = useState<{ open: boolean; tab: 'signin' | 'register' }>({
     open: false,
     tab: 'signin',
@@ -260,52 +260,7 @@ export default function Home() {
   return (
     <>
       <div className="home-figma-font min-h-screen bg-white">
-        <nav className="bg-white border-b border-[#E5E8ED]">
-          <div className="max-w-[1200px] mx-auto px-6">
-            <div className="flex items-center justify-between h-[72px]">
-              <div className="flex items-center">
-                <span className="text-xl font-bold text-[#0D1117] tracking-tight">ABC Foodbank</span>
-              </div>
-
-              <div className="hidden md:flex items-center gap-8">
-                <button type="button" onClick={() => navigate('/donate/cash')} className="text-[#57606A] hover:text-[#0D1117] transition-colors text-[15px] font-medium">
-                  Donate Cash
-                </button>
-                <button type="button" onClick={() => navigate('/donate/goods')} className="text-[#57606A] hover:text-[#0D1117] transition-colors text-[15px] font-medium">
-                  Donate Goods
-                </button>
-                <button type="button" onClick={() => navigate('/find-foodbank')} className="text-[#57606A] hover:text-[#0D1117] transition-colors text-[15px] font-medium">
-                  Get Supports
-                </button>
-                <button type="button" onClick={() => scrollTo('about')} className="text-[#57606A] hover:text-[#0D1117] transition-colors text-[15px] font-medium">
-                  Volunteering
-                </button>
-              </div>
-
-              <div className="hidden md:flex items-center gap-3">
-                <button type="button" onClick={() => navigate('/find-foodbank')} className="px-5 py-2 bg-[#FFB800] text-[#0D1117] hover:bg-[#E5A600] transition-colors rounded-[4px] text-[15px] font-semibold">
-                  Public
-                </button>
-                <button type="button" onClick={() => setLoginModal({ open: true, tab: 'signin' })} className="px-4 py-2 text-[#0D1117] hover:bg-[#F4F7FA] transition-colors rounded-[4px] text-[15px] font-medium border border-[#0D1117]">
-                  Sign In
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setLoginModal({ open: true, tab: 'signin' })}
-                className="md:hidden text-[#0D1117] p-2"
-                aria-label="Sign in"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                  <line x1="4" x2="20" y1="12" y2="12" />
-                  <line x1="4" x2="20" y1="6" y2="6" />
-                  <line x1="4" x2="20" y1="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </nav>
+        <PrimaryNavbar variant="public" />
 
         <main>
           <div className="bg-white border-b border-[#E5E8ED]">

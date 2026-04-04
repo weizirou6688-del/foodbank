@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { useFoodBankStore } from '@/app/store/foodBankStore'
 import { useAuthStore } from '@/app/store/authStore'
 import LoginModal from '@/features/auth/components/LoginModal'
@@ -90,82 +91,7 @@ export default function FindFoodBank() {
   return (
     <>
       <div className="home-figma-font min-h-screen bg-white flex flex-col">
-        <nav className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => navigate('/home')}
-                  className="text-xl font-semibold text-gray-900"
-                >
-                  ABC Foodbank
-                </button>
-              </div>
-
-              <div className="hidden lg:flex items-center gap-6">
-                <button
-                  type="button"
-                  onClick={() => navigate('/donate/cash')}
-                  className="text-gray-700 hover:text-gray-900 transition-colors text-sm"
-                >
-                  Donate Cash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/donate/goods')}
-                  className="text-gray-700 hover:text-gray-900 transition-colors text-sm"
-                >
-                  Donate Goods
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/find-foodbank')}
-                  className="text-gray-700 hover:text-gray-900 transition-colors text-sm"
-                >
-                  Get Supports
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/home')}
-                  className="text-gray-700 hover:text-gray-900 transition-colors text-sm"
-                >
-                  Volunteering
-                </button>
-              </div>
-
-              <div className="hidden lg:flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/find-foodbank')}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md transition-all h-9 py-2 bg-[#F5A623] hover:bg-[#F5A623] text-gray-900 text-sm font-medium px-4"
-                >
-                  Public
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowLogin(true)}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-all border bg-background hover:bg-accent h-9 px-4 py-2 border-gray-300 text-sm"
-                >
-                  Sign In
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowLogin(true)}
-                className="lg:hidden inline-flex items-center justify-center rounded-md size-9"
-                aria-label="Sign in"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6">
-                  <line x1="4" x2="20" y1="12" y2="12" />
-                  <line x1="4" x2="20" y1="6" y2="6" />
-                  <line x1="4" x2="20" y1="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </nav>
+        <PrimaryNavbar variant="public" />
 
         <div className="bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -552,3 +478,4 @@ export default function FindFoodBank() {
     </>
   )
 }
+

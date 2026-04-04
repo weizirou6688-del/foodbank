@@ -6,7 +6,6 @@ import {
   Heart,
   Mail,
   MapPin,
-  Menu,
   Package,
   Phone,
   Search,
@@ -15,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { donationsAPI } from '@/shared/lib/api'
 import { isValidEmail } from '@/shared/lib/validation'
 import { getNearbyFoodbanks } from '@/utils/foodbankApi'
@@ -226,7 +226,6 @@ function formatDistanceMiles(distanceKm: number) {
 
 export default function DonateGoods() {
   const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [postcode, setPostcode] = useState('')
   const [postcodeError, setPostcodeError] = useState('')
@@ -243,7 +242,6 @@ export default function DonateGoods() {
   const [submitting, setSubmitting] = useState(false)
 
   const scrollToSection = (sectionId: string) => {
-    setMenuOpen(false)
     document.getElementById(sectionId)?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
@@ -395,85 +393,7 @@ export default function DonateGoods() {
 
   return (
     <div className={styles.page}>
-      <nav className={styles.navbar}>
-        <div className={styles.shell}>
-          <div className={styles.navInner}>
-            <button type="button" onClick={() => navigate('/home')} className={styles.brand}>
-              <span>Donation</span>
-              <span className={styles.brandAccent}>Hub</span>
-            </button>
-
-            <div className={styles.desktopNav}>
-              <button type="button" onClick={() => scrollToSection('home')} className={styles.navLink}>
-                Home
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('how-it-works')}
-                className={styles.navLink}
-              >
-                How It Works
-              </button>
-              <button type="button" onClick={() => scrollToSection('donate')} className={styles.navLink}>
-                Donate
-              </button>
-              <button type="button" onClick={() => scrollToSection('impact')} className={styles.navLink}>
-                Our Impact
-              </button>
-              <button type="button" onClick={() => scrollToSection('about')} className={styles.navLink}>
-                About
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('donate')}
-                className={styles.navCta}
-              >
-                Get Started
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className={styles.mobileMenuButton}
-              onClick={() => setMenuOpen((current) => !current)}
-              aria-label="Open menu"
-            >
-              <Menu size={24} />
-            </button>
-          </div>
-
-          {menuOpen ? (
-            <div className={styles.mobileNav}>
-              <button type="button" onClick={() => scrollToSection('home')} className={styles.mobileNavLink}>
-                Home
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('how-it-works')}
-                className={styles.mobileNavLink}
-              >
-                How It Works
-              </button>
-              <button type="button" onClick={() => scrollToSection('donate')} className={styles.mobileNavLink}>
-                Donate
-              </button>
-              <button type="button" onClick={() => scrollToSection('impact')} className={styles.mobileNavLink}>
-                Our Impact
-              </button>
-              <button type="button" onClick={() => scrollToSection('about')} className={styles.mobileNavLink}>
-                About
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('donate')}
-                className={styles.mobileNavCta}
-              >
-                Get Started
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </nav>
+      <PrimaryNavbar variant="public" />
 
       <main>
         <section id="home" className={styles.heroSection}>
@@ -1065,3 +985,4 @@ export default function DonateGoods() {
     </div>
   )
 }
+
