@@ -49,6 +49,7 @@ from app.schemas.stats import (
     PublicImpactMetricsOut,
     StockGapPackageOut,
 )
+from app.services.impact_metrics_service import calculate_shared_goods_impact_snapshot
 
 
 router = APIRouter(tags=["Statistics"])
@@ -445,6 +446,16 @@ async def get_public_impact_metrics(
         ).scalars().all()
     )
 
+    goods_impact_snapshot = calculate_shared_goods_impact_snapshot(
+        cash_donations=[],
+        goods_donations=goods_donations,
+        applications=applications,
+        today=today,
+        current_start=current_start,
+        next_start=next_start,
+        previous_start=previous_start,
+    )
+
     distribution_snapshots_by_application_id: dict[object, list[ApplicationDistributionSnapshot]] = defaultdict(list)
     for snapshot in distribution_snapshots:
         distribution_snapshots_by_application_id[snapshot.application_id].append(snapshot)
@@ -454,24 +465,6 @@ async def get_public_impact_metrics(
         for package in packages
     }
 
-    current_goods_units = 0
-    previous_goods_units = 0
-    current_year_goods_units = 0
-    for donation in goods_donations:
-        if donation.status != "received":
-            continue
-        donation_date = donation.pickup_date or _event_date(donation.created_at)
-        donation_quantity = sum(item.quantity for item in donation.items)
-        if _in_period(donation_date, current_start, next_start):
-            current_goods_units += donation_quantity
-        if _in_period(donation_date, previous_start, current_start):
-            previous_goods_units += donation_quantity
-        if donation_date is not None and donation_date.year == today.year:
-            current_year_goods_units += donation_quantity
-
-    all_time_families_supported: set[str] = set()
-    current_families_supported: set[str] = set()
-    previous_families_supported: set[str] = set()
     all_time_food_units_distributed = 0
     current_food_units_distributed = 0
     previous_food_units_distributed = 0
@@ -500,12 +493,6 @@ async def get_public_impact_metrics(
 
         if application.deleted_at is not None:
             continue
-
-        all_time_families_supported.add(str(application.user_id))
-        if in_current_period:
-            current_families_supported.add(str(application.user_id))
-        if in_previous_period:
-            previous_families_supported.add(str(application.user_id))
 
         application_snapshots = distribution_snapshots_by_application_id.get(application.id, [])
         component_snapshots = [
@@ -556,16 +543,16 @@ async def get_public_impact_metrics(
         float(previous_food_units_distributed),
     )
     families_change, families_positive = _format_short_change(
-        float(len(current_families_supported)),
-        float(len(previous_families_supported)),
+        float(goods_impact_snapshot.current_families_supported_count),
+        float(goods_impact_snapshot.previous_families_supported_count),
     )
     redemption_change, redemption_positive = _format_short_change(
         float(current_redemption_rate),
         float(previous_redemption_rate),
     )
     goods_change, goods_positive = _format_short_change(
-        float(current_goods_units),
-        float(previous_goods_units),
+        float(goods_impact_snapshot.current_goods_units),
+        float(goods_impact_snapshot.previous_goods_units),
     )
 
     return PublicImpactMetricsOut(
@@ -582,7 +569,7 @@ async def get_public_impact_metrics(
                 key="families_supported",
                 change=families_change,
                 positive=families_positive,
-                value=_format_int(len(all_time_families_supported)),
+                value=_format_int(goods_impact_snapshot.all_time_families_supported_count),
                 label="Families Supported",
                 note="All Time",
             ),
@@ -598,9 +585,90 @@ async def get_public_impact_metrics(
                 key="goods_units_year",
                 change=goods_change,
                 positive=goods_positive,
-                value=_format_int(current_year_goods_units),
+                value=_format_int(goods_impact_snapshot.current_year_goods_units),
                 label="Goods Donation Units",
                 note="This Year",
+            ),
+        ]
+    )
+
+@router.get("/public-goods-impact", response_model=PublicImpactMetricsOut)
+async def get_public_goods_impact_metrics(
+    range_key: Literal["month", "quarter", "year"] = Query("month", alias="range"),
+    db: AsyncSession = Depends(get_db),
+):
+    today = date.today()
+    current_start, next_start, previous_start = _period_bounds(range_key, today)
+    range_note = RANGE_NOTES[range_key]
+
+    cash_donations = list(
+        (
+            await db.execute(
+                select(DonationCash).order_by(DonationCash.created_at.asc())
+            )
+        ).scalars().all()
+    )
+    goods_donations = list(
+        (
+            await db.execute(
+                select(DonationGoods)
+                .options(selectinload(DonationGoods.items))
+                .order_by(DonationGoods.created_at.asc())
+            )
+        ).scalars().all()
+    )
+    applications = list(
+        (
+            await db.execute(
+                select(Application).order_by(Application.created_at.asc())
+            )
+        ).scalars().all()
+    )
+
+    goods_impact_snapshot = calculate_shared_goods_impact_snapshot(
+        cash_donations=cash_donations,
+        goods_donations=goods_donations,
+        applications=applications,
+        today=today,
+        current_start=current_start,
+        next_start=next_start,
+        previous_start=previous_start,
+    )
+
+    goods_change, goods_positive = _format_short_change(
+        float(goods_impact_snapshot.current_goods_units),
+        float(goods_impact_snapshot.previous_goods_units),
+    )
+    families_change, families_positive = _format_short_change(
+        float(goods_impact_snapshot.current_families_supported_count),
+        float(goods_impact_snapshot.previous_families_supported_count),
+    )
+
+    return PublicImpactMetricsOut(
+        impactMetrics=[
+            PublicImpactMetricOut(
+                key="goods_units_current_period",
+                change=goods_change,
+                positive=goods_positive,
+                value=_format_int(goods_impact_snapshot.current_goods_units),
+                label=f"Items Donated {range_note}",
+                note=range_note,
+            ),
+            PublicImpactMetricOut(
+                key="families_supported",
+                change=families_change,
+                positive=families_positive,
+                value=_format_int(goods_impact_snapshot.all_time_families_supported_count),
+                label="Families Helped",
+                note="All Time",
+            ),
+            PublicImpactMetricOut(
+                key="partner_organizations",
+                change="",
+                positive=True,
+                value=_format_int(goods_impact_snapshot.partner_organizations_count),
+                label="Partner Organizations",
+                note="All Time",
             ),
         ]
     )
@@ -698,6 +766,15 @@ async def get_dashboard_analytics(
             )
         ).scalars().all()
     )
+    goods_impact_snapshot = calculate_shared_goods_impact_snapshot(
+        cash_donations=cash_donations,
+        goods_donations=goods_donations,
+        applications=applications,
+        today=today,
+        current_start=current_start,
+        next_start=next_start,
+        previous_start=previous_start,
+    )
     distribution_snapshots_by_application_id: dict[
         object, list[ApplicationDistributionSnapshot]
     ] = defaultdict(list)
@@ -734,9 +811,6 @@ async def get_dashboard_analytics(
     )
     donation_trend_totals = [0.0] * len(trend_buckets)
     donation_category_totals: dict[str, int] = defaultdict(int)
-    current_goods_units = 0
-    previous_goods_units = 0
-    current_year_goods_units = 0
 
     for donation in valid_cash_donations:
         donation_date = _event_date(donation.created_at)
@@ -768,12 +842,6 @@ async def get_dashboard_analytics(
             ) or donor_label == "Supermarket"
 
         donation_quantity = sum(item.quantity for item in donation.items)
-        if _in_period(donation_date, current_start, next_start):
-            current_goods_units += donation_quantity
-        if _in_period(donation_date, previous_start, current_start):
-            previous_goods_units += donation_quantity
-        if donation_date is not None and donation_date.year == today.year:
-            current_year_goods_units += donation_quantity
 
         if donation_date is not None:
             trend_bucket = _trend_bucket_key(donation_date, range_key)
@@ -888,7 +956,6 @@ async def get_dashboard_analytics(
 
     package_trend_totals = [0.0] * len(trend_buckets)
     package_type_totals: dict[str, int] = defaultdict(int)
-    families_supported = set()
     food_units_distributed = 0
     aid_packages_distributed = 0
     current_package_quantity = 0
@@ -969,7 +1036,6 @@ async def get_dashboard_analytics(
         if application.deleted_at is not None:
             continue
 
-        families_supported.add(str(application.user_id))
         support_weeks_by_user[str(application.user_id)].add(application.week_start)
 
         application_bucket = _trend_bucket_key(application_created, range_key)
@@ -1076,14 +1142,6 @@ async def get_dashboard_analytics(
             if weighted_recipe_weight
             else 0.0
         )
-
-    partner_supermarkets = len(
-        {
-            donor_key
-            for donor_key, donor_summary in donor_frequency.items()
-            if bool(donor_summary["supermarket"])
-        }
-    )
 
     donation_category_pairs = sorted(
         donation_category_totals.items(),
@@ -1201,14 +1259,18 @@ async def get_dashboard_analytics(
     )
 
     kpi = DashboardKpiOut(
-        totalDonation=current_goods_units,
+        totalDonation=goods_impact_snapshot.current_goods_units,
         totalSku=len(inventory_items),
         totalPackageDistributed=current_package_quantity,
         lowStockCount=len(low_stock_alerts),
         expiringLotCount=len(expiring_lot_rows),
         redemptionRate=redemption_rate_value,
         trends=DashboardKpiTrendsOut(
-            donation=_format_change(current_goods_units, previous_goods_units, comparison_label),
+            donation=_format_change(
+                goods_impact_snapshot.current_goods_units,
+                goods_impact_snapshot.previous_goods_units,
+                comparison_label,
+            ),
             package=_format_change(current_package_quantity, previous_package_quantity, comparison_label),
             lowStock=f"{len(low_stock_alerts)} live inventory alert(s)",
             wastage=_format_change(current_wastage_units, previous_wastage_units, comparison_label),
@@ -1218,7 +1280,7 @@ async def get_dashboard_analytics(
     impact_metrics = [
         DashboardImpactMetricOut(
             key="families_supported",
-            value=_format_int(len(families_supported)),
+            value=_format_int(goods_impact_snapshot.all_time_families_supported_count),
             label="Families Supported",
         ),
         DashboardImpactMetricOut(
@@ -1227,13 +1289,13 @@ async def get_dashboard_analytics(
             label="Food Units Distributed",
         ),
         DashboardImpactMetricOut(
-            key="partner_supermarkets",
-            value=_format_int(partner_supermarkets),
-            label="Partner Supermarkets",
+            key="partner_organizations",
+            value=_format_int(goods_impact_snapshot.partner_organizations_count),
+            label="Partner Organizations",
         ),
         DashboardImpactMetricOut(
             key="goods_units_year",
-            value=_format_int(current_year_goods_units),
+            value=_format_int(goods_impact_snapshot.current_year_goods_units),
             label="Goods Donation Units / Year",
         ),
         DashboardImpactMetricOut(

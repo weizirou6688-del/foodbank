@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   ArrowRight,
   Check,
@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
-import { donationsAPI } from '@/shared/lib/api'
+import { donationsAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
 import { isValidEmail } from '@/shared/lib/validation'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { getNearbyFoodbanks } from '@/utils/foodbankApi'
@@ -95,11 +95,32 @@ const FEATURE_STORIES = [
   },
 ]
 
-const IMPACT_STATS = [
-  { number: '1,852', label: 'Items Donated This Month', trend: '+12%' },
-  { number: '456', label: 'Families Helped', trend: '+8%' },
-  { number: '23', label: 'Partner Organizations' },
+const INITIAL_IMPACT_STATS: ImpactCardProps[] = [
+  { number: '--', label: 'Items Donated This Month' },
+  { number: '--', label: 'Families Helped' },
+  { number: '--', label: 'Partner Organizations' },
 ]
+
+function mapImpactStats(metrics: PublicImpactMetric[]): ImpactCardProps[] {
+  const metricsByKey = new Map(metrics.map((metric) => [metric.key, metric]))
+
+  return [
+    {
+      number: metricsByKey.get('goods_units_current_period')?.value ?? '--',
+      label: metricsByKey.get('goods_units_current_period')?.label ?? INITIAL_IMPACT_STATS[0].label,
+      trend: metricsByKey.get('goods_units_current_period')?.change || undefined,
+    },
+    {
+      number: metricsByKey.get('families_supported')?.value ?? '--',
+      label: metricsByKey.get('families_supported')?.label ?? INITIAL_IMPACT_STATS[1].label,
+      trend: metricsByKey.get('families_supported')?.change || undefined,
+    },
+    {
+      number: metricsByKey.get('partner_organizations')?.value ?? '--',
+      label: metricsByKey.get('partner_organizations')?.label ?? INITIAL_IMPACT_STATS[2].label,
+    },
+  ]
+}
 
 const ACCEPTED_ITEMS = [
   {
@@ -223,6 +244,8 @@ function formatDistanceMiles(distanceKm: number) {
 }
 
 export default function DonateGoods() {
+  const [impactStats, setImpactStats] = useState<ImpactCardProps[]>(INITIAL_IMPACT_STATS)
+  const [impactStatsStatus, setImpactStatsStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [step, setStep] = useState(1)
   const [postcode, setPostcode] = useState('')
   const [postcodeError, setPostcodeError] = useState('')
@@ -237,6 +260,38 @@ export default function DonateGoods() {
   const [searchFeedback, setSearchFeedback] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    let active = true
+
+    statsAPI
+      .getPublicGoodsImpact('month')
+      .then((response) => {
+        if (!active) {
+          return
+        }
+
+        if (!Array.isArray(response.impactMetrics) || response.impactMetrics.length === 0) {
+          setImpactStatsStatus('error')
+          return
+        }
+
+        setImpactStats(mapImpactStats(response.impactMetrics))
+        setImpactStatsStatus('ready')
+      })
+      .catch(() => {
+        if (!active) {
+          return
+        }
+
+        setImpactStats(INITIAL_IMPACT_STATS)
+        setImpactStatsStatus('error')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const scrollToSection = (sectionId: string) => {
     document.getElementById(sectionId)?.scrollIntoView({
@@ -477,12 +532,16 @@ export default function DonateGoods() {
                 Making a <span className={styles.highlight}>Difference</span> Together
               </h2>
               <p className={styles.sectionText}>
-                Every donation helps us create positive change in our communities
+                {impactStatsStatus === 'error'
+                  ? 'Live impact data is temporarily unavailable. Please try again shortly.'
+                  : impactStatsStatus === 'loading'
+                    ? 'Loading live impact data from the dashboard.'
+                    : 'Every donation helps us create positive change in our communities'}
               </p>
             </div>
 
             <div className={styles.impactGrid}>
-              {IMPACT_STATS.map((stat) => (
+              {impactStats.map((stat) => (
                 <ImpactCard key={stat.label} number={stat.number} label={stat.label} trend={stat.trend} />
               ))}
             </div>

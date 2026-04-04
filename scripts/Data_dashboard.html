@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Dashboard - ABC Foodbank</title>
     <style>
-        /* ========== 全局设计规范（和Inventory页面100%统一） ========== */
+        /* ========== 鍏ㄥ眬璁捐瑙勮寖锛堝拰Inventory椤甸潰100%缁熶竴锛?========== */
         :root {
             --color-primary: #FFB703;
             --color-primary-dark: #FB8500;
@@ -57,7 +57,7 @@
             scroll-behavior: smooth;
         }
 
-        /* ========== 回到顶部浮窗按钮 ========== */
+        /* ========== 鍥炲埌椤堕儴娴獥鎸夐挳 ========== */
         .scroll-top-btn {
             position: fixed;
             bottom: 40px;
@@ -101,7 +101,7 @@
             height: 22px;
         }
 
-        /* ========== 顶部导航栏（和Inventory页面完全一致） ========== */
+        /* ========== 椤堕儴瀵艰埅鏍忥紙鍜孖nventory椤甸潰瀹屽叏涓€鑷达級 ========== */
         .header {
             background-color: var(--color-bg-white);
             padding: var(--spacing-sm) var(--spacing-lg);
@@ -160,7 +160,7 @@
             font-weight: 600;
         }
 
-        /* ========== 按钮规范 ========== */
+        /* ========== 鎸夐挳瑙勮寖 ========== */
         .btn {
             padding: 12px 28px;
             border-radius: var(--radius-sm);
@@ -211,14 +211,14 @@
             transform: none;
         }
 
-        /* ========== 全局容器规范 ========== */
+        /* ========== 鍏ㄥ眬瀹瑰櫒瑙勮寖 ========== */
         .container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 0 var(--spacing-lg);
         }
 
-        /* ========== 页面模块白灰交错 ========== */
+        /* ========== 椤甸潰妯″潡鐧界伆浜ら敊 ========== */
         .section {
             padding: var(--spacing-3xl) 0;
             border-top: 1px solid var(--color-border);
@@ -255,7 +255,7 @@
             margin: 0 auto var(--spacing-lg) auto;
         }
 
-        /* ========== Hero区域 ========== */
+        /* ========== Hero鍖哄煙 ========== */
         .hero-section {
             background-color: var(--color-bg-white);
             padding: var(--spacing-3xl) 0;
@@ -298,7 +298,7 @@
         }
 
         .feature-item::before {
-            content: "✓";
+            content: "\2713";
             color: var(--color-success);
             font-weight: 700;
         }
@@ -311,7 +311,7 @@
             margin-bottom: var(--spacing-2xl);
         }
 
-        /* ========== 社会价值核心KPI卡片 ========== */
+        /* ========== 绀句細浠峰€兼牳蹇僈PI鍗＄墖 ========== */
         .impact-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -350,7 +350,7 @@
             font-weight: 500;
         }
 
-        /* ========== 核心运营KPI区 ========== */
+        /* ========== 鏍稿績杩愯惀KPI鍖?========== */
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -398,7 +398,7 @@
             color: var(--color-error);
         }
 
-        /* ========== 图表网格布局 ========== */
+        /* ========== 鍥捐〃缃戞牸甯冨眬 ========== */
         .chart-grid-2 {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
@@ -443,7 +443,7 @@
             color: var(--color-text-light);
         }
 
-        /* ========== 表格规范 ========== */
+        /* ========== 琛ㄦ牸瑙勮寖 ========== */
         .table-wrapper {
             max-width: 100%;
             margin: 0 auto;
@@ -491,7 +491,7 @@
             border-bottom: none;
         }
 
-        /* ========== 筛选区规范 ========== */
+        /* ========== 绛涢€夊尯瑙勮寖 ========== */
         .filter-bar {
             display: flex;
             justify-content: space-between;
@@ -517,74 +517,177 @@
             font-family: var(--font-family);
         }
 
-        /* ========== 页脚规范 ========== */
+        /* ========== 椤佃剼瑙勮寖 ========== */
         .footer {
-            background-color: var(--color-text-dark);
-            color: #FFFFFF;
-            padding: var(--spacing-xl) var(--spacing-lg);
             margin-top: var(--spacing-3xl);
+            background: #0D1117;
+            color: #FFFFFF;
+            border-top: 1px solid #1F2937;
+            font-family: Inter, system-ui, sans-serif;
         }
 
-        .footer-content {
-            max-width: 1400px;
+        .footer-shell {
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 64px 24px;
+        }
+
+        .footer-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr;
-            gap: var(--spacing-lg);
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 48px;
+            margin-bottom: 48px;
+        }
+
+        .footer-brand {
+            grid-column: span 6 / span 6;
+        }
+
+        .footer-column {
+            grid-column: span 2 / span 2;
+            min-width: 0;
         }
 
         .footer-logo {
-            font-size: 18px;
+            margin: 0 0 12px;
+            font-size: 20px;
             font-weight: 700;
-            margin-bottom: var(--spacing-sm);
+            color: #FFFFFF;
         }
 
         .footer-desc {
-            font-size: 14px;
-            opacity: 0.7;
+            max-width: 480px;
+            margin: 0 0 24px;
+            color: #8B949E;
+            font-size: 15px;
+            line-height: 1.75;
+        }
+
+        .footer-office {
+            margin-bottom: 24px;
+        }
+
+        .footer-eyebrow {
+            margin-bottom: 8px;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .footer-office-text {
+            color: #FFFFFF;
+            font-size: 15px;
             line-height: 1.6;
-            margin-bottom: var(--spacing-md);
+        }
+
+        .footer-socials {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .footer-social-link {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: #21262D;
+            color: #8B949E;
+            text-decoration: none;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .footer-social-link:hover {
+            background: #FFB800;
+            color: #0D1117;
+        }
+
+        .footer-social-icon {
+            width: 16px;
+            height: 16px;
+            display: block;
         }
 
         .footer-column h4 {
-            font-size: 14px;
+            margin: 0 0 16px;
+            color: #8B949E;
+            font-size: 13px;
             font-weight: 600;
-            margin-bottom: var(--spacing-sm);
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            opacity: 0.9;
         }
 
         .footer-links {
+            margin: 0;
+            padding: 0;
             list-style: none;
         }
 
-        .footer-links li {
-            margin-bottom: var(--spacing-xs);
+        .footer-links li + li {
+            margin-top: 12px;
         }
 
         .footer-links a {
             color: #FFFFFF;
             text-decoration: none;
-            font-size: 14px;
-            opacity: 0.7;
-            transition: opacity 0.2s ease;
+            font-size: 15px;
+            line-height: 1.6;
+            transition: color 0.2s ease;
         }
 
         .footer-links a:hover {
-            opacity: 1;
+            color: #FFB800;
+        }
+
+        .footer-bottom {
+            padding-top: 32px;
+            border-top: 1px solid #21262D;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
         }
 
         .footer-copyright {
-            max-width: 1400px;
-            margin: var(--spacing-lg) auto 0 auto;
-            padding-top: var(--spacing-md);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            font-size: 12px;
-            opacity: 0.6;
-            text-align: center;
+            margin: 0;
+            color: #8B949E;
+            font-size: 13px;
+            line-height: 1.6;
         }
 
-        /* ========== 响应式适配 ========== */
+        .footer-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 9999px;
+            background: #48C774;
+            display: inline-block;
+        }
+
+        @media (max-width: 900px) {
+            .footer-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 32px;
+            }
+
+            .footer-brand {
+                grid-column: 1 / -1;
+            }
+
+            .footer-column {
+                grid-column: span 1 / span 1;
+            }
+        }
+
         @media (max-width: 768px) {
             .nav-links {
                 display: none;
@@ -649,16 +752,16 @@
             }
         }
     </style>
-    <!-- 图表库稳定CDN -->
+    <!-- 鍥捐〃搴撶ǔ瀹欳DN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <!-- 回到顶部按钮 -->
+    <!-- 鍥炲埌椤堕儴鎸夐挳 -->
     <button class="scroll-top-btn" id="scroll-top-btn" title="Back to top">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
     </button>
 
-    <!-- 顶部导航栏 -->
+    <!-- 椤堕儴瀵艰埅鏍?-->
     <header class="header">
         <div class="header-content">
             <div class="logo">ABC Foodbank</div>
@@ -675,9 +778,9 @@
         </div>
     </header>
 
-    <!-- 页面主体内容 -->
+    <!-- 椤甸潰涓讳綋鍐呭 -->
     <main>
-        <!-- Hero区域（1:1匹配Inventory Management设计图） -->
+        <!-- Hero鍖哄煙锛?:1鍖归厤Inventory Management璁捐鍥撅級 -->
         <section class="hero-section section" id="top">
             <div class="container">
                 <div class="hero-text">
@@ -685,14 +788,14 @@
                     <p>Real-time insights for food bank operations, donations, and community impact. Track performance, optimize workflows, and measure your social impact in one unified platform.</p>
                 </div>
 
-                <!-- 特性标签（和Inventory页面完全一致） -->
+                <!-- 鐗规€ф爣绛撅紙鍜孖nventory椤甸潰瀹屽叏涓€鑷达級 -->
                 <div class="hero-features">
                     <div class="feature-item">Real-time operational data</div>
                     <div class="feature-item">Automated trend analysis</div>
                     <div class="feature-item">End-to-end impact tracking</div>
                 </div>
 
-                <!-- 快速跳转按钮（和Inventory页面完全一致） -->
+                <!-- 蹇€熻烦杞寜閽紙鍜孖nventory椤甸潰瀹屽叏涓€鑷达級 -->
                 <div class="hero-buttons">
                     <a href="#donation-analysis" class="btn btn-primary">Donation Analysis</a>
                     <a href="#inventory-health" class="btn btn-primary">Inventory Health</a>
@@ -701,7 +804,7 @@
                     <a href="#code-verification" class="btn btn-primary">Code Verification</a>
                 </div>
 
-                <!-- 社会价值数据模块 -->
+                <!-- 绀句細浠峰€兼暟鎹ā鍧?-->
                 <div class="impact-grid">
                     <div class="impact-card" id="impact-card-families-supported">
                         <div class="impact-value">--</div>
@@ -713,7 +816,7 @@
                     </div>
                     <div class="impact-card" id="impact-card-partner-supermarkets">
                         <div class="impact-value">--</div>
-                        <div class="impact-label">Partner Supermarkets</div>
+                        <div class="impact-label">Partner Organizations</div>
                     </div>
                     <div class="impact-card" id="impact-card-goods-units-year">
                         <div class="impact-value">--</div>
@@ -727,13 +830,13 @@
             </div>
         </section>
 
-        <!-- 核心运营KPI区 -->
+        <!-- 鏍稿績杩愯惀KPI鍖?-->
         <section class="section">
             <div class="container">
                 <h2 class="section-title">Core Operational KPIs</h2>
                 <p class="section-subtitle">At-a-glance view of your food bank's key performance metrics.</p>
                 
-                <!-- 时间筛选器 -->
+                <!-- 鏃堕棿绛涢€夊櫒 -->
                 <div class="filter-bar">
                     <div class="filter-group">
                         <label style="font-size: 14px; font-weight: 500;">Time Range:</label>
@@ -746,7 +849,7 @@
                     <button class="btn btn-secondary btn-sm" id="refresh-data-btn">Refresh Data</button>
                 </div>
 
-                <!-- KPI卡片网格 -->
+                <!-- KPI鍗＄墖缃戞牸 -->
                 <p id="time-range-summary" style="margin-top: 12px; font-size: 14px; color: var(--color-text-light);">Live range: Loading...</p>
                 <div class="kpi-grid" id="kpi-grid">
                     <div class="kpi-card">
@@ -777,14 +880,14 @@
             </div>
         </section>
 
-        <!-- 模块1：捐赠分析 -->
+        <!-- 妯″潡1锛氭崘璧犲垎鏋?-->
         <section class="section" id="donation-analysis">
             <div class="container">
                 <h2 class="section-title">Donation Analysis</h2>
                 <p class="section-subtitle">Track donation sources, trends, and category distribution to optimize your fundraising efforts.</p>
                 
                 <div class="chart-grid-2">
-                    <!-- 捐赠来源分布 -->
+                    <!-- 鎹愯禒鏉ユ簮鍒嗗竷 -->
                     <div class="chart-card">
                         <h3 class="chart-title">Donation Source Distribution</h3>
                         <div class="chart-container">
@@ -792,7 +895,7 @@
                             <canvas id="donation-source-chart"></canvas>
                         </div>
                     </div>
-                    <!-- 月度捐赠趋势 -->
+                    <!-- 鏈堝害鎹愯禒瓒嬪娍 -->
                     <div class="chart-card">
                         <h3 class="chart-title">Goods Donation Trend</h3>
                         <div class="chart-container">
@@ -803,7 +906,7 @@
                 </div>
 
                 <div class="chart-grid-3">
-                    <!-- 捐赠品类分布 -->
+                    <!-- 鎹愯禒鍝佺被鍒嗗竷 -->
                     <div class="chart-card">
                         <h3 class="chart-title">Donation Category Distribution</h3>
                         <div class="chart-container">
@@ -811,7 +914,7 @@
                             <canvas id="donation-category-chart"></canvas>
                         </div>
                     </div>
-                    <!-- 捐赠者类型占比 -->
+                    <!-- 鎹愯禒鑰呯被鍨嬪崰姣?-->
                     <div class="chart-card">
                         <h3 class="chart-title">Donor Type Breakdown</h3>
                         <div class="chart-container">
@@ -819,7 +922,7 @@
                             <canvas id="donor-type-chart"></canvas>
                         </div>
                     </div>
-                    <!-- 平均捐赠价值 -->
+                    <!-- 骞冲潎鎹愯禒浠峰€?-->
                     <div class="chart-card" id="average-donation-card">
                         <h3 class="chart-title">Average Donation Value</h3>
                         <div class="chart-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
@@ -832,14 +935,14 @@
             </div>
         </section>
 
-        <!-- 模块2：库存健康度分析 -->
+        <!-- 妯″潡2锛氬簱瀛樺仴搴峰害鍒嗘瀽 -->
         <section class="section" id="inventory-health">
             <div class="container">
                 <h2 class="section-title">Inventory Health Analysis</h2>
                 <p class="section-subtitle">Monitor stock levels, low stock risks, and category distribution to avoid supply shortages.</p>
                 
                 <div class="chart-grid-2">
-                    <!-- 库存健康度占比 -->
+                    <!-- 搴撳瓨鍋ュ悍搴﹀崰姣?-->
                     <div class="chart-card">
                         <h3 class="chart-title">Inventory Health Status</h3>
                         <div class="chart-container">
@@ -847,7 +950,7 @@
                             <canvas id="inventory-health-chart"></canvas>
                         </div>
                     </div>
-                    <!-- 品类库存分布 -->
+                    <!-- 鍝佺被搴撳瓨鍒嗗竷 -->
                     <div class="chart-card">
                         <h3 class="chart-title">Stock by Category</h3>
                         <div class="chart-container">
@@ -857,7 +960,7 @@
                     </div>
                 </div>
 
-                <!-- 低库存预警表格 -->
+                <!-- 浣庡簱瀛橀璀﹁〃鏍?-->
                 <h3 class="chart-title" style="margin-top: var(--spacing-lg);">Low Stock Alerts</h3>
                 <div class="table-wrapper">
                     <table class="data-table">
@@ -881,14 +984,14 @@
             </div>
         </section>
 
-        <!-- 模块3：救助包发放分析 -->
+        <!-- 妯″潡3锛氭晳鍔╁寘鍙戞斁鍒嗘瀽 -->
         <section class="section" id="distribution-analysis">
             <div class="container">
                 <h2 class="section-title">Aid Package & Distribution Analysis</h2>
                 <p class="section-subtitle">Track aid package distribution, redemption rates, and community support scale.</p>
                 
                 <div class="chart-grid-2">
-                    <!-- 月度发放趋势 -->
+                    <!-- 鏈堝害鍙戞斁瓒嬪娍 -->
                     <div class="chart-card">
                         <h3 class="chart-title">Aid Package Distribution Trend</h3>
                         <div class="chart-container">
@@ -896,7 +999,7 @@
                             <canvas id="package-trend-chart"></canvas>
                         </div>
                     </div>
-                    <!-- 核销码状态统计 -->
+                    <!-- 鏍搁攢鐮佺姸鎬佺粺璁?-->
                     <div class="chart-card">
                         <h3 class="chart-title">Redemption Code Status</h3>
                         <div class="chart-container">
@@ -907,7 +1010,7 @@
                 </div>
 
                 <div class="chart-grid-3">
-                    <!-- 救助包类型占比 -->
+                    <!-- 鏁戝姪鍖呯被鍨嬪崰姣?-->
                     <div class="chart-card">
                         <h3 class="chart-title">Package Type Distribution</h3>
                         <div class="chart-container">
@@ -915,7 +1018,7 @@
                             <canvas id="package-type-chart"></canvas>
                         </div>
                     </div>
-                    <!-- 平均家庭帮扶时长 -->
+                    <!-- 骞冲潎瀹跺涵甯壎鏃堕暱 -->
                     <div class="chart-card" id="average-support-card">
                         <h3 class="chart-title" id="average-support-title">Average Family Support Duration</h3>
                         <div class="chart-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
@@ -923,7 +1026,7 @@
                             <div id="average-support-unit" style="font-size: 16px; color: var(--color-text-light);">Weeks</div>
                         </div>
                     </div>
-                    <!-- 单包平均餐数 -->
+                    <!-- 鍗曞寘骞冲潎椁愭暟 -->
                     <div class="chart-card" id="items-per-package-card">
                         <h3 class="chart-title" id="items-per-package-title">Items Per Package</h3>
                         <div class="chart-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
@@ -935,14 +1038,14 @@
             </div>
         </section>
 
-        <!-- 模块4：保质期&食物浪费分析 -->
+        <!-- 妯″潡4锛氫繚璐ㄦ湡&椋熺墿娴垂鍒嗘瀽 -->
         <section class="section" id="waste-analysis">
             <div class="container">
                 <h2 class="section-title">Expiry & Food Waste Reduction Analysis</h2>
                 <p class="section-subtitle">Monitor expiry dates, track food waste, and optimize stock rotation to reduce waste.</p>
                 
                 <div class="chart-grid-2">
-                    <!-- 保质期分布 -->
+                    <!-- 淇濊川鏈熷垎甯?-->
                     <div class="chart-card">
                         <h3 class="chart-title">Lot Expiry Distribution</h3>
                         <div class="chart-container">
@@ -950,7 +1053,7 @@
                             <canvas id="expiry-distribution-chart"></canvas>
                         </div>
                     </div>
-                    <!-- 月度报损趋势 -->
+                    <!-- 鏈堝害鎶ユ崯瓒嬪娍 -->
                     <div class="chart-card">
                         <h3 class="chart-title">Food Wastage Trend</h3>
                         <div class="chart-container">
@@ -960,7 +1063,7 @@
                     </div>
                 </div>
 
-                <!-- 临期批次表格 -->
+                <!-- 涓存湡鎵规琛ㄦ牸 -->
                 <h3 class="chart-title" style="margin-top: var(--spacing-lg);">Expiring Soon (Within 30 Days)</h3>
                 <div class="table-wrapper">
                     <table class="data-table">
@@ -983,14 +1086,14 @@
             </div>
         </section>
 
-        <!-- 模块5：核销码验证（对应按钮跳转） -->
+        <!-- 妯″潡5锛氭牳閿€鐮侀獙璇侊紙瀵瑰簲鎸夐挳璺宠浆锛?-->
         <section class="section" id="code-verification">
             <div class="container">
                 <h2 class="section-title">Code Verification Analytics</h2>
                 <p class="section-subtitle">Track redemption code performance, success rates, and verification trends.</p>
                 
                 <div class="chart-grid-2">
-                    <!-- 核销率月度趋势 -->
+                    <!-- 鏍搁攢鐜囨湀搴﹁秼鍔?-->
                     <div class="chart-card">
                         <h3 class="chart-title">Redemption Rate Trend</h3>
                         <div class="chart-container">
@@ -998,7 +1101,7 @@
                             <canvas id="redemption-rate-chart"></canvas>
                         </div>
                     </div>
-                    <!-- 核销状态分布 -->
+                    <!-- 鏍搁攢鐘舵€佸垎甯?-->
                     <div class="chart-card">
                         <h3 class="chart-title">Redemption Status Breakdown</h3>
                         <div class="chart-container">
@@ -1008,7 +1111,7 @@
                     </div>
                 </div>
 
-                <!-- 近期核销记录表格 -->
+                <!-- 杩戞湡鏍搁攢璁板綍琛ㄦ牸 -->
                 <h3 class="chart-title" style="margin-top: var(--spacing-lg);">Recent Verification Records</h3>
                 <div class="table-wrapper">
                     <table class="data-table">
@@ -1031,171 +1134,69 @@
         </section>
     </main>
 
-    <!-- 页脚 -->
+    <!-- 椤佃剼 -->
     <footer class="footer">
-        <div class="footer-content">
-            <div class="footer-column">
-                <div class="footer-logo">ABC Foodbank</div>
-                <p class="footer-desc">Building the infrastructure for food security. A transparent platform connecting communities with local resources.</p>
+        <div class="footer-shell">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <div class="footer-logo">ABC Foodbank</div>
+                    <p class="footer-desc">Building the infrastructure for food security. A transparent platform connecting communities with local resources.</p>
+                    <div class="footer-office">
+                        <div class="footer-eyebrow">Contact Office</div>
+                        <div class="footer-office-text">Penglais, Aberystwyth SY23 3FL</div>
+                    </div>
+                    <div class="footer-socials">
+                        <a class="footer-social-link" href="#twitter" aria-label="Twitter">
+                            <svg class="footer-social-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" /></svg>
+                        </a>
+                        <a class="footer-social-link" href="#linkedin" aria-label="LinkedIn">
+                            <svg class="footer-social-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg>
+                        </a>
+                        <a class="footer-social-link" href="#instagram" aria-label="Instagram">
+                            <svg class="footer-social-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-column">
+                    <h4>Community</h4>
+                    <ul class="footer-links">
+                        <li><a href="/home#about">About Us</a></li>
+                        <li><a href="/find-foodbank">Get Support</a></li>
+                        <li><a href="/donate/cash">Donate Cash</a></li>
+                        <li><a href="/donate/goods">Donate Goods</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Admin Tools</h4>
+                    <ul class="footer-links">
+                        <li><a href="/admin?section=food">Inventory Management</a></li>
+                        <li><a href="/admin?section=statistics">Data Dashboard</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Partner Access</h4>
+                    <ul class="footer-links">
+                        <li><a href="/supermarket">Supermarket Restock</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="footer-column">
-                <h4>Community</h4>
-                <ul class="footer-links">
-                    <li><a href="#">About Us</a></li>
-                    <li><a href="#">Get Support</a></li>
-                    <li><a href="#">Donate Cash</a></li>
-                    <li><a href="#">Donate Goods</a></li>
-                </ul>
-            </div>
-            <div class="footer-column">
-                <h4>Admin Tools</h4>
-                <ul class="footer-links">
-                    <li><a href="#">Inventory Management</a></li>
-                    <li><a href="#">Data Dashboard</a></li>
-                </ul>
-            </div>
-            <div class="footer-column">
-                <h4>Partner Access</h4>
-                <ul class="footer-links">
-                    <li><a href="#">Supermarket Restock</a></li>
-                </ul>
+            <div class="footer-bottom">
+                <p class="footer-copyright">Copyright 2026 ABC Foodbank. All rights reserved.</p>
+                <div class="footer-status" aria-hidden="true">
+                    <span class="footer-status-dot"></span>
+                </div>
             </div>
         </div>
-        <p class="footer-copyright">Copyright 2026 ABC Foodbank. All rights reserved. Registered Charity No. 1234567.</p>
     </footer>
 
     <script>
-        // ========== Mock API 模拟服务 ==========
-        const mockApi = {
-            // 模拟网络延迟
-            delay: () => new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 300)),
-
-            // 获取核心KPI数据
-            getKpiData: async (timeRange = 'month') => {
-                await mockApi.delay();
-                const data = {
-                    month: {
-                        totalDonation: 1245,
-                        totalSku: 32,
-                        totalPackageDistributed: 186,
-                        lowStockCount: 2,
-                        expiringLotCount: 2,
-                        redemptionRate: 98.2,
-                        trends: {
-                            donation: '+12.5% vs last month',
-                            package: '+8.2% vs last month',
-                            lowStock: '-1 vs last month',
-                            wastage: '-5.3% vs last month'
-                        }
-                    },
-                    year: {
-                        totalDonation: 14280,
-                        totalSku: 32,
-                        totalPackageDistributed: 2140,
-                        lowStockCount: 2,
-                        expiringLotCount: 2,
-                        redemptionRate: 97.8,
-                        trends: {
-                            donation: '+22.3% vs last year',
-                            package: '+18.7% vs last year',
-                            lowStock: '-3 vs last year',
-                            wastage: '-12.4% vs last year'
-                        }
-                    }
-                };
-                return data[timeRange] || data.month;
-            },
-
-            // 获取捐赠分析数据
-            getDonationData: async () => {
-                await mockApi.delay();
-                return {
-                    source: {
-                        labels: ['Supermarket', 'Individual', 'Organization', 'Government'],
-                        data: [65, 20, 12, 3]
-                    },
-                    trend: {
-                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                        data: [850, 920, 1050, 1245, 1100, 980, 890, 950, 1150, 1300, 1450, 1600]
-                    },
-                    category: {
-                        labels: ['Grains', 'Canned Goods', 'Dairy', 'Snacks', 'Spices'],
-                        data: [420, 850, 180, 120, 90]
-                    },
-                    donorType: {
-                        labels: ['Regular Donors', 'One-Time Donors', 'Corporate Partners'],
-                        data: [45, 35, 20]
-                    }
-                };
-            },
-
-            // 获取库存分析数据
-            getInventoryData: async () => {
-                await mockApi.delay();
-                return {
-                    health: {
-                        labels: ['In Stock', 'Low Stock', 'Out of Stock'],
-                        data: [28, 3, 1]
-                    },
-                    category: {
-                        labels: ['Grains', 'Canned Goods', 'Dairy', 'Snacks', 'Spices'],
-                        data: [420, 850, 180, 120, 90]
-                    }
-                };
-            },
-
-            // 获取发放分析数据
-            getPackageData: async () => {
-                await mockApi.delay();
-                return {
-                    trend: {
-                        labels: ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
-                        data: [120, 145, 160, 172, 180, 186]
-                    },
-                    redemption: {
-                        labels: ['Redeemed', 'Pending', 'Void'],
-                        data: [72, 22, 6]
-                    },
-                    packageType: {
-                        labels: ['Emergency Pack', 'Family Bundle', 'Breakfast Pack'],
-                        data: [60, 30, 10]
-                    }
-                };
-            },
-
-            // 获取浪费分析数据
-            getExpiryData: async () => {
-                await mockApi.delay();
-                return {
-                    distribution: {
-                        labels: ['Expiring in 30 Days', '30-90 Days', '90+ Days'],
-                        data: [2, 4, 12]
-                    },
-                    wastage: {
-                        labels: ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
-                        data: [24, 32, 28, 22, 18, 12]
-                    }
-                };
-            },
-
-            // 获取核销分析数据
-            getRedemptionData: async () => {
-                await mockApi.delay();
-                return {
-                    rateTrend: {
-                        labels: ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'],
-                        data: [92.5, 94.2, 95.8, 97.1, 98.0, 98.2]
-                    },
-                    breakdown: {
-                        labels: ['Success', 'Invalid', 'Expired'],
-                        data: [98.2, 1.2, 0.6]
-                    }
-                };
+        // Live dashboard data must be injected by the hosting app.
+        const getDashboardApi = () => {
+            if (!window.dashboardDataService) {
+                throw new Error('Live dashboard data service is unavailable.');
             }
+            return window.dashboardDataService;
         };
-
-        // ========== 全局变量 ==========
-        const getDashboardApi = () => window.dashboardDataService || mockApi;
 
         let charts = {};
         let currentTimeRange = 'month';
@@ -1265,22 +1266,22 @@
             summary.textContent = text;
         }
 
-        // ========== 页面加载完成后初始化 ==========
+        // ========== 椤甸潰鍔犺浇瀹屾垚鍚庡垵濮嬪寲 ==========
         document.addEventListener('DOMContentLoaded', async function() {
-            // 初始化所有数据和图表
+            // 鍒濆鍖栨墍鏈夋暟鎹拰鍥捐〃
             updateTimeRangeSummary();
             if (!window.__skipDashboardAutoInit) {
                 await initAllData();
             }
 
-            // 时间范围切换事件
+            // 鏃堕棿鑼冨洿鍒囨崲浜嬩欢
             document.getElementById('time-range-select').addEventListener('change', async function(e) {
                 currentTimeRange = e.target.value;
                 updateTimeRangeSummary();
                 await initAllData();
             });
 
-            // 刷新数据按钮事件
+            // 鍒锋柊鏁版嵁鎸夐挳浜嬩欢
             document.getElementById('refresh-data-btn').addEventListener('click', async function() {
                 this.disabled = true;
                 this.textContent = 'Refreshing...';
@@ -1289,7 +1290,7 @@
                 this.textContent = 'Refresh Data';
             });
 
-            // 回到顶部按钮逻辑
+            // 鍥炲埌椤堕儴鎸夐挳閫昏緫
             const scrollTopBtn = document.getElementById('scroll-top-btn');
             window.addEventListener('scroll', function() {
                 scrollTopBtn.classList.toggle('show', window.scrollY > 400);
@@ -1299,7 +1300,7 @@
             });
         });
 
-        // ========== 初始化所有数据和图表 ==========
+        // ========== 鍒濆鍖栨墍鏈夋暟鎹拰鍥捐〃 ==========
         async function initAllData() {
             await Promise.all([
                 initKpiData(),
@@ -1315,7 +1316,7 @@
             }
         }
 
-        // ========== 初始化核心KPI数据 ==========
+        // ========== 鍒濆鍖栨牳蹇僈PI鏁版嵁 ==========
         async function initKpiData() {
             const kpiGrid = document.getElementById('kpi-grid');
             kpiGrid.innerHTML = '<div class="kpi-card"><div class="kpi-label">Loading...</div><div class="kpi-value">--</div></div>'.repeat(6);
@@ -1356,7 +1357,7 @@
             }
         }
 
-        // ========== 辅助函数：销毁旧图表 ==========
+        // ========== 杈呭姪鍑芥暟锛氶攢姣佹棫鍥捐〃 ==========
         function destroyChart(key) {
             if (charts[key]) {
                 charts[key].destroy();
@@ -1364,7 +1365,7 @@
             }
         }
 
-        // ========== 初始化捐赠分析图表 ==========
+        // ========== 鍒濆鍖栨崘璧犲垎鏋愬浘琛?==========
         async function initDonationCharts() {
             document.getElementById('donation-source-loading').style.display = 'block';
             document.getElementById('donation-trend-loading').style.display = 'block';
@@ -1374,7 +1375,7 @@
             try {
                 const data = await getDashboardApi().getDonationData(currentTimeRange);
 
-                // 捐赠来源分布 - Doughnut
+                // 鎹愯禒鏉ユ簮鍒嗗竷 - Doughnut
                 document.getElementById('donation-source-loading').style.display = 'none';
                 destroyChart('donationSource');
                 charts.donationSource = new Chart(document.getElementById('donation-source-chart'), {
@@ -1389,7 +1390,7 @@
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
                 });
 
-                // 月度捐赠趋势 - Line
+                // 鏈堝害鎹愯禒瓒嬪娍 - Line
                 document.getElementById('donation-trend-loading').style.display = 'none';
                 destroyChart('donationTrend');
                 charts.donationTrend = new Chart(document.getElementById('donation-trend-chart'), {
@@ -1408,7 +1409,7 @@
                     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
                 });
 
-                // 捐赠品类分布 - Bar
+                // 鎹愯禒鍝佺被鍒嗗竷 - Bar
                 document.getElementById('donation-category-loading').style.display = 'none';
                 destroyChart('donationCategory');
                 charts.donationCategory = new Chart(document.getElementById('donation-category-chart'), {
@@ -1424,7 +1425,7 @@
                     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
                 });
 
-                // 捐赠者类型占比 - Pie
+                // 鎹愯禒鑰呯被鍨嬪崰姣?- Pie
                 document.getElementById('donor-type-loading').style.display = 'none';
                 destroyChart('donorType');
                 charts.donorType = new Chart(document.getElementById('donor-type-chart'), {
@@ -1443,7 +1444,7 @@
             }
         }
 
-        // ========== 初始化库存分析图表 ==========
+        // ========== 鍒濆鍖栧簱瀛樺垎鏋愬浘琛?==========
         async function initInventoryCharts() {
             document.getElementById('inventory-health-loading').style.display = 'block';
             document.getElementById('inventory-category-loading').style.display = 'block';
@@ -1451,7 +1452,7 @@
             try {
                 const data = await getDashboardApi().getInventoryData(currentTimeRange);
 
-                // 库存健康度 - Doughnut
+                // 搴撳瓨鍋ュ悍搴?- Doughnut
                 document.getElementById('inventory-health-loading').style.display = 'none';
                 destroyChart('inventoryHealth');
                 charts.inventoryHealth = new Chart(document.getElementById('inventory-health-chart'), {
@@ -1466,7 +1467,7 @@
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
                 });
 
-                // 品类库存分布 - Bar
+                // 鍝佺被搴撳瓨鍒嗗竷 - Bar
                 document.getElementById('inventory-category-loading').style.display = 'none';
                 destroyChart('inventoryCategory');
                 charts.inventoryCategory = new Chart(document.getElementById('inventory-category-chart'), {
@@ -1486,7 +1487,7 @@
             }
         }
 
-        // ========== 初始化发放分析图表 ==========
+        // ========== 鍒濆鍖栧彂鏀惧垎鏋愬浘琛?==========
         async function initPackageCharts() {
             document.getElementById('package-trend-loading').style.display = 'block';
             document.getElementById('redemption-status-loading').style.display = 'block';
@@ -1495,7 +1496,7 @@
             try {
                 const data = await getDashboardApi().getPackageData(currentTimeRange);
 
-                // 月度发放趋势 - Line
+                // 鏈堝害鍙戞斁瓒嬪娍 - Line
                 document.getElementById('package-trend-loading').style.display = 'none';
                 destroyChart('packageTrend');
                 charts.packageTrend = new Chart(document.getElementById('package-trend-chart'), {
@@ -1514,7 +1515,7 @@
                     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
                 });
 
-                // 核销码状态 - Doughnut
+                // 鏍搁攢鐮佺姸鎬?- Doughnut
                 document.getElementById('redemption-status-loading').style.display = 'none';
                 destroyChart('redemptionStatus');
                 charts.redemptionStatus = new Chart(document.getElementById('redemption-status-chart'), {
@@ -1529,7 +1530,7 @@
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
                 });
 
-                // 救助包类型 - Pie
+                // 鏁戝姪鍖呯被鍨?- Pie
                 document.getElementById('package-type-loading').style.display = 'none';
                 destroyChart('packageType');
                 charts.packageType = new Chart(document.getElementById('package-type-chart'), {
@@ -1548,7 +1549,7 @@
             }
         }
 
-        // ========== 初始化保质期&浪费分析图表 ==========
+        // ========== 鍒濆鍖栦繚璐ㄦ湡&娴垂鍒嗘瀽鍥捐〃 ==========
         async function initExpiryCharts() {
             document.getElementById('expiry-distribution-loading').style.display = 'block';
             document.getElementById('wastage-trend-loading').style.display = 'block';
@@ -1556,7 +1557,7 @@
             try {
                 const data = await getDashboardApi().getExpiryData(currentTimeRange);
 
-                // 保质期分布 - Doughnut
+                // 淇濊川鏈熷垎甯?- Doughnut
                 document.getElementById('expiry-distribution-loading').style.display = 'none';
                 destroyChart('expiryDistribution');
                 charts.expiryDistribution = new Chart(document.getElementById('expiry-distribution-chart'), {
@@ -1571,7 +1572,7 @@
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
                 });
 
-                // 月度报损趋势 - Bar
+                // 鏈堝害鎶ユ崯瓒嬪娍 - Bar
                 document.getElementById('wastage-trend-loading').style.display = 'none';
                 destroyChart('wastageTrend');
                 charts.wastageTrend = new Chart(document.getElementById('wastage-trend-chart'), {
@@ -1591,7 +1592,7 @@
             }
         }
 
-        // ========== 初始化核销分析图表 ==========
+        // ========== 鍒濆鍖栨牳閿€鍒嗘瀽鍥捐〃 ==========
         async function initRedemptionCharts() {
             document.getElementById('redemption-rate-loading').style.display = 'block';
             document.getElementById('redemption-breakdown-loading').style.display = 'block';
@@ -1599,7 +1600,7 @@
             try {
                 const data = await getDashboardApi().getRedemptionData(currentTimeRange);
 
-                // 核销率趋势 - Line
+                // 鏍搁攢鐜囪秼鍔?- Line
                 document.getElementById('redemption-rate-loading').style.display = 'none';
                 destroyChart('redemptionRate');
                 charts.redemptionRate = new Chart(document.getElementById('redemption-rate-chart'), {
@@ -1618,7 +1619,7 @@
                     options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 85, max: 100 } } }
                 });
 
-                // 核销状态分布 - Doughnut
+                // 鏍搁攢鐘舵€佸垎甯?- Doughnut
                 document.getElementById('redemption-breakdown-loading').style.display = 'none';
                 destroyChart('redemptionBreakdown');
                 charts.redemptionBreakdown = new Chart(document.getElementById('redemption-breakdown-chart'), {
@@ -1639,4 +1640,3 @@
     </script>
 </body>
 </html>
-            document.getElementById('donation-category-loading').style.display = 'block';
