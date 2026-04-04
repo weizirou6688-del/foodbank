@@ -127,9 +127,9 @@ set "BACKEND_PORT="
 if exist "%BACKEND_PORT_FILE%" (
     set /p "SAVED_BACKEND_PORT="<"%BACKEND_PORT_FILE%"
     if defined SAVED_BACKEND_PORT (
-        call :is_our_backend !SAVED_BACKEND_PORT!
+        call :response_contains "http://127.0.0.1:!SAVED_BACKEND_PORT!/" "ABC Community Food Bank API"
         if not errorlevel 1 (
-            call :is_backend_ready !SAVED_BACKEND_PORT!
+            call :is_http_ok "http://127.0.0.1:!SAVED_BACKEND_PORT!/health"
             if not errorlevel 1 (
                 set "BACKEND_PORT=!SAVED_BACKEND_PORT!"
                 echo   - Backend is already running on !BACKEND_PORT!
@@ -144,12 +144,12 @@ if errorlevel 1 (
     set "BACKEND_PORT=%DEFAULT_BACKEND_PORT%"
     echo   - Starting backend on !BACKEND_PORT!...
     call :start_backend !BACKEND_PORT!
-    exit /b %errorlevel%
+    exit /b !errorlevel!
 )
 
-call :is_our_backend %DEFAULT_BACKEND_PORT%
+call :response_contains "http://127.0.0.1:%DEFAULT_BACKEND_PORT%/" "ABC Community Food Bank API"
 if not errorlevel 1 (
-    call :is_backend_ready %DEFAULT_BACKEND_PORT%
+    call :is_http_ok "http://127.0.0.1:%DEFAULT_BACKEND_PORT%/health"
     if not errorlevel 1 (
         set "BACKEND_PORT=%DEFAULT_BACKEND_PORT%"
         echo   - Backend is already running on !BACKEND_PORT!
@@ -169,7 +169,7 @@ if errorlevel 1 (
 
 echo   - Starting backend on !BACKEND_PORT!...
 call :start_backend !BACKEND_PORT!
-exit /b %errorlevel%
+exit /b !errorlevel!
 
 :maybe_seed_demo_data
 if /I not "%SEED_DEMO_DATA%"=="true" (
@@ -197,7 +197,7 @@ set "FRONTEND_PORT="
 if exist "%FRONTEND_PORT_FILE%" (
     set /p "SAVED_FRONTEND_PORT="<"%FRONTEND_PORT_FILE%"
     if defined SAVED_FRONTEND_PORT (
-        call :is_our_frontend !SAVED_FRONTEND_PORT!
+        call :response_contains "http://127.0.0.1:!SAVED_FRONTEND_PORT!" "ABC Community Food Bank"
         if not errorlevel 1 (
             set "FRONTEND_PORT=!SAVED_FRONTEND_PORT!"
             echo   - Frontend is already running on !FRONTEND_PORT!
@@ -211,10 +211,10 @@ if errorlevel 1 (
     set "FRONTEND_PORT=%DEFAULT_FRONTEND_PORT%"
     echo   - Starting frontend on !FRONTEND_PORT!...
     call :start_frontend !FRONTEND_PORT!
-    exit /b %errorlevel%
+    exit /b !errorlevel!
 )
 
-call :is_our_frontend %DEFAULT_FRONTEND_PORT%
+call :response_contains "http://127.0.0.1:%DEFAULT_FRONTEND_PORT%" "ABC Community Food Bank"
 if not errorlevel 1 (
     set "FRONTEND_PORT=%DEFAULT_FRONTEND_PORT%"
     echo   - Frontend is already running on !FRONTEND_PORT!
@@ -230,12 +230,11 @@ if errorlevel 1 (
 
 echo   - Starting frontend on !FRONTEND_PORT!...
 call :start_frontend !FRONTEND_PORT!
-exit /b %errorlevel%
+exit /b !errorlevel!
 
 :start_backend
 set "PORT=%~1"
-start "FoodBank Backend" /MIN powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%start_backend.ps1" -RootDir "%ROOT_DIR%" -Port %PORT%
-call :wait_for_backend_ready %PORT%
+powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%start_backend.ps1" -RootDir "%ROOT_DIR%" -Port %PORT%
 if errorlevel 1 (
     echo   - Backend failed to become healthy
     exit /b 1
@@ -245,32 +244,13 @@ exit /b 0
 
 :start_frontend
 set "PORT=%~1"
-start "FoodBank Frontend" /MIN powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%start_frontend.ps1" -RootDir "%ROOT_DIR%" -BackendPort %BACKEND_PORT% -Port %PORT%
-call :wait_for_frontend_ready %PORT%
+powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%start_frontend.ps1" -RootDir "%ROOT_DIR%" -BackendPort %BACKEND_PORT% -Port %PORT%
 if errorlevel 1 (
     echo   - Frontend failed to become reachable
     exit /b 1
 )
 set "FRONTEND_PORT=%PORT%"
 exit /b 0
-
-:wait_for_backend_ready
-set "PORT=%~1"
-for /l %%I in (1,1,30) do (
-    timeout /t 1 /nobreak >nul
-    call :is_backend_ready %PORT%
-    if not errorlevel 1 exit /b 0
-)
-exit /b 1
-
-:wait_for_frontend_ready
-set "PORT=%~1"
-for /l %%I in (1,1,45) do (
-    timeout /t 1 /nobreak >nul
-    call :is_our_frontend %PORT%
-    if not errorlevel 1 exit /b 0
-)
-exit /b 1
 
 :find_free_port
 setlocal EnableDelayedExpansion
@@ -286,16 +266,13 @@ endlocal & exit /b 1
 
 :is_port_listening
 netstat -ano | findstr "LISTENING" | findstr ":%~1 " >nul 2>&1
-exit /b %errorlevel%
+exit /b !errorlevel!
 
-:is_our_backend
-curl.exe -fsS "http://127.0.0.1:%~1/" 2>nul | findstr /C:"ABC Community Food Bank API" >nul 2>&1
-exit /b %errorlevel%
+:is_http_ok
+curl.exe -fsS "%~1" >nul 2>&1
+exit /b !errorlevel!
 
-:is_backend_ready
-curl.exe -fsS "http://127.0.0.1:%~1/health" 2>nul | findstr /C:"\"status\":\"ok\"" >nul 2>&1
-exit /b %errorlevel%
+:response_contains
+curl.exe -fsS "%~1" 2>nul | findstr /C:"%~2" >nul 2>&1
+exit /b !errorlevel!
 
-:is_our_frontend
-curl.exe -fsS "http://127.0.0.1:%~1" 2>nul | findstr /C:"ABC Community Food Bank" >nul 2>&1
-exit /b %errorlevel%

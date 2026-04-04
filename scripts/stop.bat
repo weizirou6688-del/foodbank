@@ -61,13 +61,13 @@ if /i "%~2"=="backend" call :stop_if_our_backend !SAVED_PORT!
 exit /b 0
 
 :stop_if_our_frontend
-call :is_our_frontend %~1
+call :response_contains "http://localhost:%~1" "ABC Community Food Bank"
 if errorlevel 1 exit /b 0
 call :kill_listeners_on_port %~1
 exit /b 0
 
 :stop_if_our_backend
-call :is_our_backend %~1
+call :response_contains "http://localhost:%~1/" "ABC Community Food Bank API"
 if errorlevel 1 exit /b 0
 call :kill_listeners_on_port %~1
 exit /b 0
@@ -94,10 +94,7 @@ for /f "tokens=2 delims==" %%B in ('wmic process where "ParentProcessId=%PARENT_
 )
 exit /b 0
 
-:is_our_backend
-curl.exe -fsS "http://localhost:%~1/" 2>nul | findstr /C:"ABC Community Food Bank API" >nul 2>&1
-exit /b %errorlevel%
+:response_contains
+curl.exe -fsS "%~1" 2>nul | findstr /C:"%~2" >nul 2>&1
+exit /b !errorlevel!
 
-:is_our_frontend
-curl.exe -fsS "http://localhost:%~1" 2>nul | findstr /C:"ABC Community Food Bank" >nul 2>&1
-exit /b %errorlevel%
