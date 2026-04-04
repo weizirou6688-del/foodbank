@@ -416,6 +416,9 @@ export const statsAPI = {
   getPublicImpact: (
     range: 'month' | 'quarter' | 'year' = 'month'
   ) => apiClient.get(`/api/v1/stats/public-impact?range=${range}`) as Promise<PublicImpactMetricsResponse>,
+  getPublicGoodsImpact: (
+    range: 'month' | 'quarter' | 'year' = 'month'
+  ) => apiClient.get(`/api/v1/stats/public-goods-impact?range=${range}`) as Promise<PublicImpactMetricsResponse>,
 }
 
 export const restockAPI = {

@@ -9,8 +9,10 @@ from types import SimpleNamespace
 import pytest
 
 from app.routers.stats import (
+    get_dashboard_analytics,
     get_donation_stats,
     get_package_stats,
+    get_public_goods_impact_metrics,
     get_public_impact_metrics,
     get_stock_gap_analysis,
 )
@@ -206,3 +208,130 @@ async def test_get_public_impact_metrics_aggregates_current_period():
     assert metrics['aid_redemption_success_rate'].value == '100.0%'
     assert metrics['goods_units_year'].value == '12'
 
+
+@pytest.mark.asyncio
+async def test_get_public_goods_impact_metrics_aligns_dashboard_counts():
+    current_year = date.today().year
+
+    cash_partner = SimpleNamespace(
+        status='completed',
+        donor_type='organization',
+        donor_email='partner@example.org',
+        donor_name='Community Partner',
+    )
+    goods_current = SimpleNamespace(
+        status='received',
+        donor_type='supermarket',
+        donor_email='market@example.org',
+        donor_name='Neighbourhood Market',
+        pickup_date=date(current_year, 4, 1),
+        created_at=datetime(current_year, 4, 1),
+        items=[
+            SimpleNamespace(quantity=10, item_name='Rice'),
+            SimpleNamespace(quantity=5, item_name='Beans'),
+        ],
+    )
+    goods_previous = SimpleNamespace(
+        status='received',
+        donor_type='individual',
+        donor_email='donor@example.org',
+        donor_name='Helpful Donor',
+        pickup_date=date(current_year, 3, 1),
+        created_at=datetime(current_year, 3, 1),
+        items=[SimpleNamespace(quantity=5, item_name='Pasta')],
+    )
+    current_application = SimpleNamespace(
+        user_id='family-1',
+        created_at=datetime(current_year, 4, 2),
+        deleted_at=None,
+    )
+    previous_application = SimpleNamespace(
+        user_id='family-2',
+        created_at=datetime(current_year, 3, 2),
+        deleted_at=None,
+    )
+
+    db = FakeSession(
+        execute_rows_seq=[
+            [cash_partner],
+            [goods_previous, goods_current],
+            [previous_application, current_application],
+        ]
+    )
+
+    result = await get_public_goods_impact_metrics(range_key="month", db=db)
+    metrics = {metric.key: metric for metric in result.impactMetrics}
+
+    assert metrics['goods_units_current_period'].value == '15'
+    assert metrics['goods_units_current_period'].label == 'Items Donated This Month'
+    assert metrics['goods_units_current_period'].change == '+200.0%'
+    assert metrics['families_supported'].value == '2'
+    assert metrics['families_supported'].change == '+0.0%'
+    assert metrics['partner_organizations'].value == '2'
+
+
+
+@pytest.mark.asyncio
+async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
+    current_year = date.today().year
+
+    cash_partner = SimpleNamespace(
+        status='completed',
+        donor_type='organization',
+        donor_email='partner@example.org',
+        donor_name='Community Partner',
+        amount_pence=1500,
+        created_at=datetime(current_year, 4, 1),
+    )
+    goods_current = SimpleNamespace(
+        status='received',
+        donor_type='supermarket',
+        donor_email='market@example.org',
+        donor_name='Neighbourhood Market',
+        pickup_date=date(current_year, 4, 1),
+        created_at=datetime(current_year, 4, 1),
+        items=[
+            SimpleNamespace(quantity=10, item_name='Rice'),
+            SimpleNamespace(quantity=5, item_name='Beans'),
+        ],
+    )
+    goods_previous = SimpleNamespace(
+        status='received',
+        donor_type='individual',
+        donor_email='donor@example.org',
+        donor_name='Helpful Donor',
+        pickup_date=date(current_year, 3, 1),
+        created_at=datetime(current_year, 3, 1),
+        items=[SimpleNamespace(quantity=5, item_name='Pasta')],
+    )
+    current_application = SimpleNamespace(
+        id='app-current',
+        user_id='family-1',
+        created_at=datetime(current_year, 4, 2),
+        deleted_at=None,
+        status='pending',
+        week_start=date(current_year, 4, 1),
+        items=[],
+    )
+
+    db = FakeSession(
+        execute_rows_seq=[
+            [cash_partner],
+            [goods_previous, goods_current],
+            [],
+            [],
+            [],
+            [current_application],
+            [],
+            [],
+        ]
+    )
+
+    result = await get_dashboard_analytics(range_key='month', admin_user={'role': 'admin'}, db=db)
+    metrics = {metric.key: metric for metric in result.impactMetrics}
+
+    assert result.kpi.totalDonation == 15
+    assert result.kpi.trends.donation == '+200.0% vs last month'
+    assert metrics['families_supported'].value == '1'
+    assert metrics['partner_organizations'].value == '2'
+    assert metrics['goods_units_year'].value == '20'

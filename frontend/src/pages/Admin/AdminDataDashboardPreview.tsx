@@ -306,6 +306,7 @@ export default function AdminDataDashboardPreview() {
             families_supported: 'impact-card-families-supported',
             food_units_distributed: 'impact-card-food-units-distributed',
             partner_supermarkets: 'impact-card-partner-supermarkets',
+            partner_organizations: 'impact-card-partner-supermarkets',
             goods_units_year: 'impact-card-goods-units-year',
             aid_packages_distributed: 'impact-card-aid-packages-distributed',
           }
