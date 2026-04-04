@@ -29,7 +29,7 @@ export const router = createBrowserRouter([
   {
     path: '/data-dashboard-preview',
     element: withSuspense(
-      <ProtectedRoute allowedRole="admin">
+      <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
         <Navigate to="/admin?section=statistics" replace />
       </ProtectedRoute>,
     ),
@@ -40,7 +40,7 @@ export const router = createBrowserRouter([
   {
     path: '/food-management-preview',
     element: withSuspense(
-      <ProtectedRoute allowedRole="admin">
+      <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
         <Navigate to="/admin?section=food" replace />
       </ProtectedRoute>,
     ),
@@ -48,7 +48,7 @@ export const router = createBrowserRouter([
   {
     path: '/supermarket',
     element: withSuspense(
-      <ProtectedRoute allowedRole="supermarket">
+      <ProtectedRoute allowedRole="supermarket" showFooterWhenBlocked>
         <Supermarket />
       </ProtectedRoute>
     ),
@@ -77,7 +77,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin',
         element: withSuspense(
-          <ProtectedRoute allowedRole="admin">
+          <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
             <Admin />
           </ProtectedRoute>
         ),

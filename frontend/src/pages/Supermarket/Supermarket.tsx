@@ -328,10 +328,6 @@ export default function Supermarket() {
                 {isSubmittingDonation ? 'Submitting...' : 'Submit Restock'}
               </button>
             </form>
-
-            <div className="mt-6 text-center text-[14px]" style={{ color: '#6B7280' }}>
-              UK Registered Charity No. 1234567 | All Rights Reserved | Secured Data
-            </div>
           </div>
         </div>
       </main>
@@ -349,3 +345,4 @@ export default function Supermarket() {
     </div>
   )
 }
+
