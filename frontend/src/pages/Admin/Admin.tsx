@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 
 const AdminDataDashboardPreview = lazy(() => import('./AdminDataDashboardPreview'))
 const AdminFoodManagementPreview = lazy(() => import('./AdminFoodManagementPreview'))
@@ -14,9 +15,12 @@ type IdleWindow = Window &
 
 function AdminSectionFallback() {
   return (
-    <div className="min-h-[40vh] flex items-center justify-center px-6 text-sm text-slate-600">
-      Loading admin section...
-    </div>
+    <>
+      <div className="min-h-[40vh] flex items-center justify-center px-6 text-sm text-slate-600">
+        Loading admin section...
+      </div>
+      <PublicSiteFooter />
+    </>
   )
 }
 

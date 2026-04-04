@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import dataDashboardReferenceHtml from 'virtual:data-dashboard-reference'
 import { useAuthStore } from '@/app/store/authStore'
 import LoginModal from '@/features/auth/components/LoginModal'
+import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { adminAPI, type DashboardAnalyticsResponse, type DashboardDisplayCard } from '@/shared/lib/api'
 
 const roleLabelMap = {
@@ -270,34 +271,9 @@ export default function AdminDataDashboardPreview() {
       bindNavigation('.nav-links li:first-child a', foodManagementPath)
       bindNavigation('.nav-links li:nth-child(2) a', dashboardPath)
 
-      const footerRouteMap: Array<{ label: string; path: string }> = [
-        { label: 'About Us', path: '/home#about' },
-        { label: 'Get Support', path: '/find-foodbank' },
-        { label: 'Donate Cash', path: '/donate/cash' },
-        { label: 'Donate Goods', path: '/donate/goods' },
-        { label: 'Inventory Management', path: foodManagementPath },
-        { label: 'Data Dashboard', path: dashboardPath },
-        { label: 'Supermarket Restock', path: '/supermarket' },
-      ]
-
-      for (const { label, path } of footerRouteMap) {
-        const anchor = Array.from(doc.querySelectorAll('.footer-links a')).find(
-          (link) => link.textContent?.trim() === label,
-        )
-
-        if (isFrameHTMLAnchorElement(anchor)) {
-          anchor.href = path
-        }
-        if (!isFrameHTMLElement(anchor)) {
-          continue
-        }
-
-        const handleClick = (event: MouseEvent) => {
-          event.preventDefault()
-          navigate(path)
-        }
-        anchor.addEventListener('click', handleClick as EventListener)
-        cleanupFns.push(() => anchor.removeEventListener('click', handleClick as EventListener))
+      const previewFooter = doc.querySelector('footer')
+      if (previewFooter) {
+        previewFooter.remove()
       }
 
       if (frameWindow && accessToken) {
@@ -450,6 +426,7 @@ export default function AdminDataDashboardPreview() {
         <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-slate-600">
           Unable to load `scripts/Data_dashboard.html`. Save the file content and refresh this page.
         </div>
+        <PublicSiteFooter />
         <LoginModal
           isOpen={loginModal.open}
           onClose={() => setLoginModal((state) => ({ ...state, open: false }))}
@@ -474,6 +451,7 @@ export default function AdminDataDashboardPreview() {
           backgroundColor: '#FFFFFF',
         }}
       />
+      <PublicSiteFooter />
       <LoginModal
         isOpen={loginModal.open}
         onClose={() => setLoginModal((state) => ({ ...state, open: false }))}

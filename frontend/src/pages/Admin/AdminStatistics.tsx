@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '@/app/store/authStore'
 import { adminAPI } from '@/shared/lib/api'
+import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import type { DonationListRow } from '@/shared/types/common'
 
 type Period = 'Day' | 'Week' | 'Month'
@@ -352,6 +353,7 @@ export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
           </table>
         )}
       </div>
+      <PublicSiteFooter />
     </div>
   )
 }

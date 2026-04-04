@@ -12,6 +12,7 @@ import QuantityPromptModal from '@/features/admin/components/QuantityPromptModal
 import { useAuthStore } from '@/app/store/authStore'
 import { useFoodBankStore } from '@/app/store/foodBankStore'
 import { adminAPI, restockAPI } from '@/shared/lib/api'
+import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 
 type Tab = 'packages' | 'items' | 'packaging' | 'lots' | 'low-stock'
 
@@ -1164,6 +1165,7 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
         submitting={isActionBusy(restockConfirmTarget?.mode === 'fulfil' ? 'restock-fulfil' : 'restock-cancel')}
         onConfirm={submitRestockConfirm}
       />
+      <PublicSiteFooter />
     </div>
   )
 }

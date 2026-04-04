@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import foodManagementReferenceHtml from 'virtual:food-management-reference'
 import { useAuthStore } from '@/app/store/authStore'
 import LoginModal from '@/features/auth/components/LoginModal'
+import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import {
   adminAPI,
   applicationsAPI,
@@ -567,32 +568,9 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         navigate('/admin?section=statistics')
       })
 
-      const footerRouteMap: Array<{ label: string; path: string }> = [
-        { label: 'About Us', path: '/home#about' },
-        { label: 'Get Support', path: '/find-foodbank' },
-        { label: 'Donate Cash', path: '/donate/cash' },
-        { label: 'Donate Goods', path: '/donate/goods' },
-        { label: 'Inventory Management', path: '/admin?section=food' },
-        { label: 'Data Dashboard', path: '/admin?section=statistics' },
-        { label: 'Supermarket Restock', path: '/supermarket' },
-      ]
-
-      for (const { label, path } of footerRouteMap) {
-        const anchor = Array.from(doc.querySelectorAll('.footer-links a')).find(
-          (link) => link.textContent?.trim() === label,
-        )
-
-        if (!isFrameHTMLAnchorElement(anchor)) {
-          continue
-        }
-
-        anchor.href = path
-        const handleClick = (event: MouseEvent) => {
-          event.preventDefault()
-          navigate(path)
-        }
-        anchor.addEventListener('click', handleClick as EventListener)
-        cleanupFns.push(() => anchor.removeEventListener('click', handleClick as EventListener))
+      const previewFooter = doc.querySelector('footer')
+      if (previewFooter) {
+        previewFooter.remove()
       }
 
       if (isAuthenticated && accessToken) {
@@ -3490,6 +3468,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-slate-600">
           Unable to load `scripts/food_management.html`. Save the file content and refresh this page.
         </div>
+        <PublicSiteFooter />
         <LoginModal
           isOpen={loginModal.open}
           onClose={() => setLoginModal((state) => ({ ...state, open: false }))}
@@ -3514,6 +3493,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           backgroundColor: '#FFFFFF',
         }}
       />
+      <PublicSiteFooter />
       <LoginModal
         isOpen={loginModal.open}
         onClose={() => setLoginModal((state) => ({ ...state, open: false }))}
