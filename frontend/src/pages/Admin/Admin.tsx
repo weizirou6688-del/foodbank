@@ -1,9 +1,24 @@
-import { useState, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import AdminDataDashboardPreview from './AdminDataDashboardPreview'
-import AdminFoodManagementPreview from './AdminFoodManagementPreview'
+
+const AdminDataDashboardPreview = lazy(() => import('./AdminDataDashboardPreview'))
+const AdminFoodManagementPreview = lazy(() => import('./AdminFoodManagementPreview'))
 
 type Section = 'statistics' | 'food'
+
+type IdleWindow = Window &
+  typeof globalThis & {
+    requestIdleCallback?: (callback: () => void) => number
+    cancelIdleCallback?: (handle: number) => void
+  }
+
+function AdminSectionFallback() {
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center px-6 text-sm text-slate-600">
+      Loading admin section...
+    </div>
+  )
+}
 
 export default function Admin() {
   const navigate = useNavigate()
@@ -26,9 +41,37 @@ export default function Admin() {
     navigate('/admin?section=food', { replace: true })
   }, [navigate, searchParams])
 
-  if (section === 'food') {
-    return <AdminFoodManagementPreview onSwitch={setSection} />
-  }
+  useEffect(() => {
+    const idleWindow = window as IdleWindow
+    const preload = () => {
+      if (section === 'food') {
+        void import('./AdminDataDashboardPreview')
+        return
+      }
 
-  return <AdminDataDashboardPreview />
+      void import('./AdminFoodManagementPreview')
+    }
+
+    if (typeof idleWindow.requestIdleCallback === 'function') {
+      const idleHandle = idleWindow.requestIdleCallback(preload)
+      return () => {
+        if (typeof idleWindow.cancelIdleCallback === 'function') {
+          idleWindow.cancelIdleCallback(idleHandle)
+        }
+      }
+    }
+
+    const timeoutHandle = window.setTimeout(preload, 300)
+    return () => window.clearTimeout(timeoutHandle)
+  }, [section])
+
+  return (
+    <Suspense fallback={<AdminSectionFallback />}>
+      {section === 'food' ? (
+        <AdminFoodManagementPreview onSwitch={setSection} />
+      ) : (
+        <AdminDataDashboardPreview />
+      )}
+    </Suspense>
+  )
 }

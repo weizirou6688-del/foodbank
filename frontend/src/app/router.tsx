@@ -46,6 +46,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/supermarket',
+    element: withSuspense(
+      <ProtectedRoute allowedRole="supermarket">
+        <Supermarket />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/',
     element: withSuspense(<Layout />),
     children: [
@@ -71,14 +79,6 @@ export const router = createBrowserRouter([
         element: withSuspense(
           <ProtectedRoute allowedRole="admin">
             <Admin />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'supermarket',
-        element: withSuspense(
-          <ProtectedRoute allowedRole="supermarket">
-            <Supermarket />
           </ProtectedRoute>
         ),
       },

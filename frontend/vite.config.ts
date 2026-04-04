@@ -110,6 +110,41 @@ const loadDataDashboardReference = (): string => {
   return ''
 }
 
+
+const xlsxChunkPackages = new Set([
+  'xlsx',
+  'cfb',
+  'codepage',
+  'ssf',
+  'frac',
+  'crc-32',
+  'adler-32',
+  'wmf',
+  'word',
+])
+
+const getNodeModulePackageName = (id: string): string | null => {
+  const normalizedId = id.replace(/\\/g, '/')
+  const segments = normalizedId.split('/node_modules/')
+  if (segments.length < 2) {
+    return null
+  }
+
+  const packagePath = segments[segments.length - 1]
+  const parts = packagePath.split('/')
+  if (!parts[0]) {
+    return null
+  }
+
+  if (parts[0].startsWith('@') && parts[1]) {
+    return `${parts[0]}/${parts[1]}`
+  }
+
+  return parts[0]
+}
+
+const sanitizeChunkName = (name: string): string => name.replace(/^@/, '').replace(/[\\/]/g, '-')
+
 const htmlReferencePlugin = () => ({
   name: 'html-reference-plugin',
   resolveId(id: string) {
@@ -135,7 +170,6 @@ const htmlReferencePlugin = () => ({
     return null
   },
 })
-
 export default defineConfig({
   plugins: [react(), htmlReferencePlugin()],
   build: {
@@ -146,23 +180,56 @@ export default defineConfig({
             return undefined
           }
 
-          if (id.includes('react-router-dom')) {
-            return 'router'
+          const packageName = getNodeModulePackageName(id)
+          if (!packageName) {
+            return 'vendor'
           }
 
-          if (id.includes('react-leaflet') || id.includes('leaflet')) {
-            return 'maps'
-          }
-
-          if (id.includes('lucide-react')) {
-            return 'icons'
-          }
-
-          if (id.includes('react-dom') || id.includes(`${path.sep}react${path.sep}`)) {
+          if (
+            packageName === 'react' ||
+            packageName === 'react-dom' ||
+            packageName === 'scheduler'
+          ) {
             return 'react-vendor'
           }
 
-          return 'vendor'
+          if (
+            packageName === 'react-router' ||
+            packageName === 'react-router-dom' ||
+            packageName === '@remix-run/router'
+          ) {
+            return 'router'
+          }
+
+          if (
+            packageName === 'leaflet' ||
+            packageName === 'react-leaflet' ||
+            packageName === '@react-leaflet/core'
+          ) {
+            return 'maps'
+          }
+
+          if (packageName === 'lucide-react') {
+            return 'icons'
+          }
+
+          if (xlsxChunkPackages.has(packageName)) {
+            return 'xlsx'
+          }
+
+          if (packageName === 'zustand' || packageName === 'use-sync-external-store') {
+            return 'state'
+          }
+
+          if (
+            packageName === 'class-variance-authority' ||
+            packageName === 'clsx' ||
+            packageName === 'tailwind-merge'
+          ) {
+            return 'ui-utils'
+          }
+
+          return `vendor-${sanitizeChunkName(packageName)}`
         },
       },
     },
