@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { Check } from 'lucide-react'
 import { donationsAPI } from '@/shared/lib/api'
@@ -18,6 +19,7 @@ const POUND_SYMBOL = '\u00A3'
 const HERO_EM_DASH = '\u2014'
 
 export default function DonateCash() {
+  const location = useLocation()
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -39,6 +41,42 @@ export default function DonateCash() {
       block: 'start',
     })
   }
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search)
+    const amountParam = searchParams.get('amount')
+    const parsedAmount = amountParam ? Number.parseFloat(amountParam) : Number.NaN
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setSelectedAmount(null)
+      setCustomAmount('')
+      return
+    }
+
+    if (DONATION_AMOUNTS.includes(parsedAmount)) {
+      setSelectedAmount(parsedAmount)
+      setCustomAmount('')
+      return
+    }
+
+    setSelectedAmount(null)
+    setCustomAmount(parsedAmount.toString())
+  }, [location.search])
+
+  useEffect(() => {
+    if (location.hash !== '#donate-form') {
+      return
+    }
+
+    const timeoutHandle = window.setTimeout(() => {
+      document.getElementById('donate-form')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 50)
+
+    return () => window.clearTimeout(timeoutHandle)
+  }, [location.hash])
 
   const resetForm = () => {
     setSelectedAmount(null)
@@ -71,6 +109,20 @@ export default function DonateCash() {
 
     return year > currentYear || (year === currentYear && month >= currentMonth)
   }
+
+  const donationType = new URLSearchParams(location.search).get('type')
+  const isMonthlyDonation = donationType === 'monthly'
+  const isOneTimeDonation = donationType === 'onetime' || donationType === 'one-time'
+  const formHeading = isMonthlyDonation
+    ? 'Monthly Giving'
+    : isOneTimeDonation
+      ? 'One-Time Donation'
+      : 'Donate Now'
+  const formSubtext = isMonthlyDonation
+    ? 'You are setting up a monthly donation. All fields are required.'
+    : isOneTimeDonation
+      ? 'You are making a one-time donation. All fields are required.'
+      : 'All fields are required.'
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -400,9 +452,9 @@ export default function DonateCash() {
 
         <section id="donate-form" className={styles.section}>
           <div className={styles.formInner}>
-            <div className={styles.sectionIntro}>
-              <h2 className={styles.sectionTitle}>Donate Now</h2>
-              <p className={styles.formSubtext}>All fields are required.</p>
+            <div className={`${styles.sectionIntro} ${styles.formSectionIntro}`}>
+              <h2 className={styles.sectionTitle}>{formHeading}</h2>
+              <p className={styles.formSubtext}>{formSubtext}</p>
             </div>
 
             <div className={styles.formCard}>
