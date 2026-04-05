@@ -156,6 +156,15 @@ class FakeSession:
             return _ExecuteResult(self._restock_rows)
         if "sum(inventory_lots.quantity)" in q:
             return _ExecuteResult(self._stock_rows)
+        if "food_banks" in q:
+            rows = self._food_bank_rows
+            if food_bank_filter is not None:
+                rows = [
+                    row
+                    for row in rows
+                    if getattr(row, "id", None) == food_bank_filter
+                ]
+            return _ExecuteResult(rows)
         return _ExecuteResult([])
 
 
@@ -295,6 +304,54 @@ async def test_submit_goods_donation_uses_external_food_bank_email_for_notificat
 
     assert len(notification_tasks) == 1
     assert notification_tasks[0].kwargs["notification_email"] == "donations@example.org"
+
+
+@pytest.mark.asyncio
+async def test_submit_goods_donation_matches_internal_food_bank_from_metadata_for_notification():
+    future_pickup_date = date.today() + timedelta(days=1)
+    matching_bank = FoodBank(
+        id=11,
+        name="Downtown Community Food Bank",
+        address="123 Main Street, London, SW1A 1AA",
+        lat=51.501,
+        lng=-0.141,
+        notification_email="localbank@example.org",
+    )
+    db = FakeSession(food_bank_rows=[matching_bank])
+    background_tasks = BackgroundTasks()
+    payload = DonationGoodsCreate(
+        food_bank_name="Downtown Community Food Bank",
+        food_bank_address="123 Main Street, London, SW1A 1AA",
+        donor_name="Alice",
+        donor_email="alice@example.com",
+        donor_phone="123456",
+        postcode="SW1A 1AA",
+        pickup_date=future_pickup_date.isoformat(),
+        item_condition="Good",
+        estimated_quantity="1 box",
+        notes="Ring the bell",
+        items=[
+            DonationGoodsItemCreatePayload(item_name="Rice", quantity=2),
+        ],
+    )
+
+    result = await submit_goods_donation(
+        donation_in=payload,
+        background_tasks=background_tasks,
+        db=db,
+    )
+
+    notification_tasks = [
+        task
+        for task in background_tasks.tasks
+        if task.func is donations_router.send_goods_donation_notification
+    ]
+
+    assert result.food_bank_id == matching_bank.id
+    assert result.food_bank_name == matching_bank.name
+    assert result.food_bank_address == matching_bank.address
+    assert len(notification_tasks) == 1
+    assert notification_tasks[0].kwargs["notification_email"] == "localbank@example.org"
 
 
 @pytest.mark.asyncio
