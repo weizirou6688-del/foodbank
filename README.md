@@ -35,6 +35,14 @@ cd scripts
 stop.bat
 ```
 
+### Repair Codex `apply_patch` On Windows
+
+If Codex tooling on this machine starts failing with an `apply_patch` crash or exit code `-1073741515`, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\fix_codex_apply_patch_runtime.ps1
+```
+
 ### Cleanup Synthetic Analytics Data
 
 Preview what the local analytics-data cleanup would remove:
