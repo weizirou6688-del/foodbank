@@ -28,6 +28,8 @@ class DonationCashBase(BaseModel):
 
     donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
 
+    food_bank_id: int | None = Field(default=None, gt=0)
+
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor email for receipt and contact. Validated as EmailStr per RFC 5332.
     donor_email: EmailStr
@@ -58,6 +60,8 @@ class DonationCashCreate(BaseModel):
 
     donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
 
+    food_bank_id: int | None = Field(default=None, gt=0)
+
     # From spec: donor_email: VARCHAR(255), NOT NULL
     # Donor email for receipt.
     donor_email: EmailStr
@@ -82,6 +86,8 @@ class DonationCashUpdate(BaseModel):
     donor_name: str | None = Field(default=None, min_length=1, max_length=100)
 
     donor_type: str | None = Field(default=None, pattern=DONATION_DONOR_TYPE_PATTERN)
+
+    food_bank_id: int | None = Field(default=None, gt=0)
 
     donor_email: EmailStr | None = None
 

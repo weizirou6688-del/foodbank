@@ -54,6 +54,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/admin',
+    element: withSuspense(
+      <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
+        <Admin />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/',
     element: withSuspense(<Layout />),
     children: [
@@ -71,14 +79,6 @@ export const router = createBrowserRouter([
         element: withSuspense(
           <ProtectedRoute>
             <ApplicationForm />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'admin',
-        element: withSuspense(
-          <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
-            <Admin />
           </ProtectedRoute>
         ),
       },

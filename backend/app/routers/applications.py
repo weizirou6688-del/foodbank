@@ -18,7 +18,12 @@ from app.core.database_errors import (
     is_database_unavailable_exception,
     raise_database_unavailable_http_exception,
 )
-from app.core.security import get_current_user, require_admin
+from app.core.security import (
+    enforce_admin_food_bank_scope,
+    get_admin_food_bank_id,
+    get_current_user,
+    require_admin,
+)
 from app.models.application import Application
 from app.models.application_item import ApplicationItem
 from app.models.food_bank import FoodBank
@@ -462,8 +467,12 @@ async def list_all_applications(
 
     Spec § 2.4: Admin application listing endpoint.
     """
-    _ = admin_user
-    result = await db.execute(select(Application).order_by(Application.created_at.desc()))
+    query = select(Application).order_by(Application.created_at.desc())
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is not None:
+        query = query.where(Application.food_bank_id == admin_food_bank_id)
+
+    result = await db.execute(query)
     items = list(result.scalars().all())
     total = len(items)
     # TODO: 实现真实分页
@@ -481,8 +490,7 @@ async def list_admin_application_records(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-    result = await db.execute(
+    query = (
         select(Application)
         .options(
             selectinload(Application.items).selectinload(ApplicationItem.package),
@@ -490,6 +498,11 @@ async def list_admin_application_records(
         )
         .order_by(Application.created_at.desc())
     )
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is not None:
+        query = query.where(Application.food_bank_id == admin_food_bank_id)
+
+    result = await db.execute(query)
     applications = list(result.scalars().all())
     items = [_serialize_admin_application(application) for application in applications]
     total = len(items)
@@ -508,7 +521,6 @@ async def get_application_by_redemption_code(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
     normalized_code = _normalize_redemption_code(redemption_code)
     result = await db.execute(
         select(Application)
@@ -524,6 +536,11 @@ async def get_application_by_redemption_code(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found for redemption code",
         )
+    enforce_admin_food_bank_scope(
+        admin_user,
+        application.food_bank_id,
+        detail="You can only access redemption codes for your assigned food bank",
+    )
     return _serialize_admin_application(application)
 
 
@@ -533,8 +550,6 @@ async def redeem_application(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     try:
         async with db.begin():
             application = await _load_admin_application(db, application_id)
@@ -543,6 +558,12 @@ async def redeem_application(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Application not found",
                 )
+
+            enforce_admin_food_bank_scope(
+                admin_user,
+                application.food_bank_id,
+                detail="You can only redeem records for your assigned food bank",
+            )
 
             if application.deleted_at is not None:
                 raise HTTPException(
@@ -590,8 +611,6 @@ async def void_application(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     try:
         async with db.begin():
             application = await _load_admin_application(db, application_id)
@@ -600,6 +619,12 @@ async def void_application(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Application not found",
                 )
+
+            enforce_admin_food_bank_scope(
+                admin_user,
+                application.food_bank_id,
+                detail="You can only void records for your assigned food bank",
+            )
 
             if application.deleted_at is not None:
                 raise HTTPException(
@@ -652,8 +677,6 @@ async def update_application_status(
     
     TODO: Admin-only endpoint to update status and comments
     """
-    _ = admin_user
-
     if (
         application_in.status is None
         and application_in.redemption_code is None
@@ -674,6 +697,12 @@ async def update_application_status(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Application not found",
                 )
+
+            enforce_admin_food_bank_scope(
+                admin_user,
+                application.food_bank_id,
+                detail="You can only update records for your assigned food bank",
+            )
 
             if application_in.redemption_code is not None:
                 normalized_code = _normalize_redemption_code(application_in.redemption_code)

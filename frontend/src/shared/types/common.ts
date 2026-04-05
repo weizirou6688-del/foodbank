@@ -6,6 +6,8 @@ export interface User {
   name: string
   email: string
   role: UserRole
+  food_bank_id?: number | null
+  food_bank_name?: string | null
 }
 
 // Food bank discovery and selection

@@ -49,6 +49,9 @@ class UserBase(BaseModel):
     # Validation: Regex enforces exactly one of three allowed role values.
     role: str = Field(pattern="^(public|supermarket|admin)$")
 
+    food_bank_id: int | None = None
+    food_bank_name: str | None = None
+
 
 # Schema for user registration / account creation.
 class UserCreate(BaseModel):
@@ -81,6 +84,7 @@ class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     email: EmailStr | None = None
     role: str | None = Field(default=None, pattern="^(public|supermarket|admin)$")
+    food_bank_id: int | None = Field(default=None, gt=0)
     password: str | None = Field(default=None, min_length=8, max_length=128)
 
     @field_validator("password")

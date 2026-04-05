@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
 from app.core.bootstrap import (
+    ensure_demo_admin_scope_records,
     ensure_demo_food_banks,
     ensure_demo_inventory_and_packages,
     ensure_demo_users,
@@ -42,9 +43,10 @@ async def lifespan(app: FastAPI):
             raise RuntimeError(db_error or "Database connection check failed")
 
         if settings.seed_demo_data:
-            await ensure_demo_users()
             await ensure_demo_food_banks()
+            await ensure_demo_users()
             await ensure_demo_inventory_and_packages()
+            await ensure_demo_admin_scope_records()
 
         await ensure_dashboard_history()
         print("Database initialized and connected")

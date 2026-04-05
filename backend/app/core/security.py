@@ -153,6 +153,20 @@ def decode_token(token: str) -> dict:
 # ==================== DEPENDENCY: GET CURRENT USER ====================
 
 security = HTTPBearer(description="Bearer token in Authorization header")
+optional_security = HTTPBearer(
+    auto_error=False,
+    description="Optional bearer token in Authorization header",
+)
+
+
+def _validate_access_payload(payload: dict) -> dict:
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return payload
 
 
 async def get_current_user(
@@ -180,16 +194,70 @@ async def get_current_user(
     """
     token = credentials.credentials
     payload = decode_token(token)
-    
-    # Verify this is an access token (not refresh)
-    if payload.get("type") != "access":
+    return _validate_access_payload(payload)
+
+
+async def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
+) -> dict | None:
+    if credentials is None:
+        return None
+
+    token = credentials.credentials
+    payload = decode_token(token)
+    return _validate_access_payload(payload)
+
+
+def get_admin_food_bank_id(current_user: dict | None) -> int | None:
+    if not isinstance(current_user, dict):
+        return None
+
+    raw_value = current_user.get("food_bank_id")
+    if raw_value in (None, ""):
+        return None
+
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type",
+            detail="Invalid food bank scope in token",
             headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
+def is_local_food_bank_admin(current_user: dict | None) -> bool:
+    return (
+        isinstance(current_user, dict)
+        and current_user.get("role") == "admin"
+        and get_admin_food_bank_id(current_user) is not None
+    )
+
+
+def enforce_admin_food_bank_scope(
+    current_user: dict,
+    food_bank_id: int | None,
+    *,
+    allow_platform_records: bool = False,
+    detail: str = "You do not have access to this food bank scope",
+) -> None:
+    admin_food_bank_id = get_admin_food_bank_id(current_user)
+    if admin_food_bank_id is None:
+        return
+
+    if food_bank_id is None:
+        if allow_platform_records:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=detail,
         )
-    
-    return payload
+
+    if int(food_bank_id) != admin_food_bank_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=detail,
+        )
 
 
 async def require_admin(
@@ -204,6 +272,17 @@ async def require_admin(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required",
+        )
+    return current_user
+
+
+async def require_platform_admin(
+    current_user: dict = Depends(require_admin),
+) -> dict:
+    if is_local_food_bank_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform admin privileges required",
         )
     return current_user
 

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 
@@ -13,7 +13,7 @@ from app.models.user import User
 from app.routers.auth import register, login, logout, refresh, get_profile
 from app.schemas.auth import LoginRequest
 from app.schemas.user import UserCreate
-from app.core.security import create_refresh_token
+from app.core.security import create_refresh_token, decode_token
 
 
 class _Begin:
@@ -25,9 +25,10 @@ class _Begin:
 
 
 class FakeSession:
-    def __init__(self, *, users=None, search_result=None):
+    def __init__(self, *, users=None, search_result=None, food_bank_name=None):
         self.users = users or {}
         self._search_result = search_result  # Explicit search result
+        self._food_bank_name = food_bank_name
         self.added = []
 
     def begin(self):
@@ -42,10 +43,20 @@ class FakeSession:
             return MockExecuteResult([user])
         return MockExecuteResult([None])
 
+    async def scalar(self, query):
+        q = str(query)
+        if "food_banks.name" in q or "FROM food_banks" in q:
+            return self._food_bank_name
+        return None
+
     def add(self, obj):
         self.added.append(obj)
         if isinstance(obj, User) and getattr(obj, "id", None) is None:
             obj.id = uuid.uuid4()
+        if isinstance(obj, User) and getattr(obj, "created_at", None) is None:
+            obj.created_at = datetime.now(timezone.utc)
+        if isinstance(obj, User) and getattr(obj, "updated_at", None) is None:
+            obj.updated_at = obj.created_at
 
     async def flush(self):
         return None
@@ -73,11 +84,11 @@ async def test_register_success():
 
     result = await register(user_in=payload, db=db)
 
-    assert isinstance(result, User)
     assert result.name == "Alice"
     assert result.email == "alice@example.com"
     assert result.role == "public"
-    assert result.password_hash != payload.password  # Hashed, not plaintext
+    created_user = next(obj for obj in db.added if isinstance(obj, User))
+    assert created_user.password_hash != payload.password  # Hashed, not plaintext
 
 
 @pytest.mark.asyncio
@@ -128,11 +139,12 @@ async def test_login_success():
         name="Charlie",
         email="charlie@example.com",
         password_hash=get_password_hash("MyPassword123"),
-        role="public",
+        role="admin",
+        food_bank_id=7,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
-    db = FakeSession(search_result=user)
+    db = FakeSession(search_result=user, food_bank_name="South London Food Bank")
 
     payload = LoginRequest(
         email="charlie@example.com",
@@ -145,6 +157,9 @@ async def test_login_success():
     assert result.refresh_token
     assert result.token_type == "bearer"
     assert result.user.email == "charlie@example.com"
+    assert result.user.food_bank_id == 7
+    assert result.user.food_bank_name == "South London Food Bank"
+    assert decode_token(result.access_token)["food_bank_id"] == 7
 
 
 @pytest.mark.asyncio
@@ -191,7 +206,8 @@ async def test_refresh_token_success():
         name="Eve",
         email="eve@example.com",
         password_hash="hashed",
-        role="supermarket",
+        role="admin",
+        food_bank_id=5,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -203,6 +219,7 @@ async def test_refresh_token_success():
 
     assert "access_token" in result
     assert result["token_type"] == "bearer"
+    assert decode_token(result["access_token"])["food_bank_id"] == 5
 
 
 @pytest.mark.asyncio
@@ -214,17 +231,20 @@ async def test_get_profile_success():
         email="frank@example.com",
         password_hash="hashed",
         role="admin",
+        food_bank_id=3,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
-    db = FakeSession(search_result=user)
-    current_user = {"sub": str(user_id), "role": "admin"}
+    db = FakeSession(search_result=user, food_bank_name="North Bank")
+    current_user = {"sub": str(user_id), "role": "admin", "food_bank_id": 3}
 
     result = await get_profile(current_user=current_user, db=db)
 
     assert result.name == "Frank"
     assert result.email == "frank@example.com"
     assert result.role == "admin"
+    assert result.food_bank_id == 3
+    assert result.food_bank_name == "North Bank"
 
 
 @pytest.mark.asyncio

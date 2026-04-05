@@ -1,4 +1,4 @@
-"""Email sending service for donation thank-you messages."""
+"""Email helpers for donor receipts and goods donation notifications."""
 
 import logging
 import os
@@ -17,6 +17,77 @@ logger = logging.getLogger("uvicorn.error")
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
+def _load_smtp_settings() -> dict[str, str | int | None]:
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    smtp_from_email = os.getenv("SMTP_FROM_EMAIL") or smtp_username
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+
+    if smtp_password:
+        smtp_password = smtp_password.replace(" ", "")
+
+    return {
+        "smtp_username": smtp_username,
+        "smtp_password": smtp_password,
+        "smtp_from_email": smtp_from_email,
+        "smtp_host": smtp_host,
+        "smtp_port": smtp_port,
+    }
+
+
+def _normalize_recipient(to_email: str | None) -> str | None:
+    if not to_email:
+        return None
+
+    try:
+        normalized = validate_email(to_email, check_deliverability=False)
+        return normalized.email
+    except EmailNotValidError as exc:
+        logger.warning("Invalid recipient email '%s': %s", to_email, exc)
+        return None
+
+
+def _operations_fallback_email() -> str | None:
+    return (
+        os.getenv("PLATFORM_OPERATIONS_EMAIL")
+        or os.getenv("OPERATIONS_NOTIFICATION_EMAIL")
+        or os.getenv("SMTP_FROM_EMAIL")
+        or os.getenv("SMTP_USERNAME")
+    )
+
+
+async def _send_email_message(message: EmailMessage) -> None:
+    smtp_settings = _load_smtp_settings()
+    smtp_username = smtp_settings["smtp_username"]
+    smtp_password = smtp_settings["smtp_password"]
+    smtp_from_email = smtp_settings["smtp_from_email"]
+    smtp_host = smtp_settings["smtp_host"]
+    smtp_port = smtp_settings["smtp_port"]
+
+    if not smtp_username or not smtp_password or not smtp_from_email:
+        logger.warning("SMTP config missing; skip email send")
+        return
+
+    if not message.get("To"):
+        logger.warning("Recipient email missing; skip email send")
+        return
+
+    try:
+        await aiosmtplib.send(
+            message,
+            hostname=smtp_host,
+            port=smtp_port,
+            username=smtp_username,
+            password=smtp_password,
+            start_tls=True,
+            timeout=20,
+        )
+        logger.info("Email sent to %s", message["To"])
+    except Exception as exc:
+        logger.exception("Failed to send email to %s: %s", message["To"], exc)
+
+
 async def send_thank_you_email(to_email: str, donation_type: str, details: Any) -> None:
     """
     Send a donation thank-you email through SMTP.
@@ -30,31 +101,13 @@ async def send_thank_you_email(to_email: str, donation_type: str, details: Any) 
     """
     logger.info("Email task started for recipient=%s donation_type=%s", to_email, donation_type)
 
-    smtp_username = os.getenv("SMTP_USERNAME")
-    smtp_password = os.getenv("SMTP_PASSWORD")
-    smtp_from_email = os.getenv("SMTP_FROM_EMAIL") or smtp_username
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-
-    if smtp_password:
-        smtp_password = smtp_password.replace(" ", "")
-
-    if not smtp_username or not smtp_password or not smtp_from_email:
-        logger.warning("SMTP config missing; skip thank-you email send")
-        return
-
-    if not to_email:
-        logger.warning("Recipient email is empty; skip thank-you email send")
-        return
-
-    try:
-        normalized = validate_email(to_email, check_deliverability=False)
-        recipient = normalized.email
-    except EmailNotValidError as exc:
-        logger.warning("Invalid recipient email '%s': %s", to_email, exc)
+    recipient = _normalize_recipient(to_email)
+    if recipient is None:
+        logger.warning("Recipient email is empty or invalid; skip thank-you email send")
         return
 
     donation_label = "Cash" if donation_type == "cash" else "Goods"
+    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
 
     message = EmailMessage()
     message["From"] = smtp_from_email
@@ -68,16 +121,45 @@ async def send_thank_you_email(to_email: str, donation_type: str, details: Any) 
         "Thank you!"
     )
 
-    try:
-        await aiosmtplib.send(
-            message,
-            hostname=smtp_host,
-            port=smtp_port,
-            username=smtp_username,
-            password=smtp_password,
-            start_tls=True,
-            timeout=20,
-        )
-        logger.info("Thank-you email sent to %s", recipient)
-    except Exception as exc:
-        logger.exception("Failed to send thank-you email to %s: %s", recipient, exc)
+    await _send_email_message(message)
+
+
+async def send_goods_donation_notification(
+    *,
+    notification_email: str | None,
+    food_bank_name: str | None,
+    food_bank_address: str | None,
+    donor_name: str,
+    donor_email: str,
+    donor_phone: str,
+    items_summary: str,
+    pickup_date: str | None,
+    notes: str | None,
+) -> None:
+    recipient = _normalize_recipient(notification_email) or _normalize_recipient(
+        _operations_fallback_email()
+    )
+    if recipient is None:
+        logger.warning("No valid notification email configured for goods donation alert")
+        return
+
+    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
+
+    message = EmailMessage()
+    message["From"] = smtp_from_email
+    message["To"] = recipient
+    message["Subject"] = "New Goods Donation Request | ABC Community Food Bank"
+    message.set_content(
+        "A new goods donation request has been submitted.\n\n"
+        f"Food Bank: {food_bank_name or 'Unassigned / external listing'}\n"
+        f"Address: {food_bank_address or 'Not provided'}\n"
+        f"Donor Name: {donor_name}\n"
+        f"Donor Email: {donor_email}\n"
+        f"Donor Phone: {donor_phone}\n"
+        f"Items: {items_summary}\n"
+        f"Preferred Pickup Date: {pickup_date or 'Not provided'}\n"
+        f"Notes: {notes or 'None'}\n\n"
+        "Please contact the donor to arrange collection or drop-off."
+    )
+
+    await _send_email_message(message)

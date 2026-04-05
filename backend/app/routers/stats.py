@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.security import require_admin
+from app.core.security import get_admin_food_bank_id, require_admin
 from app.models.application import Application
 from app.models.application_distribution_snapshot import ApplicationDistributionSnapshot
 from app.models.application_item import ApplicationItem
@@ -241,61 +241,83 @@ def _package_display_name(application: Application) -> str:
     return ", ".join(unique_names)
 
 
+def _filter_records_by_food_bank_id(records: list[object], food_bank_id: int) -> list[object]:
+    return [
+        record
+        for record in records
+        if getattr(record, "food_bank_id", None) == food_bank_id
+    ]
+
+
 @router.get("/donations", response_model=dict)
 async def get_donation_stats(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+
+    cash_totals_query = select(
+        func.coalesce(func.sum(DonationCash.amount_pence), 0).label("total_cash"),
+        func.coalesce(func.avg(DonationCash.amount_pence), 0).label("avg_cash"),
+    ).where(DonationCash.status == "completed")
+    if admin_food_bank_id is not None:
+        cash_totals_query = cash_totals_query.where(
+            DonationCash.food_bank_id == admin_food_bank_id
+        )
 
     cash_totals_rows = (
-        await db.execute(
-            select(
-                func.coalesce(func.sum(DonationCash.amount_pence), 0).label("total_cash"),
-                func.coalesce(func.avg(DonationCash.amount_pence), 0).label("avg_cash"),
-            )
-            .where(DonationCash.status == "completed")
-        )
+        await db.execute(cash_totals_query)
     ).all()
     total_cash_raw, avg_cash_raw = cash_totals_rows[0] if cash_totals_rows else (0, 0)
     total_cash = int(total_cash_raw or 0)
     average_cash = int(avg_cash_raw or 0)
 
-    goods_total_rows = (
-        await db.execute(
-            select(func.count(DonationGoods.id).label("total_goods"))
-            .where(DonationGoods.status == "received")
+    goods_total_query = select(func.count(DonationGoods.id).label("total_goods")).where(
+        DonationGoods.status == "received"
+    )
+    if admin_food_bank_id is not None:
+        goods_total_query = goods_total_query.where(
+            DonationGoods.food_bank_id == admin_food_bank_id
         )
-    ).all()
+
+    goods_total_rows = (await db.execute(goods_total_query)).all()
     total_goods = int(goods_total_rows[0][0] or 0) if goods_total_rows else 0
 
-    weekly_cash_rows = (
-        await db.execute(
-            select(
-                func.to_char(
-                    func.date_trunc("week", DonationCash.created_at),
-                    'IYYY-"W"IW',
-                ).label("week"),
-                func.coalesce(func.sum(DonationCash.amount_pence), 0).label("cash"),
-            )
-            .where(DonationCash.status == "completed")
-            .group_by("week")
+    weekly_cash_query = (
+        select(
+            func.to_char(
+                func.date_trunc("week", DonationCash.created_at),
+                'IYYY-"W"IW',
+            ).label("week"),
+            func.coalesce(func.sum(DonationCash.amount_pence), 0).label("cash"),
         )
-    ).all()
+        .where(DonationCash.status == "completed")
+        .group_by("week")
+    )
+    if admin_food_bank_id is not None:
+        weekly_cash_query = weekly_cash_query.where(
+            DonationCash.food_bank_id == admin_food_bank_id
+        )
 
-    weekly_goods_rows = (
-        await db.execute(
-            select(
-                func.to_char(
-                    func.date_trunc("week", DonationGoods.created_at),
-                    'IYYY-"W"IW',
-                ).label("week"),
-                func.count(DonationGoods.id).label("goods_count"),
-            )
-            .where(DonationGoods.status == "received")
-            .group_by("week")
+    weekly_cash_rows = (await db.execute(weekly_cash_query)).all()
+
+    weekly_goods_query = (
+        select(
+            func.to_char(
+                func.date_trunc("week", DonationGoods.created_at),
+                'IYYY-"W"IW',
+            ).label("week"),
+            func.count(DonationGoods.id).label("goods_count"),
         )
-    ).all()
+        .where(DonationGoods.status == "received")
+        .group_by("week")
+    )
+    if admin_food_bank_id is not None:
+        weekly_goods_query = weekly_goods_query.where(
+            DonationGoods.food_bank_id == admin_food_bank_id
+        )
+
+    weekly_goods_rows = (await db.execute(weekly_goods_query)).all()
 
     weekly: dict[str, dict[str, int | str]] = {}
 
@@ -332,24 +354,26 @@ async def get_package_stats(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
 
-    rows = (
-        await db.execute(
-            select(
-                ApplicationItem.package_id.label("package_id"),
-                FoodPackage.name.label("package_name"),
-                func.count(ApplicationItem.id).label("request_count"),
-                func.coalesce(func.sum(ApplicationItem.quantity), 0).label("total_requested_items"),
-            )
-            .join(FoodPackage, FoodPackage.id == ApplicationItem.package_id)
-            .group_by(ApplicationItem.package_id, FoodPackage.name)
-            .order_by(
-                func.count(ApplicationItem.id).desc(),
-                func.coalesce(func.sum(ApplicationItem.quantity), 0).desc(),
-            )
+    query = (
+        select(
+            ApplicationItem.package_id.label("package_id"),
+            FoodPackage.name.label("package_name"),
+            func.count(ApplicationItem.id).label("request_count"),
+            func.coalesce(func.sum(ApplicationItem.quantity), 0).label("total_requested_items"),
         )
-    ).all()
+        .join(FoodPackage, FoodPackage.id == ApplicationItem.package_id)
+        .group_by(ApplicationItem.package_id, FoodPackage.name)
+        .order_by(
+            func.count(ApplicationItem.id).desc(),
+            func.coalesce(func.sum(ApplicationItem.quantity), 0).desc(),
+        )
+    )
+    if admin_food_bank_id is not None:
+        query = query.where(FoodPackage.food_bank_id == admin_food_bank_id)
+
+    rows = (await db.execute(query)).all()
 
     return [
         {
@@ -367,22 +391,24 @@ async def get_stock_gap_analysis(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
 
     gap_expr = (FoodPackage.threshold - FoodPackage.stock).label("gap")
-    rows = (
-        await db.execute(
-            select(
-                FoodPackage.id.label("package_id"),
-                FoodPackage.name.label("package_name"),
-                FoodPackage.stock.label("stock"),
-                FoodPackage.threshold.label("threshold"),
-                gap_expr,
-            )
-            .where(FoodPackage.stock < FoodPackage.threshold)
-            .order_by(gap_expr.desc())
+    query = (
+        select(
+            FoodPackage.id.label("package_id"),
+            FoodPackage.name.label("package_name"),
+            FoodPackage.stock.label("stock"),
+            FoodPackage.threshold.label("threshold"),
+            gap_expr,
         )
-    ).all()
+        .where(FoodPackage.stock < FoodPackage.threshold)
+        .order_by(gap_expr.desc())
+    )
+    if admin_food_bank_id is not None:
+        query = query.where(FoodPackage.food_bank_id == admin_food_bank_id)
+
+    rows = (await db.execute(query)).all()
 
     return [
         {
@@ -679,8 +705,6 @@ async def get_dashboard_analytics(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     today = date.today()
     current_start, next_start, previous_start = _period_bounds(range_key, today)
     comparison_label = COMPARISON_LABELS[range_key]
@@ -766,6 +790,26 @@ async def get_dashboard_analytics(
             )
         ).scalars().all()
     )
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is not None:
+        cash_donations = [
+            donation
+            for donation in cash_donations
+            if donation.food_bank_id == admin_food_bank_id
+        ]
+        goods_donations = _filter_records_by_food_bank_id(goods_donations, admin_food_bank_id)
+        packages = _filter_records_by_food_bank_id(packages, admin_food_bank_id)
+        applications = _filter_records_by_food_bank_id(applications, admin_food_bank_id)
+        scoped_application_ids = {application.id for application in applications}
+        distribution_snapshots = [
+            snapshot
+            for snapshot in distribution_snapshots
+            if snapshot.application_id in scoped_application_ids
+        ]
+        inventory_items = []
+        inventory_lot_rows = []
+        waste_events = []
+
     goods_impact_snapshot = calculate_shared_goods_impact_snapshot(
         cash_donations=cash_donations,
         goods_donations=goods_donations,
@@ -1314,4 +1358,3 @@ async def get_dashboard_analytics(
         expiry=expiry_analytics,
         redemption=redemption_analytics,
     )
-

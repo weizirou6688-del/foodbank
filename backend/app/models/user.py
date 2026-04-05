@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +29,11 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
+    food_bank_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food_banks.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         nullable=False,
@@ -45,6 +50,7 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    food_bank: Mapped["FoodBank | None"] = relationship(back_populates="admin_users")
     goods_donations: Mapped[list["DonationGoods"]] = relationship(
         back_populates="donor_user",
     )

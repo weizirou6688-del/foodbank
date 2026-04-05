@@ -34,16 +34,16 @@ interface DonationTier {
 }
 
 const defaultImpactMetrics: ImpactMetric[] = [
-  { change: '+18%', value: '28,600', label: 'Food Units Distributed', note: 'All Time', positive: true },
-  { change: '+8.2%', value: '1,240+', label: 'Families Supported', note: 'All Time', positive: true },
+  { change: '+18%', value: '28,600', label: 'Network Food Units Distributed', note: 'Platform Total', positive: true },
+  { change: '+8.2%', value: '1,240+', label: 'Households Supported Across the Network', note: 'Platform Total', positive: true },
   {
     change: '+2.3%',
     value: '98.2%',
-    label: 'Aid Redemption Success Rate',
+    label: 'Aid Redemption Success Rate Across the Network',
     note: 'This Month',
     positive: true,
   },
-  { change: '+15%', value: '12,500', label: 'Goods Donation Units', note: 'This Year', positive: true },
+  { change: '+15%', value: '12,500', label: 'Goods Donation Units Coordinated', note: 'This Year', positive: true },
 ]
 
 const goodsCategories: DonationCategory[] = [
@@ -92,10 +92,10 @@ const goodsCategories: DonationCategory[] = [
 ]
 
 const goodsBannerBenefits = [
-  'Free contactless pickup',
-  '100% of goods reach families',
-  'Tax-deductible receipt',
-  'Real-time impact updates',
+  'Search for a nearby food bank',
+  'Your request is sent to the selected team',
+  'Collection or drop-off is arranged locally',
+  'Platform support across the wider network',
 ]
 
 const uniqueCards: UniqueCard[] = [
@@ -114,13 +114,13 @@ const uniqueCards: UniqueCard[] = [
   {
     title: 'Connecting Food Banks',
     description:
-      'We link our food bank managers to create a network where they can share expertise. This network is also used to redistribute excess items and offload fresh goods.',
+      'We connect partner food banks so teams can share expertise, coordinate requests, and move surplus stock where it is needed most.',
     image: '/figma-home/photo-1588822534638-028d5ddc07ac',
   },
   {
     title: 'Community Volunteering',
     description:
-      'We are a volunteer led organisation utilising our local community to pack, distribute and deliver food to the food banks.',
+      'Our volunteer network helps sort, pack, and move donations so local food banks can respond quickly and consistently.',
     image: '/figma-home/photo-1758599668178-d9716bbda9d5',
   },
 ]
@@ -129,7 +129,7 @@ const donationTiers: DonationTier[] = [
   {
     name: 'Supporter',
     amount: '\u00A35',
-    description: 'Monthly gift that helps feed a family for 2 days',
+    description: 'Monthly gift that helps cover essential goods across the network',
     cta: 'Donate \u00A35 Monthly',
     href: '/donate/cash?type=monthly&amount=5#donate-form',
     features: ['Monthly impact updates', 'Digital donation certificate', 'Community newsletter'],
@@ -137,7 +137,7 @@ const donationTiers: DonationTier[] = [
   {
     name: 'Champion',
     amount: '\u00A315',
-    description: 'Monthly gift that feeds a family for one week',
+    description: 'Monthly gift that helps fund urgent support where demand is highest',
     cta: 'Donate \u00A315 Monthly',
     href: '/donate/cash?type=monthly&amount=15#donate-form',
     features: [
@@ -151,14 +151,14 @@ const donationTiers: DonationTier[] = [
   {
     name: 'Hero',
     amount: '\u00A330',
-    description: 'Monthly gift that feeds 2 families for one week',
+    description: 'Monthly gift that strengthens food purchasing and coordination across multiple sites',
     cta: 'Donate \u00A330 Monthly',
     href: '/donate/cash?type=monthly&amount=30#donate-form',
     features: [
       'Everything in Champion',
       'Annual site visits',
       'Donor wall recognition',
-      'Direct community link',
+      'Network impact updates',
     ],
   },
 ]
@@ -280,8 +280,8 @@ export default function Home() {
                     Food security, <span className="text-[#FFB800]">engineered</span>
                   </h1>
                   <p className="text-[1.25rem] leading-relaxed text-[#57606A] mb-8 max-w-[560px]">
-                    Modern infrastructure connecting communities with essential resources. Real-time
-                    food bank locations, transparent operations, dignified access.
+                    Modern infrastructure supporting food banks across our network. Real-time
+                    locations, coordinated operations, and dignified access to support.
                   </p>
                   <div className="flex max-w-[360px] flex-col gap-4">
                     <button
@@ -327,11 +327,11 @@ export default function Home() {
             <div className="max-w-[1200px] mx-auto px-6 py-24">
               <div className="text-center max-w-[640px] mx-auto mb-16">
                 <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">
-                  Real-time impact data
+                  Platform-wide impact
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  Every number represents real people and communities. Updated live from our
-                  operations network.
+                  These figures reflect support coordinated across our food bank network, not a
+                  single local site. Updated from live platform reporting.
                 </p>
               </div>
 
@@ -479,9 +479,8 @@ export default function Home() {
                   Donate Goods
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  Your in-kind donations directly support families and individuals facing food
-                  insecurity. Every item you give helps us deliver dignity and essential resources to
-                  our community.
+                  Choose a food bank near you and submit a donation request for their local team.
+                  We record the request through the platform and help coordinate next steps.
                 </p>
               </div>
 
@@ -509,7 +508,7 @@ export default function Home() {
               <div className="rounded-[10px] bg-[#FFF3CD] px-6 py-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <h3 className="text-[1.25rem] font-semibold text-[#0D1117] mb-3 tracking-tight">
-                    Donate Goods to Families in Need
+                    Donate Goods Through a Local Food Bank
                   </h3>
                   <div className="grid grid-cols-1 gap-x-8 gap-y-2 min-[576px]:grid-cols-2">
                     {goodsBannerBenefits.map((benefit) => (
@@ -539,11 +538,11 @@ export default function Home() {
               <div className="text-center max-w-[640px] mx-auto mb-16">
 
                 <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">
-                  Support our mission
+                  Support the wider network
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  Every contribution directly funds food distribution and community support. Choose a
-                  recommended monthly giving level or make a one-time gift.
+                  Cash donations are received and coordinated by the platform team to support food
+                  purchasing, urgent needs, and network-wide operations.
                 </p>
               </div>
 
@@ -601,8 +600,7 @@ export default function Home() {
                   <div className="text-center md:text-left">
                     <p className="text-[1.25rem] font-semibold text-[#0D1117] tracking-tight">Prefer a one-time donation?</p>
                     <p className="mt-1 text-[15px] leading-relaxed text-[#57606A]">
-                      Every contribution makes a difference. Make a single donation of any amount in
-                      the same Donate Cash form.
+                      Make a one-time platform donation of any amount in the same Donate Cash form.
                     </p>
                   </div>
                   <button

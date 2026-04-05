@@ -17,7 +17,7 @@ from app.core.database_errors import (
     is_database_unavailable_exception,
     raise_database_unavailable_http_exception,
 )
-from app.core.security import require_admin
+from app.core.security import require_platform_admin
 from app.models.food_bank import FoodBank
 from app.models.food_package import FoodPackage
 from app.models.inventory_item import InventoryItem
@@ -87,7 +87,7 @@ async def get_package_details(
 @router.post("/packages", response_model=FoodPackageCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_package(
     package_in: FoodPackageCreateRequest,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a food package with package contents in one transaction (admin only)."""
@@ -193,7 +193,7 @@ async def create_package(
 async def update_package(
     package_id: int,
     package_in: FoodPackageUpdate,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a food package (admin only)."""
@@ -276,7 +276,7 @@ async def update_package(
 @router.delete("/packages/{package_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_package(
     package_id: int,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a package when safe, otherwise soft-delete it for history retention."""
@@ -310,7 +310,7 @@ async def delete_package(
 async def pack_package(
     package_id: int,
     pack_in: PackRequest,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """

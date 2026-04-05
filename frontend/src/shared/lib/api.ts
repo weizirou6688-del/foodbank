@@ -94,6 +94,7 @@ export interface CashDonationResponse {
   donor_name?: string | null
   donor_type?: 'supermarket' | 'individual' | 'organization' | null
   donor_email: string
+  food_bank_id?: number | null
   amount_pence: number
   payment_reference?: string | null
   status: 'completed' | 'failed' | 'refunded'
@@ -357,6 +358,7 @@ export const donationsAPI = {
     donor_name?: string
     donor_type?: 'supermarket' | 'individual' | 'organization'
     donor_email: string
+    food_bank_id?: number
     amount_pence: number
     payment_reference?: string
   }) => apiClient.post('/api/v1/donations/cash', data) as Promise<CashDonationResponse>,

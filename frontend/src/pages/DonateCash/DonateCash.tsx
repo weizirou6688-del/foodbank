@@ -119,10 +119,10 @@ export default function DonateCash() {
       ? 'One-Time Donation'
       : 'Donate Now'
   const formSubtext = isMonthlyDonation
-    ? 'You are setting up a monthly donation. All fields are required.'
+    ? 'You are setting up a monthly platform donation. All fields are required.'
     : isOneTimeDonation
-      ? 'You are making a one-time donation. All fields are required.'
-      : 'All fields are required.'
+      ? 'You are making a one-time platform donation. All fields are required.'
+      : 'Your gift supports our wider food bank network. All fields are required.'
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -196,7 +196,7 @@ export default function DonateCash() {
       resetForm()
       setSubmitFeedback({
         type: 'success',
-        message: `Thank you for your donation of ${amountLabel}.${referenceLine}`,
+        message: `Thank you for supporting our wider food bank network with ${amountLabel}.${referenceLine}`,
       })
     } catch (error) {
       const message =
@@ -220,9 +220,10 @@ export default function DonateCash() {
         <main className={styles.main}>
           <section className={styles.section}>
             <div className={`${styles.sectionInner} ${styles.heroInner}`}>
-              <h1 className={styles.heroTitle}>Your Gift Feeds Families</h1>
+              <h1 className={styles.heroTitle}>Support the Wider Food Bank Network</h1>
               <p className={styles.heroText}>
-                Every pound donated goes directly to purchasing food for local families in need. No{' '}
+                Your cash donation supports food purchasing, urgent needs, and platform-wide
+                coordination across our food bank network. No{' '}
                 <span className={styles.heroTextLine}>
                   admin fees {HERO_EM_DASH} 100% impact.
                 </span>
@@ -233,19 +234,19 @@ export default function DonateCash() {
                   <Check className={styles.checkIcon} strokeWidth={3} />
                   <span className={styles.checkText}>
                     {POUND_SYMBOL}
-                    10 = 1 full food package
+                    10 helps fund food and essentials where demand is highest
                   </span>
                 </div>
                 <div className={styles.checkItem}>
                   <Check className={styles.checkIcon} strokeWidth={3} />
                   <span className={styles.checkText}>
                     {POUND_SYMBOL}
-                    20 = Feeds a family for a week
+                    20 strengthens local food bank response across the network
                   </span>
                 </div>
                 <div className={styles.checkItem}>
                   <Check className={styles.checkIcon} strokeWidth={3} />
-                  <span className={styles.checkText}>100% goes directly to people in need</span>
+                  <span className={styles.checkText}>Cash support is coordinated by the platform team</span>
                 </div>
               </div>
 
@@ -268,8 +269,8 @@ export default function DonateCash() {
             <div className={styles.sectionIntro}>
               <h2 className={styles.sectionTitle}>How We Help</h2>
               <p className={styles.sectionDescription}>
-                Every donation makes a real difference. Here's how your contribution directly{' '}
-                <span className={styles.sectionDescriptionLine}>supports families in need.</span>
+                Every donation strengthens the wider response. Here&apos;s how your contribution helps
+                the network act quickly when support is needed most.
               </p>
             </div>
 
@@ -282,8 +283,8 @@ export default function DonateCash() {
                   <div>
                     <h3 className={styles.helpItemTitle}>Emergency Food Parcels</h3>
                     <p className={styles.helpItemText}>
-                      Nutritionally balanced packages containing fresh produce, tinned goods, and
-                      essentials.
+                      Helps fund the food, essentials, and urgent top-ups needed across our partner
+                      food banks.
                     </p>
                   </div>
                 </div>
@@ -295,7 +296,8 @@ export default function DonateCash() {
                   <div>
                     <h3 className={styles.helpItemTitle}>No Questions Asked</h3>
                     <p className={styles.helpItemText}>
-                      We believe everyone deserves dignity. No forms, no judgement - just support.
+                      Supports dignified, responsive help for households reaching out through local
+                      food banks.
                     </p>
                   </div>
                 </div>
@@ -307,7 +309,8 @@ export default function DonateCash() {
                   <div>
                     <h3 className={styles.helpItemTitle}>100% Transparency</h3>
                     <p className={styles.helpItemText}>
-                      Every penny goes directly to purchasing food. Zero administration costs.
+                      Funds are received and coordinated by the platform team for network-wide
+                      operations and food support.
                     </p>
                   </div>
                 </div>
@@ -425,7 +428,7 @@ export default function DonateCash() {
                 <blockquote className={styles.testimonialQuote}>
                   "I've been donating {POUND_SYMBOL}20 a month for over a year now, and it's the
                   best thing I do each month. I love that I get a simple update every month,
-                  showing exactly how my donation has helped local families."
+                  showing how my donation has supported households across the network."
                 </blockquote>
               </div>
 

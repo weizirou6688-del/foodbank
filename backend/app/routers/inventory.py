@@ -19,7 +19,11 @@ from app.core.database_errors import (
     is_database_unavailable_exception,
     raise_database_unavailable_http_exception,
 )
-from app.core.security import require_admin, require_admin_or_supermarket
+from app.core.security import (
+    get_admin_food_bank_id,
+    require_admin_or_supermarket,
+    require_platform_admin,
+)
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.models.package_item import PackageItem
@@ -78,7 +82,7 @@ async def _serialize_inventory_item(db: AsyncSession, item: InventoryItem) -> In
 @router.get("", response_model=InventoryItemListResponse)
 async def list_inventory(
     food_bank_id: int | None = None,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -102,7 +106,7 @@ async def list_inventory(
 @router.post("", response_model=InventoryItemOut, status_code=status.HTTP_201_CREATED)
 async def create_inventory_item(
     item_in: InventoryItemCreateRequest,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -160,7 +164,7 @@ async def create_inventory_item(
 @router.get("/lots", response_model=List[InventoryLotOut])
 async def list_inventory_lots(
     include_inactive: bool = Query(True, description="Include inactive (wasted) lots"),
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -216,7 +220,7 @@ async def list_inventory_lots(
 async def adjust_inventory_lot(
     lot_id: int,
     adjustment_in: InventoryLotAdjustRequest,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -322,7 +326,7 @@ async def adjust_inventory_lot(
 async def update_inventory_item(
     item_id: int,
     item_in: InventoryItemUpdate,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -374,7 +378,7 @@ async def update_inventory_item(
 async def stock_in(
     item_id: int,
     adjustment_in: StockAdjustment,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -418,7 +422,7 @@ async def stock_in(
 async def stock_out(
     item_id: int,
     adjustment_in: StockAdjustment,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -459,7 +463,7 @@ async def stock_out(
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_inventory_item(
     item_id: int,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -502,7 +506,7 @@ async def delete_inventory_item(
 @router.delete("/lots/{lot_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_inventory_lot(
     lot_id: int,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -565,7 +569,11 @@ async def get_low_stock_items(
     admin_user: dict = Depends(require_admin_or_supermarket),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
+    if admin_user.get("role") == "admin" and get_admin_food_bank_id(admin_user) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform admin privileges required",
+        )
 
     try:
         stock_subquery = (

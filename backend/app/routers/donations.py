@@ -20,7 +20,14 @@ from app.core.database_errors import (
     is_database_unavailable_exception,
     raise_database_unavailable_http_exception,
 )
-from app.core.security import require_admin, require_supermarket
+from app.core.security import (
+    enforce_admin_food_bank_scope,
+    get_admin_food_bank_id,
+    get_optional_current_user,
+    require_admin,
+    require_platform_admin,
+    require_supermarket,
+)
 from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
 from app.models.donation_goods_item import DonationGoodsItem
@@ -29,7 +36,10 @@ from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.models.restock_request import RestockRequest
 from app.models.user import User
-from app.services.email_service import send_thank_you_email
+from app.services.email_service import (
+    send_goods_donation_notification,
+    send_thank_you_email,
+)
 from app.schemas.donation_cash import DonationCashCreate, DonationCashOut, DonationCashUpdate
 from app.schemas.donation_goods import (
     DonationGoodsCreate,
@@ -57,6 +67,10 @@ async def _resolve_food_bank(food_bank_id: int, db: AsyncSession) -> FoodBank:
             detail="Food bank not found",
         )
     return selected_food_bank
+
+
+def _goods_items_summary(items: list[DonationGoodsItemCreatePayload]) -> str:
+    return ", ".join(f"{item.item_name} x{item.quantity}" for item in items)
 
 
 async def _load_goods_donation(db: AsyncSession, donation_id: uuid.UUID) -> DonationGoods | None:
@@ -216,6 +230,7 @@ async def submit_cash_donation(
                 donor_name=donation_in.donor_name,
                 donor_type=donation_in.donor_type,
                 donor_email=donation_in.donor_email,
+                food_bank_id=donation_in.food_bank_id,
                 amount_pence=donation_in.amount_pence,
                 payment_reference=payment_reference,
                 status="completed",
@@ -258,6 +273,7 @@ async def submit_cash_donation(
 async def submit_goods_donation(
     donation_in: DonationGoodsCreate,
     background_tasks: BackgroundTasks = BackgroundTasks(),
+    current_user: dict | None = Depends(get_optional_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -276,8 +292,18 @@ async def submit_goods_donation(
         resolved_status = donation_in.status or "pending"
 
         async with db.begin():
-            if donation_in.food_bank_id is not None:
-                selected_food_bank = await _resolve_food_bank(donation_in.food_bank_id, db)
+            requested_food_bank_id = donation_in.food_bank_id
+            admin_food_bank_id = get_admin_food_bank_id(current_user)
+            if admin_food_bank_id is not None:
+                requested_food_bank_id = requested_food_bank_id or admin_food_bank_id
+                enforce_admin_food_bank_scope(
+                    current_user,
+                    requested_food_bank_id,
+                    detail="You can only submit goods donations for your assigned food bank",
+                )
+
+            if requested_food_bank_id is not None:
+                selected_food_bank = await _resolve_food_bank(requested_food_bank_id, db)
             else:
                 selected_food_bank = None
             created_items: list[DonationGoodsItem] = []
@@ -344,6 +370,32 @@ async def submit_goods_donation(
                     goods_details,
                 )
                 logger.info("Queued goods donation thank-you email for %s", donation_in.donor_email)
+
+            background_tasks.add_task(
+                send_goods_donation_notification,
+                notification_email=selected_food_bank.notification_email if selected_food_bank is not None else None,
+                food_bank_name=(
+                    selected_food_bank.name
+                    if selected_food_bank is not None
+                    else donation_in.food_bank_name
+                ),
+                food_bank_address=(
+                    selected_food_bank.address
+                    if selected_food_bank is not None
+                    else donation_in.food_bank_address
+                ),
+                donor_name=donation_in.donor_name,
+                donor_email=donation_in.donor_email,
+                donor_phone=donation_in.donor_phone,
+                items_summary=_goods_items_summary(donation_in.items),
+                pickup_date=donation_in.pickup_date.isoformat() if donation_in.pickup_date else None,
+                notes=donation_in.notes,
+            )
+            logger.info(
+                "Queued goods donation notification for food_bank_id=%s recipient=%s",
+                selected_food_bank.id if selected_food_bank is not None else None,
+                selected_food_bank.notification_email if selected_food_bank is not None else None,
+            )
 
         result = await db.execute(
             select(DonationGoods)
@@ -457,7 +509,7 @@ async def submit_supermarket_goods_donation(
 async def update_cash_donation(
     donation_id: uuid.UUID,
     donation_in: DonationCashUpdate,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -505,7 +557,7 @@ async def update_cash_donation(
 @router.delete("/cash/{donation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_cash_donation(
     donation_id: uuid.UUID,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_platform_admin),
     db: AsyncSession = Depends(get_db),
 ):
     _ = admin_user
@@ -561,13 +613,25 @@ async def update_goods_donation(
                     detail="Goods donation not found",
                 )
 
+            enforce_admin_food_bank_scope(
+                admin_user,
+                donation.food_bank_id,
+                detail="You can only manage goods donations for your assigned food bank",
+            )
+
             previous_status = donation.status
             selected_food_bank: FoodBank | None = None
-            if "food_bank_id" in donation_in.model_fields_set and donation_in.food_bank_id is not None:
-                selected_food_bank = await _resolve_food_bank(donation_in.food_bank_id, db)
-                updates["food_bank_id"] = selected_food_bank.id
-                updates["food_bank_name"] = selected_food_bank.name
-                updates["food_bank_address"] = selected_food_bank.address
+            if "food_bank_id" in donation_in.model_fields_set:
+                enforce_admin_food_bank_scope(
+                    admin_user,
+                    donation_in.food_bank_id,
+                    detail="You can only assign goods donations to your own food bank",
+                )
+                if donation_in.food_bank_id is not None:
+                    selected_food_bank = await _resolve_food_bank(donation_in.food_bank_id, db)
+                    updates["food_bank_id"] = selected_food_bank.id
+                    updates["food_bank_name"] = selected_food_bank.name
+                    updates["food_bank_address"] = selected_food_bank.address
 
             for field, value in updates.items():
                 setattr(donation, field, value)
@@ -630,6 +694,12 @@ async def delete_goods_donation(
                     detail="Goods donation not found",
                 )
 
+            enforce_admin_food_bank_scope(
+                admin_user,
+                donation.food_bank_id,
+                detail="You can only delete goods donations for your assigned food bank",
+            )
+
             await db.delete(donation)
             await db.flush()
             return None
@@ -661,8 +731,6 @@ async def list_donations(
     
     TODO: Query donations with optional type filter
     """
-    _ = admin_user
-
     normalized = type.lower() if type else None
     if normalized not in (None, "cash", "goods"):
         raise HTTPException(
@@ -670,27 +738,28 @@ async def list_donations(
             detail="type must be one of: cash, goods",
         )
 
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
     response: list[dict] = []
 
     if normalized in (None, "cash"):
-        cash_rows = (
-            await db.execute(
-                select(DonationCash).order_by(DonationCash.created_at.desc())
-            )
-        ).scalars().all()
+        cash_query = select(DonationCash).order_by(DonationCash.created_at.desc())
+        if admin_food_bank_id is not None:
+            cash_query = cash_query.where(DonationCash.food_bank_id == admin_food_bank_id)
+        cash_rows = (await db.execute(cash_query)).scalars().all()
         for row in cash_rows:
             payload = DonationCashOut.model_validate(row).model_dump(mode="json")
             payload["donation_type"] = "cash"
             response.append(payload)
 
     if normalized in (None, "goods"):
-        goods_rows = (
-            await db.execute(
-                select(DonationGoods)
-                .options(selectinload(DonationGoods.items))
-                .order_by(DonationGoods.created_at.desc())
-            )
-        ).scalars().all()
+        goods_query = (
+            select(DonationGoods)
+            .options(selectinload(DonationGoods.items))
+            .order_by(DonationGoods.created_at.desc())
+        )
+        if admin_food_bank_id is not None:
+            goods_query = goods_query.where(DonationGoods.food_bank_id == admin_food_bank_id)
+        goods_rows = (await db.execute(goods_query)).scalars().all()
         for row in goods_rows:
             payload = DonationGoodsOut.model_validate(row).model_dump(mode="json")
             payload["donation_type"] = "goods"

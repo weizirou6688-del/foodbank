@@ -11,7 +11,8 @@ Coordinates use Decimal type for precise geographic storage (±0.1 meter precisi
 """
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # Common fields for food bank creation and responses.
@@ -23,6 +24,8 @@ class FoodBankBase(BaseModel):
     # From spec: address: TEXT, NOT NULL
     # Validation: non-empty string (min_length=1).
     address: str = Field(min_length=1)
+
+    notification_email: EmailStr | None = None
 
     # From spec: lat: DECIMAL(9,6), NOT NULL
     # Latitude coordinate for map display.
@@ -47,6 +50,7 @@ class FoodBankUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     address: str | None = Field(default=None, min_length=1)
+    notification_email: EmailStr | None = None
     lat: float | None = None
     lng: float | None = None
 
