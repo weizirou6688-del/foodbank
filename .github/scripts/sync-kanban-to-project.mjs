@@ -302,55 +302,11 @@ async function updateIssue(issueNumber, payload) {
 }
 
 async function resolveProject(owner, number) {
+  const ownerType = await resolveOwnerType(owner);
+  const rootField = ownerType === "organization" ? "organization" : "user";
   const query = `
     query($login: String!, $number: Int!) {
-      user(login: $login) {
-        login
-        projectV2(number: $number) {
-          id
-          title
-          fields(first: 100) {
-            nodes {
-              __typename
-              ... on ProjectV2Field {
-                id
-                name
-                dataType
-              }
-              ... on ProjectV2SingleSelectField {
-                id
-                name
-                dataType
-                options {
-                  id
-                  name
-                }
-              }
-              ... on ProjectV2IterationField {
-                id
-                name
-                dataType
-                configuration {
-                  iterations {
-                    id
-                    title
-                    startDate
-                    duration
-                  }
-                  completedIterations {
-                    id
-                    title
-                    startDate
-                    duration
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      organization(login: $login) {
-        login
+      ${rootField}(login: $login) {
         projectV2(number: $number) {
           id
           title
@@ -398,25 +354,31 @@ async function resolveProject(owner, number) {
   `;
 
   const data = await graphQl(query, { login: owner, number });
-  const container =
-    data.user?.projectV2 != null
-      ? { ownerType: "user", project: data.user.projectV2 }
-      : data.organization?.projectV2 != null
-        ? { ownerType: "organization", project: data.organization.projectV2 }
-        : null;
+  const project = data[rootField]?.projectV2;
 
-  if (!container) {
+  if (!project) {
     throw new Error(
       `Project #${number} was not found under "${owner}". Check KANBAN_PROJECT_OWNER, KANBAN_PROJECT_NUMBER and token permissions.`,
     );
   }
 
   return {
-    ownerType: container.ownerType,
-    id: container.project.id,
-    title: container.project.title,
-    fields: container.project.fields.nodes.filter(Boolean),
+    ownerType,
+    id: project.id,
+    title: project.title,
+    fields: project.fields.nodes.filter(Boolean),
   };
+}
+
+async function resolveOwnerType(owner) {
+  const result = await restJson("GET", `/users/${encodeURIComponent(owner)}`);
+  const rawType = String(result?.type || "").toLowerCase();
+
+  if (rawType === "organization") {
+    return "organization";
+  }
+
+  return "user";
 }
 
 async function ensureProjectItem(projectId, contentId) {
