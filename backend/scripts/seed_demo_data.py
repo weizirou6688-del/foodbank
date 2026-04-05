@@ -14,6 +14,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.core.bootstrap import (  # noqa: E402
+    ensure_demo_admin_scope_records,
     ensure_demo_food_banks,
     ensure_demo_inventory_and_packages,
     ensure_demo_users,
@@ -33,9 +34,10 @@ def parse_args() -> argparse.Namespace:
 
 
 async def seed_demo_data(quiet: bool) -> None:
-    await ensure_demo_users()
     await ensure_demo_food_banks()
+    await ensure_demo_users()
     await ensure_demo_inventory_and_packages()
+    await ensure_demo_admin_scope_records()
 
     if not quiet:
         print("Demo data ensured successfully.")

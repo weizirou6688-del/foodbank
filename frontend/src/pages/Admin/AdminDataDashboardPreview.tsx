@@ -3,19 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import dataDashboardReferenceHtml from 'virtual:data-dashboard-reference'
 import { useAuthStore } from '@/app/store/authStore'
 import LoginModal from '@/features/auth/components/LoginModal'
+import { getAdminScopeMeta } from '@/shared/lib/adminScope'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { adminAPI, type DashboardAnalyticsResponse, type DashboardDisplayCard } from '@/shared/lib/api'
-
-const roleLabelMap = {
-  admin: 'Admin',
-  supermarket: 'Supermarket',
-  public: 'Account',
-} as const
 
 type DashboardRange = 'month' | 'quarter' | 'year'
 
 type DashboardFrameWindow = Window &
   typeof globalThis & {
+    Chart?: unknown
     dashboardDataService?: {
       getKpiData: (range?: DashboardRange) => Promise<DashboardAnalyticsResponse['kpi']>
       getDonationData: (range?: DashboardRange) => Promise<DashboardAnalyticsResponse['donation']>
@@ -51,15 +47,19 @@ export default function AdminDataDashboardPreview() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const accessToken = useAuthStore((state) => state.accessToken)
   const logout = useAuthStore((state) => state.logout)
+  const adminScope = getAdminScopeMeta(user)
+  const iframeKey = `${user?.id ?? 'guest'}:${adminScope.foodBankId ?? 'platform'}:dashboard`
   const [loginModal, setLoginModal] = useState<{ open: boolean; tab: 'signin' | 'register' }>({
     open: false,
     tab: 'signin',
   })
 
   useEffect(() => {
-    document.title = 'Data Dashboard - ABC Foodbank'
+    document.title = adminScope.foodBankName
+      ? `Data Dashboard - ${adminScope.foodBankName}`
+      : 'Data Dashboard - ABC Foodbank'
     window.scrollTo({ top: 0, behavior: 'auto' })
-  }, [])
+  }, [adminScope.foodBankName])
 
   useEffect(() => {
     const iframe = iframeRef.current
@@ -193,8 +193,95 @@ export default function AdminDataDashboardPreview() {
 
       const adminTag = doc.querySelector('.admin-tag')
       if (isFrameHTMLElement(adminTag)) {
-        adminTag.textContent = user?.role ? roleLabelMap[user.role] : 'Guest'
+        adminTag.textContent = adminScope.roleLabel
       }
+
+      if (!doc.getElementById('admin-dashboard-runtime-overrides')) {
+        const style = doc.createElement('style')
+        style.id = 'admin-dashboard-runtime-overrides'
+        style.textContent = `
+          .header-content {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) 360px minmax(0, 1fr) !important;
+            align-items: center !important;
+            column-gap: 24px !important;
+          }
+
+          .header-content nav {
+            width: 100% !important;
+            max-width: 360px !important;
+            justify-self: center !important;
+          }
+
+          .header-content .nav-links {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 16px !important;
+            width: 100% !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+
+          .header-content .nav-links li {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-width: 0 !important;
+          }
+
+          .header-content .nav-links a {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100% !important;
+            min-height: 36px !important;
+            text-align: center !important;
+            line-height: 1.25 !important;
+          }
+
+          .header-content .logo {
+            justify-self: start !important;
+            min-width: 0 !important;
+          }
+
+          .header-content .header-actions {
+            justify-self: end !important;
+            min-width: 0 !important;
+          }
+
+          @media (max-width: 900px) {
+            .header-content {
+              grid-template-columns: minmax(0, 1fr) auto !important;
+            }
+          }
+        `
+        doc.head.appendChild(style)
+      }
+
+      doc.getElementById('admin-scope-banner')?.remove()
+      doc.getElementById('admin-scope-banner-styles')?.remove()
+
+      const toggleLocalOnlyDisplay = (id: string) => {
+        const element = doc.getElementById(id)
+        if (isFrameHTMLElement(element)) {
+          element.style.display = adminScope.isLocalFoodBankAdmin ? 'none' : ''
+        }
+      }
+      const applyDashboardScopeVisibility = () => {
+        toggleLocalOnlyDisplay('donation-analysis')
+        toggleLocalOnlyDisplay('inventory-health')
+        toggleLocalOnlyDisplay('waste-analysis')
+
+        const kpiCards = Array.from(doc.querySelectorAll('.kpi-grid .kpi-card'))
+        const hiddenKpiIndexes = new Set([1, 3, 4])
+        kpiCards.forEach((card, index) => {
+          if (isFrameHTMLElement(card)) {
+            card.style.display =
+              adminScope.isLocalFoodBankAdmin && hiddenKpiIndexes.has(index) ? 'none' : ''
+          }
+        })
+      }
+      applyDashboardScopeVisibility()
 
       const scrollTopButton = doc.getElementById('scroll-top-btn')
       const updateScrollTopButton = () => {
@@ -395,11 +482,49 @@ export default function AdminDataDashboardPreview() {
               }
             }
           }
+
+          applyDashboardScopeVisibility()
         }
 
-        analyticsCache.clear()
-        void frameWindow.initAllData?.()
+        let dashboardInitTimer: number | null = null
+        let dashboardInitCancelled = false
+        const queueDashboardInit = (attempt = 0) => {
+          if (dashboardInitCancelled) {
+            return
+          }
+
+          const runtimeReady =
+            doc.readyState === 'complete' &&
+            typeof frameWindow.initAllData === 'function' &&
+            typeof frameWindow.Chart !== 'undefined'
+
+          if (!runtimeReady) {
+            if (attempt >= 50) {
+              console.error('Dashboard runtime was not ready before initialization timed out.')
+              return
+            }
+
+            dashboardInitTimer = frameWindow.setTimeout(() => {
+              queueDashboardInit(attempt + 1)
+            }, 100)
+            return
+          }
+
+          const initAllData = frameWindow.initAllData
+          if (typeof initAllData !== 'function') {
+            return
+          }
+
+          analyticsCache.clear()
+          void initAllData()
+        }
+
+        queueDashboardInit()
         cleanupFns.push(() => {
+          dashboardInitCancelled = true
+          if (dashboardInitTimer != null) {
+            frameWindow.clearTimeout(dashboardInitTimer)
+          }
           if (frameWindow.dashboardDataService) {
             delete frameWindow.dashboardDataService
           }
@@ -414,18 +539,32 @@ export default function AdminDataDashboardPreview() {
       }
     }
 
-    let cleanup = syncIframe()
     const handleLoad = () => {
       cleanup?.()
       cleanup = syncIframe()
     }
+    let cleanup: ReturnType<typeof syncIframe>
     iframe.addEventListener('load', handleLoad)
+
+    if (iframe.contentDocument?.readyState === 'complete') {
+      handleLoad()
+    } else {
+      cleanup = syncIframe()
+    }
 
     return () => {
       cleanup?.()
       iframe.removeEventListener('load', handleLoad)
     }
-  }, [accessToken, isAuthenticated, location.pathname, logout, navigate, user?.role])
+  }, [
+    accessToken,
+    adminScope.isLocalFoodBankAdmin,
+    adminScope.roleLabel,
+    isAuthenticated,
+    location.pathname,
+    logout,
+    navigate,
+  ])
 
   if (!dataDashboardAdminHtml.trim()) {
     return (
@@ -446,6 +585,7 @@ export default function AdminDataDashboardPreview() {
   return (
     <>
       <iframe
+        key={iframeKey}
         ref={iframeRef}
         title="Data Dashboard Preview"
         srcDoc={dataDashboardAdminHtml}

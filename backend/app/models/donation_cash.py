@@ -14,7 +14,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -53,6 +53,12 @@ class DonationCash(Base):
 
     # Optional donor type captured by staff recording/admin flows.
     donor_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
+    food_bank_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food_banks.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # From spec: amount_pence: INTEGER, NOT NULL
     # Amount in pence (1/100 of currency unit) to avoid floating-point

@@ -17,12 +17,34 @@ from app.core.security import (
     get_password_hash,
     verify_password,
 )
+from app.models.food_bank import FoodBank
 from app.models.user import User
 from app.modules.auth.schema import LoginRequest, TokenResponse
 from app.schemas.user import UserCreate, UserOut
 
 
 router = APIRouter(tags=["Authentication"])
+
+
+async def _serialize_user(user: User, db: AsyncSession) -> UserOut:
+    food_bank_name: str | None = None
+    if user.food_bank_id is not None:
+        food_bank_name = await db.scalar(
+            select(FoodBank.name).where(FoodBank.id == user.food_bank_id)
+        )
+
+    return UserOut.model_validate(
+        {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "food_bank_id": user.food_bank_id,
+            "food_bank_name": food_bank_name,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
+        }
+    )
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -59,7 +81,7 @@ async def register(
     await db.flush()
     await db.refresh(user)
     
-    return user
+    return await _serialize_user(user, db)
 
 
 @router.post("/login", response_model=TokenResponse, status_code=status.HTTP_200_OK)
@@ -84,14 +106,20 @@ async def login(
         )
     
     # Generate tokens
-    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "role": user.role,
+            "food_bank_id": user.food_bank_id,
+        }
+    )
     refresh_token = create_refresh_token({"sub": str(user.id)})
     
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer",
-        user=UserOut.model_validate(user),
+        user=await _serialize_user(user, db),
     )
 
 
@@ -148,7 +176,11 @@ async def refresh(
     
     # Generate new access token
     new_access_token = create_access_token(
-        {"sub": str(user.id), "role": user.role}
+        {
+            "sub": str(user.id),
+            "role": user.role,
+            "food_bank_id": user.food_bank_id,
+        }
     )
     
     return {
@@ -179,4 +211,4 @@ async def get_profile(
             detail="User not found",
         )
     
-    return user
+    return await _serialize_user(user, db)

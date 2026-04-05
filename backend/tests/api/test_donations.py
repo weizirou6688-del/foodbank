@@ -115,10 +115,35 @@ class FakeSession:
 
     async def execute(self, query):
         q = str(query)
+        try:
+            params = query.compile().params
+        except Exception:
+            params = {}
+        food_bank_filter = next(
+            (
+                value
+                for key, value in params.items()
+                if "food_bank_id" in str(key) and value is not None
+            ),
+            None,
+        )
         if "donations_cash" in q:
-            return _ExecuteResult(self._cash_rows)
+            rows = self._cash_rows
+            if food_bank_filter is not None:
+                rows = [
+                    row
+                    for row in rows
+                    if getattr(row, "food_bank_id", None) == food_bank_filter
+                ]
+            return _ExecuteResult(rows)
         if "donations_goods" in q:
             rows = self._goods_rows or [x for x in self.added if isinstance(x, DonationGoods)]
+            if food_bank_filter is not None:
+                rows = [
+                    row
+                    for row in rows
+                    if getattr(row, "food_bank_id", None) == food_bank_filter
+                ]
             return _ExecuteResult(rows)
         if "restock_requests" in q:
             return _ExecuteResult(self._restock_rows)
@@ -422,3 +447,71 @@ async def test_list_donations_merge_and_sort_desc():
     assert result[0]["donation_type"] == "goods"
     assert result[0]["items"][0]["item_name"] == "Pasta"
     assert result[1]["donation_type"] == "cash"
+
+
+@pytest.mark.asyncio
+async def test_list_donations_local_admin_scopes_to_assigned_food_bank():
+    now = datetime.utcnow()
+    cash = DonationCash(
+        id=uuid.uuid4(),
+        donor_name="Platform Cash",
+        donor_email="cash@example.com",
+        amount_pence=300,
+        payment_reference="P3",
+        status="completed",
+        food_bank_id=None,
+    )
+    cash.created_at = now - timedelta(hours=2)
+
+    own_goods = DonationGoods(
+        id=uuid.uuid4(),
+        donor_user_id=None,
+        donor_name="Own Bank Donor",
+        donor_email="own@example.com",
+        donor_phone="123",
+        notes=None,
+        status="pending",
+        food_bank_id=7,
+    )
+    own_goods.created_at = now
+    own_goods.items = [
+        DonationGoodsItem(
+            id=1,
+            donation_id=own_goods.id,
+            item_name="Rice",
+            quantity=2,
+        )
+    ]
+
+    other_goods = DonationGoods(
+        id=uuid.uuid4(),
+        donor_user_id=None,
+        donor_name="Other Bank Donor",
+        donor_email="other@example.com",
+        donor_phone="456",
+        notes=None,
+        status="pending",
+        food_bank_id=9,
+    )
+    other_goods.created_at = now - timedelta(hours=1)
+    other_goods.items = [
+        DonationGoodsItem(
+            id=2,
+            donation_id=other_goods.id,
+            item_name="Beans",
+            quantity=4,
+        )
+    ]
+
+    db = FakeSession(cash_rows=[cash], goods_rows=[own_goods, other_goods])
+
+    result = await list_donations(
+        type=None,
+        admin_user={"role": "admin", "food_bank_id": 7},
+        db=db,
+    )
+
+    assert len(result) == 1
+    assert result[0]["donation_type"] == "goods"
+    assert result[0]["donor_name"] == "Own Bank Donor"
+    assert result[0]["items"][0]["item_name"] == "Rice"

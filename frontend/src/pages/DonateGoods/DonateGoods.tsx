@@ -62,26 +62,26 @@ const STEP_FEATURES = [
   {
     icon: <Heart className={styles.featureIcon} />,
     title: '2. Fill Form',
-    description: 'Tell us about your donation through our simple form',
+    description: 'Tell us about your donation request through our simple form',
   },
   {
     icon: <Users className={styles.featureIcon} />,
-    title: '3. We Pick Up',
-    description: 'Schedule a convenient pickup time in your area',
+    title: '3. Local Team Follows Up',
+    description: 'The selected food bank reviews your request and contacts you directly',
   },
   {
     icon: <TrendingUp className={styles.featureIcon} />,
-    title: '4. Make Impact',
-    description: 'Your items help families and communities thrive',
+    title: '4. Complete The Donation',
+    description: 'Arrange pickup or drop-off with the local food bank team',
   },
 ]
 
 const FEATURE_STORIES = [
   {
     icon: <Package className={styles.featureImageIcon} />,
-    title: 'Organized Distribution',
+    title: 'Coordinated Local Collection',
     description:
-      'We carefully sort and distribute items to those who need them most, ensuring every donation reaches families in our community who can benefit from your generosity.',
+      'The platform records your request and passes it to the selected food bank so their local team can review what is needed and arrange the next step with you.',
     image:
       'https://images.unsplash.com/photo-1765744893064-dce3184289ef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3YXJlaG91c2UlMjBib3hlcyUyMG9yZ2FuaXplZHxlbnwxfHx8fDE3NzQ5MzU0OTV8MA&ixlib=rb-4.1.0&q=80&w=1080',
   },
@@ -89,7 +89,7 @@ const FEATURE_STORIES = [
     icon: <Heart className={styles.featureImageIcon} />,
     title: 'Community Support',
     description:
-      "Join our network of caring individuals making a real difference. Together, we're building stronger, more resilient communities where everyone has access to essential goods.",
+      "Join a wider network of donors supporting local food banks. Together, we're helping communities respond with the right goods in the right place.",
     image:
       'https://images.unsplash.com/photo-1617080090911-91409e3496ad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb21tdW5pdHklMjBzdXBwb3J0JTIwaGFuZHN8ZW58MXx8fHwxNzc0OTM1NDk1fDA&ixlib=rb-4.1.0&q=80&w=1080',
   },
@@ -373,7 +373,7 @@ export default function DonateGoods() {
       nextErrors.phone = 'Phone number is required.'
     }
     if (!details.pickupDate.trim()) {
-      nextErrors.pickupDate = 'Preferred pickup date is required.'
+      nextErrors.pickupDate = 'Preferred collection or drop-off date is required.'
     } else if (!isValidIsoDate(details.pickupDate.trim())) {
       nextErrors.pickupDate = 'Please enter the date in YYYY-MM-DD format.'
     }
@@ -428,7 +428,7 @@ export default function DonateGoods() {
       setDetails(INITIAL_DETAILS)
       setSubmitFeedback({
         type: 'success',
-        message: `Thanks, ${details.name.trim()}. Your donation has been registered for ${selectedBank.name}. We will contact you at ${details.email.trim()} soon.`,
+        message: `Thanks, ${details.name.trim()}. Your donation request has been sent to ${selectedBank.name}. Their team will contact you at ${details.email.trim()} to arrange collection or drop-off.`,
       })
     } catch (error) {
       setSubmitFeedback({
@@ -454,22 +454,22 @@ export default function DonateGoods() {
               <div className={styles.heroInner}>
                 <h1 className={styles.heroTitle}>Your Unwanted Goods, Their Utilities</h1>
                 <p className={styles.heroText}>
-                  Transform unused items into hope. Every donation directly supports families in your
-                  community through local food banks.
+                  Choose a food bank near you and submit a goods donation request to their local
+                  team. We record the request through the platform and help coordinate the handover.
                 </p>
 
                 <div className={styles.heroBenefits}>
                   <div className={styles.heroBenefit}>
                     <Check className={styles.checkIcon} />
-                    <span>Free collection service available</span>
+                    <span>Find and choose a nearby food bank</span>
                   </div>
                   <div className={styles.heroBenefit}>
                     <Check className={styles.checkIcon} />
-                    <span>Direct impact to local families</span>
+                    <span>Your request is sent to the selected team</span>
                   </div>
                   <div className={styles.heroBenefit}>
                     <Check className={styles.checkIcon} />
-                    <span>Reduce waste, increase care</span>
+                    <span>Pickup or drop-off is arranged locally</span>
                   </div>
                 </div>
 
@@ -537,7 +537,7 @@ export default function DonateGoods() {
                   ? 'Live impact data is temporarily unavailable. Please try again shortly.'
                   : impactStatsStatus === 'loading'
                     ? 'Loading live impact data from the dashboard.'
-                    : 'Every donation helps us create positive change in our communities'}
+                    : 'These figures reflect goods support coordinated across our wider food bank network.'}
               </p>
             </div>
 
@@ -610,7 +610,7 @@ export default function DonateGoods() {
                 Ready to <span className={styles.highlight}>Make a Difference?</span>
               </h2>
               <p className={styles.sectionText}>
-                Follow these simple steps to donate and help families in need
+                Follow these steps to submit your request to the food bank you want to support
               </p>
             </div>
 
@@ -747,6 +747,10 @@ export default function DonateGoods() {
                         <p className={styles.selectedBankLabel}>Donating to:</p>
                         <h3 className={styles.selectedBankName}>{selectedBank.name}</h3>
                         <p className={styles.selectedBankAddress}>{selectedBank.address}</p>
+                        <p className={styles.flowTextLeft}>
+                          Your donation request will be sent to this food bank. Their team will
+                          contact you to arrange collection or drop-off.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -757,7 +761,7 @@ export default function DonateGoods() {
                         Your <span className={styles.highlight}>Donation Details</span>
                       </h3>
                       <p className={styles.flowTextLeft}>
-                        Please provide information about your donation
+                        Please provide the details the selected food bank team will need to follow up
                       </p>
                     </div>
 
@@ -806,7 +810,7 @@ export default function DonateGoods() {
 
                       <div className={styles.formField}>
                         <label htmlFor="pickup-date" className={styles.formLabel}>
-                          Preferred Pickup Date *
+                          Preferred Collection or Drop-off Date *
                         </label>
                         <input
                           id="pickup-date"
@@ -904,7 +908,7 @@ export default function DonateGoods() {
                     ) : null}
 
                     <button type="submit" disabled={submitting} className={styles.primaryActionWide}>
-                      {submitting ? 'Submitting Donation...' : 'Schedule Donation Pickup'}
+                      {submitting ? 'Submitting Donation...' : 'Send Donation Request'}
                     </button>
                   </form>
                 </div>
@@ -922,16 +926,16 @@ export default function DonateGoods() {
                   <span className={styles.highlight}>Boxes</span>
                 </h2>
                 <p className={styles.whyText}>
-                  Our mission is simple: redirect quality goods from landfills to people who need
-                  them. Every donation you make helps reduce waste while providing essential items
-                  to families in your community.
+                  Our mission is simple: redirect quality goods from landfills into the food bank
+                  network. Every request helps the selected food bank review what is available and
+                  arrange the right next step with you.
                 </p>
 
                 <ul className={styles.whyList}>
                   {[
-                    'Free pickup service in most areas',
+                    'Pickup or drop-off options depend on the selected food bank',
                     'Tax-deductible donations with receipt provided',
-                    'Direct community impact you can track',
+                    'The selected food bank team follows up directly',
                     'Environmentally responsible recycling',
                   ].map((item) => (
                     <li key={item} className={styles.whyListItem}>

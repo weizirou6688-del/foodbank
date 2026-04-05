@@ -212,6 +212,7 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin', red
               <h4 className={styles.demoTitle}>Demo accounts:</h4>
               <ul className={styles.demoList}>
                 <li className={styles.demoItem}>admin@foodbank.com / admin123</li>
+                <li className={styles.demoItem}>localadmin@foodbank.com / localadmin123</li>
                 <li className={styles.demoItem}>supermarket@foodbank.com / supermarket123</li>
                 <li className={styles.demoItem}>user@example.com / user12345</li>
               </ul>

@@ -14,6 +14,18 @@ interface AuthState {
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>
 }
 
+function normalizeUser(user: User | null | undefined): User | null {
+  if (!user) {
+    return null
+  }
+
+  return {
+    ...user,
+    food_bank_id: user.food_bank_id ?? null,
+    food_bank_name: user.food_bank_name ?? null,
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -37,7 +49,7 @@ export const useAuthStore = create<AuthState>()(
 
           const data = await response.json()
           set({
-            user: data.user,
+            user: normalizeUser(data.user),
             isAuthenticated: true,
             accessToken: data.access_token,
             refreshToken: data.refresh_token ?? null,
@@ -107,7 +119,7 @@ export const useAuthStore = create<AuthState>()(
           if (loginResponse.ok) {
             const loginData = await loginResponse.json()
             set({
-              user: loginData.user,
+              user: normalizeUser(loginData.user),
               isAuthenticated: true,
               accessToken: loginData.access_token,
               refreshToken: loginData.refresh_token ?? null,

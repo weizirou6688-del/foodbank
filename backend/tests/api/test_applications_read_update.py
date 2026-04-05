@@ -9,7 +9,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.application import Application
-from app.routers.applications import get_my_applications, update_application_status
+from app.routers.applications import (
+    get_my_applications,
+    list_all_applications,
+    update_application_status,
+)
 from app.schemas.application import ApplicationUpdate
 
 
@@ -41,8 +45,26 @@ class FakeReadSession:
     def __init__(self, rows):
         self._rows = rows
 
-    async def execute(self, _query):
-        return _ExecuteResult(self._rows)
+    async def execute(self, query):
+        try:
+            params = query.compile().params
+        except Exception:
+            params = {}
+
+        food_bank_filter = next(
+            (
+                value
+                for key, value in params.items()
+                if "food_bank_id" in str(key) and value is not None
+            ),
+            None,
+        )
+        if food_bank_filter is None:
+            return _ExecuteResult(self._rows)
+
+        return _ExecuteResult(
+            [row for row in self._rows if getattr(row, "food_bank_id", None) == food_bank_filter]
+        )
 
 
 class FakeUpdateSession:
@@ -95,6 +117,37 @@ async def test_get_my_applications_returns_rows():
     assert result["total"] == 2
     assert len(result["items"]) == 2
     assert result["items"][0].redemption_code == "ABCD-EFGH"
+
+
+@pytest.mark.asyncio
+async def test_list_all_applications_local_admin_scopes_to_assigned_food_bank():
+    rows = [
+        Application(
+            id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            food_bank_id=1,
+            redemption_code="ABCD-EFGH",
+            status="pending",
+            week_start=date(2026, 3, 16),
+            total_quantity=1,
+        ),
+        Application(
+            id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            food_bank_id=2,
+            redemption_code="WXYZ-2345",
+            status="pending",
+            week_start=date(2026, 3, 16),
+            total_quantity=1,
+        ),
+    ]
+
+    db = FakeReadSession(rows)
+    result = await list_all_applications(admin_user={"role": "admin", "food_bank_id": 1}, db=db)
+
+    assert result["total"] == 1
+    assert len(result["items"]) == 1
+    assert result["items"][0].food_bank_id == 1
 
 
 @pytest.mark.asyncio
@@ -189,3 +242,30 @@ async def test_update_application_status_empty_payload_rejected():
 
     assert exc.value.status_code == 400
     assert exc.value.detail == "No fields provided to update"
+
+
+@pytest.mark.asyncio
+async def test_update_application_status_rejects_other_food_bank_for_local_admin():
+    app_id = uuid.uuid4()
+    db = FakeUpdateSession(
+        app_row=Application(
+            id=app_id,
+            user_id=uuid.uuid4(),
+            food_bank_id=2,
+            redemption_code="ABCD-EFGH",
+            status="pending",
+            week_start=date(2026, 3, 16),
+            total_quantity=1,
+        )
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await update_application_status(
+            application_id=app_id,
+            application_in=ApplicationUpdate(status="collected"),
+            admin_user={"role": "admin", "food_bank_id": 1},
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "You can only update records for your assigned food bank"

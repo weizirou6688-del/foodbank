@@ -24,6 +24,7 @@ class FoodBank(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     address: Mapped[str] = mapped_column(Text, nullable=False)
+    notification_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     lat: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
     lng: Mapped[Decimal] = mapped_column(Numeric(9, 6), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -50,3 +51,5 @@ class FoodBank(Base):
     goods_donations: Mapped[list["DonationGoods"]] = relationship(
         back_populates="food_bank",
     )
+
+    admin_users: Mapped[list["User"]] = relationship(back_populates="food_bank")

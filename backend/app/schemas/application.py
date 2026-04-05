@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 ApplicationStatus = Literal["pending", "collected", "expired"]
-APPLICATION_REDEMPTION_CODE_PATTERN = r"^(?:[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}|[A-Z]{2}\d{8})$"
+APPLICATION_REDEMPTION_CODE_PATTERN = r"^(?:[A-Z0-9]{4}-[A-Z0-9]{4}|[A-Z]{2}\d{8})$"
 
 
 # ==================== INNER PAYLOADS ====================
@@ -55,7 +55,7 @@ class ApplicationBase(BaseModel):
 
     # From spec: redemption_code: VARCHAR(20), NOT NULL, UNIQUE
     # Local UX uses a 4-4 collection code such as ABCD-EFGH.
-    # Excludes visually ambiguous characters like I, O, 0, and 1.
+    # Legacy seeded demo records may also include digits like 0 and 1.
     # Usually generated server-side; included here for full repr.
     redemption_code: str = Field(
         pattern=APPLICATION_REDEMPTION_CODE_PATTERN,
