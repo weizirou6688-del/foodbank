@@ -15,7 +15,11 @@ import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { donationsAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
 import { isValidEmail } from '@/shared/lib/validation'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
-import { getNearbyFoodbanks } from '@/utils/foodbankApi'
+import {
+  BACKEND_API_UNAVAILABLE_MESSAGE,
+  getFoodBankLookupErrorMessage,
+  getNearbyFoodbanks,
+} from '@/utils/foodbankApi'
 import { ImageWithFallback } from './components/figma/ImageWithFallback'
 import styles from './DonateGoods.module.css'
 
@@ -35,6 +39,7 @@ type ImpactCardProps = {
 type FoodBankOption = {
   id: string
   foodBankId?: number | null
+  foodBankEmail?: string
   name: string
   address: string
   postcode: string
@@ -182,6 +187,132 @@ function normalizePostcodeInput(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').slice(0, 8)
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function buildFoodBankDisplayAddress(address: string, postcode: string) {
+  const normalizedAddress = normalizeWhitespace(address)
+  const normalizedPostcode = normalizeWhitespace(postcode).toUpperCase()
+
+  if (!normalizedAddress) {
+    return normalizedPostcode
+  }
+
+  if (!normalizedPostcode) {
+    return normalizedAddress
+  }
+
+  const postcodePattern = new RegExp(
+    escapeRegExp(normalizedPostcode).replace(/\s+/g, '\\s*'),
+    'gi',
+  )
+
+  const addressWithoutPostcode = normalizedAddress
+    .replace(postcodePattern, '')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,+/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .replace(/^,\s*/, '')
+    .replace(/,\s*$/, '')
+
+  return addressWithoutPostcode ? `${addressWithoutPostcode}, ${normalizedPostcode}` : normalizedPostcode
+}
+
+function sanitizePickupDateInput(value: string) {
+  return value.replace(/[^\d/-]/g, '').slice(0, 10)
+}
+
+function formatUkDate(date: Date) {
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear().toString().padStart(4, '0')
+  return `${day}/${month}/${year}`
+}
+
+function parsePickupDate(value: string) {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) {
+    return null
+  }
+
+  let day: number
+  let month: number
+  let year: number
+
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmedValue)) {
+    ;[year, month, day] = trimmedValue.split('-').map(Number)
+  } else if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(trimmedValue)) {
+    const normalizedValue = trimmedValue.replace(/-/g, '/')
+    ;[day, month, year] = normalizedValue.split('/').map(Number)
+  } else if (/^\d{8}$/.test(trimmedValue)) {
+    day = Number(trimmedValue.slice(0, 2))
+    month = Number(trimmedValue.slice(2, 4))
+    year = Number(trimmedValue.slice(4))
+  } else {
+    return null
+  }
+
+  const parsedDate = new Date(year, month - 1, day)
+
+  if (
+    Number.isNaN(parsedDate.getTime())
+    || parsedDate.getFullYear() !== year
+    || parsedDate.getMonth() !== month - 1
+    || parsedDate.getDate() !== day
+  ) {
+    return null
+  }
+
+  return {
+    date: parsedDate,
+    isoDate: `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`,
+    ukDate: formatUkDate(parsedDate),
+  }
+}
+
+function getStartOfToday() {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
+function getPickupDateError(value: string) {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) {
+    return 'Preferred collection or drop-off date is required.'
+  }
+
+  const parsedPickupDate = parsePickupDate(trimmedValue)
+  if (!parsedPickupDate) {
+    return 'Please enter a valid date in DD/MM/YYYY format.'
+  }
+
+  if (parsedPickupDate.date < getStartOfToday()) {
+    return 'Please enter a valid date on or after today.'
+  }
+
+  return ''
+}
+
+function getPhoneError(value: string) {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) {
+    return 'Phone number is required.'
+  }
+
+  if (trimmedValue.length < 3) {
+    return 'Phone number must be at least 3 characters.'
+  }
+
+  return ''
+}
+
 function FeatureCard({ icon, title, description, image }: FeatureCardProps) {
   if (image) {
     return (
@@ -229,13 +360,6 @@ function estimateQuantity(value: string) {
   if (!numbers) return 1
   const total = numbers.reduce((sum, current) => sum + Number(current), 0)
   return total > 0 ? total : 1
-}
-
-function isValidIsoDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return false
-  return date.toISOString().slice(0, 10) === value
 }
 
 function formatDistanceMiles(distanceKm: number) {
@@ -305,7 +429,7 @@ export default function DonateGoods() {
     setSubmitFeedback(null)
     setSearchFeedback(null)
 
-    const normalizedPostcode = postcode.trim().toUpperCase()
+    const normalizedPostcode = normalizeWhitespace(postcode).toUpperCase()
 
     if (!UK_POSTCODE_PATTERN.test(normalizedPostcode)) {
       setPostcodeError('Please enter a valid postcode, for example SY23 3AN.')
@@ -322,8 +446,9 @@ export default function DonateGoods() {
         .map((bank) => {
           return {
             id: `${bank.name}-${bank.postcode}-${bank.lat}-${bank.lng}`,
+            foodBankEmail: bank.email,
             name: bank.name,
-            address: [bank.address, bank.postcode].filter(Boolean).join(', '),
+            address: buildFoodBankDisplayAddress(bank.address, bank.postcode),
             postcode: bank.postcode,
             distance: formatDistanceMiles(bank.distance),
             distanceMiles: bank.distance * 0.621371,
@@ -342,9 +467,10 @@ export default function DonateGoods() {
       setSearchResults([])
       setStep(1)
       setPostcodeError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to look up nearby foodbanks right now. Please try again.',
+        getFoodBankLookupErrorMessage(
+          error,
+          BACKEND_API_UNAVAILABLE_MESSAGE,
+        ),
       )
     } finally {
       setSearching(false)
@@ -356,8 +482,45 @@ export default function DonateGoods() {
     setStep(3)
   }
 
+  const normalizePickupDateField = () => {
+    const parsedPickupDate = parsePickupDate(details.pickupDate)
+    if (parsedPickupDate && details.pickupDate !== parsedPickupDate.ukDate) {
+      updateDetails('pickupDate', parsedPickupDate.ukDate)
+    }
+  }
+
   const updateDetails = (field: keyof DonationDetails, value: string) => {
     setDetails((current) => ({ ...current, [field]: value }))
+    setFieldErrors((current) => {
+      const nextErrors = { ...current }
+
+      if (field === 'pickupDate') {
+        const pickupDateError = getPickupDateError(value)
+        if (pickupDateError) {
+          nextErrors[field] = pickupDateError
+        } else {
+          delete nextErrors[field]
+        }
+        return nextErrors
+      }
+
+      if (field === 'phone') {
+        const phoneError = getPhoneError(value)
+        if (phoneError) {
+          nextErrors[field] = phoneError
+        } else {
+          delete nextErrors[field]
+        }
+        return nextErrors
+      }
+
+      if (!current[field]) {
+        return current
+      }
+
+      delete nextErrors[field]
+      return nextErrors
+    })
   }
 
   const validateDetails = () => {
@@ -369,13 +532,13 @@ export default function DonateGoods() {
     if (!isValidEmail(details.email)) {
       nextErrors.email = 'Please enter a valid email address.'
     }
-    if (!details.phone.trim()) {
-      nextErrors.phone = 'Phone number is required.'
+    const phoneError = getPhoneError(details.phone)
+    if (phoneError) {
+      nextErrors.phone = phoneError
     }
-    if (!details.pickupDate.trim()) {
-      nextErrors.pickupDate = 'Preferred collection or drop-off date is required.'
-    } else if (!isValidIsoDate(details.pickupDate.trim())) {
-      nextErrors.pickupDate = 'Please enter the date in YYYY-MM-DD format.'
+    const pickupDateError = getPickupDateError(details.pickupDate)
+    if (pickupDateError) {
+      nextErrors.pickupDate = pickupDateError
     }
     if (!details.items.trim()) {
       nextErrors.items = 'Please describe the items you are donating.'
@@ -402,17 +565,27 @@ export default function DonateGoods() {
 
     if (!validateDetails()) return
 
+    const parsedPickupDate = parsePickupDate(details.pickupDate)
+    if (!parsedPickupDate) {
+      setFieldErrors((current) => ({
+        ...current,
+        pickupDate: 'Please enter a valid date in DD/MM/YYYY format.',
+      }))
+      return
+    }
+
     setSubmitting(true)
     try {
       await donationsAPI.donateGoods({
         food_bank_id: selectedBank.foodBankId ?? undefined,
+        food_bank_email: selectedBank.foodBankEmail?.trim() || undefined,
         food_bank_name: selectedBank.name,
         food_bank_address: selectedBank.address,
         donor_name: details.name.trim(),
         donor_email: details.email.trim(),
         donor_phone: details.phone.trim(),
         postcode: postcode.trim().toUpperCase(),
-        pickup_date: details.pickupDate.trim(),
+        pickup_date: parsedPickupDate.isoDate,
         item_condition: details.condition,
         estimated_quantity: details.quantity.trim() || undefined,
         notes: details.notes.trim() || undefined,
@@ -431,6 +604,27 @@ export default function DonateGoods() {
         message: `Thanks, ${details.name.trim()}. Your donation request has been sent to ${selectedBank.name}. Their team will contact you at ${details.email.trim()} to arrange collection or drop-off.`,
       })
     } catch (error) {
+      if (error instanceof Error) {
+        if (/at least 3 characters/i.test(error.message)) {
+          setFieldErrors((current) => ({
+            ...current,
+            phone: 'Phone number must be at least 3 characters.',
+          }))
+          return
+        }
+
+        if (
+          /pickup date on or after today/i.test(error.message)
+          || /valid date/i.test(error.message)
+        ) {
+          setFieldErrors((current) => ({
+            ...current,
+            pickupDate: getPickupDateError(details.pickupDate) || 'Please enter a valid date on or after today.',
+          }))
+          return
+        }
+      }
+
       setSubmitFeedback({
         type: 'error',
         message:
@@ -816,13 +1010,11 @@ export default function DonateGoods() {
                           id="pickup-date"
                           type="text"
                           value={details.pickupDate}
-                          onChange={(event) =>
-                            updateDetails(
-                              'pickupDate',
-                              event.target.value.replace(/[^\d-]/g, '').slice(0, 10),
-                            )
-                          }
+                          onChange={(event) => updateDetails('pickupDate', sanitizePickupDateInput(event.target.value))}
+                          onBlur={normalizePickupDateField}
                           inputMode="numeric"
+                          maxLength={10}
+                          placeholder="DD/MM/YYYY"
                           className={styles.formInput}
                         />
                         {fieldErrors.pickupDate ? (

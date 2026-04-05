@@ -62,6 +62,7 @@ class DonationGoodsBase(BaseModel):
     donor_user_id: uuid.UUID | None = None
 
     food_bank_id: int | None = Field(default=None, gt=0)
+    food_bank_email: str | None = Field(default=None, min_length=3, max_length=255)
     food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
     food_bank_address: str | None = Field(default=None, min_length=1)
 
@@ -108,6 +109,7 @@ class DonationGoodsCreate(BaseModel):
     donor_user_id: uuid.UUID | None = None
 
     food_bank_id: int | None = Field(default=None, gt=0)
+    food_bank_email: str | None = Field(default=None, min_length=3, max_length=255)
     food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
     food_bank_address: str | None = Field(default=None, min_length=1)
 
@@ -167,6 +169,7 @@ class DonationGoodsUpdate(BaseModel):
     donor_phone: str | None = Field(default=None, min_length=3, max_length=30)
 
     food_bank_id: int | None = Field(default=None, gt=0)
+    food_bank_email: str | None = Field(default=None, min_length=3, max_length=255)
     food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
     food_bank_address: str | None = Field(default=None, min_length=1)
 
