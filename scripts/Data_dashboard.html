@@ -112,17 +112,22 @@
         }
 
         .header-content {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
         }
 
+        .header-content nav {
+            justify-self: center;
+        }
+
         .logo {
-            font-size: 16px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--color-text-dark);
+            justify-self: start;
         }
 
         .nav-links {
@@ -149,6 +154,7 @@
             display: flex;
             gap: var(--spacing-sm);
             align-items: center;
+            justify-self: end;
         }
 
         .admin-tag {
@@ -198,6 +204,7 @@
 
         .btn-secondary:hover {
             background-color: #E0E0E0;
+            transform: translateY(-2px);
         }
 
         .btn-sm {
@@ -689,6 +696,10 @@
         }
 
         @media (max-width: 768px) {
+            .header-content {
+                grid-template-columns: 1fr auto;
+            }
+
             .nav-links {
                 display: none;
             }
@@ -773,7 +784,7 @@
             </nav>
             <div class="header-actions">
                 <div class="admin-tag">Admin</div>
-                <a href="#" class="btn btn-secondary btn-sm">Sign Out</a>
+                <a href="#" class="btn btn-secondary">Sign Out</a>
             </div>
         </div>
     </header>
