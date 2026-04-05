@@ -57,6 +57,20 @@ DEFAULT_INVENTORY_CATEGORY = "Canned Goods"
 DEFAULT_INVENTORY_UNIT = "units"
 
 
+def _ensure_pending_goods_pickup_date_is_not_past(
+    pickup_date: date | None,
+    status_value: str,
+) -> None:
+    if pickup_date is None or status_value != "pending":
+        return
+
+    if pickup_date < date.today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pending goods donations must use a pickup date on or after today",
+        )
+
+
 async def _resolve_food_bank(food_bank_id: int, db: AsyncSession) -> FoodBank:
     selected_food_bank = await db.scalar(
         select(FoodBank).where(FoodBank.id == food_bank_id)
@@ -290,6 +304,10 @@ async def submit_goods_donation(
     try:
         donation_id: uuid.UUID | None = None
         resolved_status = donation_in.status or "pending"
+        _ensure_pending_goods_pickup_date_is_not_past(
+            donation_in.pickup_date,
+            resolved_status,
+        )
 
         async with db.begin():
             requested_food_bank_id = donation_in.food_bank_id
@@ -371,9 +389,14 @@ async def submit_goods_donation(
                 )
                 logger.info("Queued goods donation thank-you email for %s", donation_in.donor_email)
 
+            notification_email = (
+                selected_food_bank.notification_email
+                if selected_food_bank is not None
+                else None
+            ) or donation_in.food_bank_email
             background_tasks.add_task(
                 send_goods_donation_notification,
-                notification_email=selected_food_bank.notification_email if selected_food_bank is not None else None,
+                notification_email=notification_email,
                 food_bank_name=(
                     selected_food_bank.name
                     if selected_food_bank is not None
@@ -394,7 +417,7 @@ async def submit_goods_donation(
             logger.info(
                 "Queued goods donation notification for food_bank_id=%s recipient=%s",
                 selected_food_bank.id if selected_food_bank is not None else None,
-                selected_food_bank.notification_email if selected_food_bank is not None else None,
+                notification_email,
             )
 
         result = await db.execute(
@@ -632,6 +655,20 @@ async def update_goods_donation(
                     updates["food_bank_id"] = selected_food_bank.id
                     updates["food_bank_name"] = selected_food_bank.name
                     updates["food_bank_address"] = selected_food_bank.address
+
+            resulting_status = updates.get("status", donation.status)
+            resulting_pickup_date = updates.get("pickup_date", donation.pickup_date)
+            if (
+                "pickup_date" in donation_in.model_fields_set
+                or (
+                    "status" in donation_in.model_fields_set
+                    and resulting_status == "pending"
+                )
+            ):
+                _ensure_pending_goods_pickup_date_is_not_past(
+                    resulting_pickup_date,
+                    resulting_status,
+                )
 
             for field, value in updates.items():
                 setattr(donation, field, value)
