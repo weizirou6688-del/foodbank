@@ -35,10 +35,13 @@ const toneColorMap: Record<string, string> = {
   muted: 'var(--color-text-medium)',
 }
 
-const dataDashboardAdminHtml = dataDashboardReferenceHtml.replace(
-  '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>',
-  '<script>window.__skipDashboardAutoInit = true;</script>\n<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>',
-)
+const remoteChartScriptTag = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>'
+const localChartScriptTag = '<script src="/vendor/chart.umd.min.js"></script>'
+const adminChartScriptTag = '<script>window.__skipDashboardAutoInit = true;</script>\n<script src="/vendor/chart.umd.min.js"></script>'
+
+const dataDashboardAdminHtml = dataDashboardReferenceHtml
+  .replace(remoteChartScriptTag, adminChartScriptTag)
+  .replace(localChartScriptTag, adminChartScriptTag)
 
 export default function AdminDataDashboardPreview() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
