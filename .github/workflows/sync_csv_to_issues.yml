@@ -1,26 +1,59 @@
-name: Sync CSV to GitHub Issues
+name: Sync Kanban CSV to GitHub Project
 
 on:
   push:
     paths:
-      - 'tasks.csv' # 当这个文件被修改并推送时触发
+      - ".github/workflows/kanban.csv"
+      - ".github/workflows/sync_csv_to_issues.yml"
+      - ".github/scripts/sync-kanban-to-project.mjs"
+  workflow_dispatch:
+    inputs:
+      csv_path:
+        description: "Path to the kanban CSV file"
+        required: false
+        default: ".github/workflows/kanban.csv"
+      dry_run:
+        description: "Validate and log only without changing GitHub data"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: sync-kanban-to-project
+  cancel-in-progress: false
 
 jobs:
-  import-issues:
+  sync-project:
     runs-on: ubuntu-latest
     permissions:
-      issues: write # 赋予创建 Issue 的权限
+      contents: read
+      issues: write
+      repository-projects: write
+    env:
+      CSV_PATH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.csv_path || '.github/workflows/kanban.csv' }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
+      REPO_OWNER: ${{ github.repository_owner }}
+      REPO_NAME: ${{ github.event.repository.name }}
+      PROJECT_OWNER: ${{ vars.KANBAN_PROJECT_OWNER || github.repository_owner }}
+      PROJECT_NUMBER: ${{ vars.KANBAN_PROJECT_NUMBER }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      KANBAN_SYNC_TOKEN: ${{ secrets.KANBAN_SYNC_TOKEN }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Import Issues from CSV
-        shell: pwsh # 使用 PowerShell 解析 CSV
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate project configuration
         run: |
-          $csv = Import-Csv tasks.csv
-          foreach ($row in $csv) {
-            # 使用官方 GitHub CLI 创建 Issue
-            gh issue create --title $row.title --body $row.body --label $row.label
-          }
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 自动使用内置权限
+          if [ -z "${PROJECT_NUMBER}" ]; then
+            echo "Repository variable KANBAN_PROJECT_NUMBER is required." >&2
+            echo "Set KANBAN_PROJECT_NUMBER to your GitHub Project number." >&2
+            exit 1
+          fi
+
+      - name: Sync kanban CSV to issues and project fields
+        run: node .github/scripts/sync-kanban-to-project.mjs
