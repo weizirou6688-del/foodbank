@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/app/store/authStore'
 import LoginModal from '@/features/auth/components/LoginModal'
-import type { UserRole } from '@/shared/types/common'
 import styles from './PrimaryNavbar.module.css'
 
 type NavbarVariant = 'public' | 'supermarket'
@@ -27,12 +26,6 @@ const publicNavItems: NavItem[] = [
 const supermarketNavItems: NavItem[] = [
   { key: 'restock', label: 'Supermarket Restock', path: '/supermarket' },
 ]
-
-const roleLabelMap: Record<UserRole, string> = {
-  public: 'Public',
-  supermarket: 'Supermarket',
-  admin: 'Admin',
-}
 
 function HamburgerIcon() {
   return (
@@ -84,7 +77,7 @@ function getActiveKey(pathname: string, variant: NavbarVariant) {
 export default function PrimaryNavbar({ variant = 'public' }: PrimaryNavbarProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAuthenticated, logout, user } = useAuthStore()
+  const { isAuthenticated, logout } = useAuthStore()
 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [loginModal, setLoginModal] = useState<{ open: boolean; tab: 'signin' | 'register' }>({
@@ -98,7 +91,7 @@ export default function PrimaryNavbar({ variant = 'public' }: PrimaryNavbarProps
 
   const navItems = variant === 'supermarket' ? supermarketNavItems : publicNavItems
   const activeKey = getActiveKey(location.pathname, variant)
-  const roleLabel = variant === 'supermarket' ? 'Supermarket' : roleLabelMap[user?.role ?? 'public']
+  const roleLabel = variant === 'supermarket' ? 'Supermarket' : 'Public'
   const authLabel = isAuthenticated ? 'Sign Out' : 'Sign In'
 
   const navigateTo = (path: string) => {

@@ -444,53 +444,54 @@ export default function DonateGoods() {
   }
 
   return (
-    <div className={styles.page}>
+    <>
       <PrimaryNavbar variant="public" />
 
-      <main>
-        <section id="home" className={styles.heroSection}>
-          <div className={styles.shell}>
-            <div className={styles.heroInner}>
-              <h1 className={styles.heroTitle}>Your Unwanted Goods, Their Utilities</h1>
-              <p className={styles.heroText}>
-                Transform unused items into hope. Every donation directly supports families in your
-                community through local food banks.
-              </p>
+      <div className={styles.page}>
+        <main>
+          <section id="home" className={styles.heroSection}>
+            <div className={styles.shell}>
+              <div className={styles.heroInner}>
+                <h1 className={styles.heroTitle}>Your Unwanted Goods, Their Utilities</h1>
+                <p className={styles.heroText}>
+                  Transform unused items into hope. Every donation directly supports families in your
+                  community through local food banks.
+                </p>
 
-              <div className={styles.heroBenefits}>
-                <div className={styles.heroBenefit}>
-                  <Check className={styles.checkIcon} />
-                  <span>Free collection service available</span>
+                <div className={styles.heroBenefits}>
+                  <div className={styles.heroBenefit}>
+                    <Check className={styles.checkIcon} />
+                    <span>Free collection service available</span>
+                  </div>
+                  <div className={styles.heroBenefit}>
+                    <Check className={styles.checkIcon} />
+                    <span>Direct impact to local families</span>
+                  </div>
+                  <div className={styles.heroBenefit}>
+                    <Check className={styles.checkIcon} />
+                    <span>Reduce waste, increase care</span>
+                  </div>
                 </div>
-                <div className={styles.heroBenefit}>
-                  <Check className={styles.checkIcon} />
-                  <span>Direct impact to local families</span>
+
+                <div className={styles.heroImageCard}>
+                  <ImageWithFallback
+                    src="https://images.unsplash.com/photo-1738618141234-1ee52c6475a7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwYmFuayUyMHNoZWx2ZXMlMjBjYW5uZWQlMjBnb29kc3xlbnwxfHx8fDE3NzQ5Mzc1MDZ8MA&ixlib=rb-4.1.0&q=80&w=1080"
+                    alt="Food bank shelves with donations"
+                    className={styles.heroImage}
+                  />
+                  <div className={styles.heroImageOverlay}>
+                    <p className={styles.heroQuote}>
+                      Every item donated is a step towards building a stronger, more caring community.
+                    </p>
+                  </div>
                 </div>
-                <div className={styles.heroBenefit}>
-                  <Check className={styles.checkIcon} />
-                  <span>Reduce waste, increase care</span>
-                </div>
+
+                <button type="button" onClick={() => scrollToSection('donate')} className={styles.heroCta}>
+                  Donate Goods
+                </button>
               </div>
-
-              <div className={styles.heroImageCard}>
-                <ImageWithFallback
-                  src="https://images.unsplash.com/photo-1738618141234-1ee52c6475a7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwYmFuayUyMHNoZWx2ZXMlMjBjYW5uZWQlMjBnb29kc3xlbnwxfHx8fDE3NzQ5Mzc1MDZ8MA&ixlib=rb-4.1.0&q=80&w=1080"
-                  alt="Food bank shelves with donations"
-                  className={styles.heroImage}
-                />
-                <div className={styles.heroImageOverlay}>
-                  <p className={styles.heroQuote}>
-                    Every item donated is a step towards building a stronger, more caring community.
-                  </p>
-                </div>
-              </div>
-
-              <button type="button" onClick={() => scrollToSection('donate')} className={styles.heroCta}>
-                Donate Goods
-              </button>
             </div>
-          </div>
-        </section>
+          </section>
 
         <section id="how-it-works" className={styles.surfaceSection}>
           <div className={styles.shell}>
@@ -953,9 +954,10 @@ export default function DonateGoods() {
             </div>
           </div>
         </section>
-      </main>
-      <PublicSiteFooter />
-    </div>
+        </main>
+        <PublicSiteFooter />
+      </div>
+    </>
   )
 }
 

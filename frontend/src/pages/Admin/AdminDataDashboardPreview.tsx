@@ -183,6 +183,8 @@ export default function AdminDataDashboardPreview() {
 
       const logo = doc.querySelector('.logo')
       if (isFrameHTMLElement(logo)) {
+        logo.style.fontSize = '20px'
+        logo.style.fontFamily = 'Inter, system-ui, sans-serif'
         logo.style.cursor = 'pointer'
         const handleLogoClick = () => navigate(dashboardPath)
         logo.addEventListener('click', handleLogoClick)
@@ -246,6 +248,7 @@ export default function AdminDataDashboardPreview() {
 
       const signButton = doc.querySelector('.header-actions .btn.btn-secondary')
       if (isFrameHTMLAnchorElement(signButton)) {
+        signButton.className = 'btn btn-secondary'
         signButton.href = '#'
         signButton.textContent = isAuthenticated ? 'Sign Out' : 'Sign In'
         signButton.target = ''

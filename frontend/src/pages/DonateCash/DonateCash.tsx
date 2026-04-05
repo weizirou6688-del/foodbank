@@ -213,54 +213,55 @@ export default function DonateCash() {
   }
 
   return (
-    <div className={styles.page}>
+    <>
       <PrimaryNavbar variant="public" />
 
-      <main className={styles.main}>
-        <section className={styles.section}>
-          <div className={`${styles.sectionInner} ${styles.heroInner}`}>
-            <h1 className={styles.heroTitle}>Your Gift Feeds Families</h1>
-            <p className={styles.heroText}>
-              Every pound donated goes directly to purchasing food for local families in need. No{' '}
-              <span className={styles.heroTextLine}>
-                admin fees {HERO_EM_DASH} 100% impact.
-              </span>
-            </p>
-
-            <div className={styles.checkList}>
-              <div className={styles.checkItem}>
-                <Check className={styles.checkIcon} strokeWidth={3} />
-                <span className={styles.checkText}>
-                  {POUND_SYMBOL}
-                  10 = 1 full food package
+      <div className={styles.page}>
+        <main className={styles.main}>
+          <section className={styles.section}>
+            <div className={`${styles.sectionInner} ${styles.heroInner}`}>
+              <h1 className={styles.heroTitle}>Your Gift Feeds Families</h1>
+              <p className={styles.heroText}>
+                Every pound donated goes directly to purchasing food for local families in need. No{' '}
+                <span className={styles.heroTextLine}>
+                  admin fees {HERO_EM_DASH} 100% impact.
                 </span>
-              </div>
-              <div className={styles.checkItem}>
-                <Check className={styles.checkIcon} strokeWidth={3} />
-                <span className={styles.checkText}>
-                  {POUND_SYMBOL}
-                  20 = Feeds a family for a week
-                </span>
-              </div>
-              <div className={styles.checkItem}>
-                <Check className={styles.checkIcon} strokeWidth={3} />
-                <span className={styles.checkText}>100% goes directly to people in need</span>
-              </div>
-            </div>
+              </p>
 
-            <div className={styles.heroImageWrap}>
-              <ImageWithFallback
-                src="https://images.unsplash.com/photo-1738618141224-815f18b8e469?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwYmFuayUyMHNoZWx2ZXMlMjBvcmdhbml6ZWQlMjBkb25hdGlvbnN8ZW58MXx8fHwxNzc0OTQwMDk4fDA&ixlib=rb-4.1.0&q=80&w=1080"
-                alt="Food bank donation"
-                className={styles.heroImage}
-              />
-            </div>
+              <div className={styles.checkList}>
+                <div className={styles.checkItem}>
+                  <Check className={styles.checkIcon} strokeWidth={3} />
+                  <span className={styles.checkText}>
+                    {POUND_SYMBOL}
+                    10 = 1 full food package
+                  </span>
+                </div>
+                <div className={styles.checkItem}>
+                  <Check className={styles.checkIcon} strokeWidth={3} />
+                  <span className={styles.checkText}>
+                    {POUND_SYMBOL}
+                    20 = Feeds a family for a week
+                  </span>
+                </div>
+                <div className={styles.checkItem}>
+                  <Check className={styles.checkIcon} strokeWidth={3} />
+                  <span className={styles.checkText}>100% goes directly to people in need</span>
+                </div>
+              </div>
 
-            <button type="button" onClick={scrollToDonateForm} className={styles.primaryButton}>
-              Donate Cash
-            </button>
-          </div>
-        </section>
+              <div className={styles.heroImageWrap}>
+                <ImageWithFallback
+                  src="https://images.unsplash.com/photo-1738618141224-815f18b8e469?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwYmFuayUyMHNoZWx2ZXMlMjBvcmdhbml6ZWQlMjBkb25hdGlvbnN8ZW58MXx8fHwxNzc0OTQwMDk4fDA&ixlib=rb-4.1.0&q=80&w=1080"
+                  alt="Food bank donation"
+                  className={styles.heroImage}
+                />
+              </div>
+
+              <button type="button" onClick={scrollToDonateForm} className={styles.primaryButton}>
+                Donate Cash
+              </button>
+            </div>
+          </section>
 
         <section className={`${styles.section} ${styles.sectionMuted}`}>
           <div className={styles.sectionInner}>
@@ -621,9 +622,10 @@ export default function DonateCash() {
             </div>
           </div>
         </section>
-      </main>
-      <PublicSiteFooter />
-    </div>
+        </main>
+        <PublicSiteFooter />
+      </div>
+    </>
   )
 }
 

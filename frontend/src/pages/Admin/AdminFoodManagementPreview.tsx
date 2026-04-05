@@ -269,11 +269,19 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           }
 
           .header-content .logo {
+            font-size: 20px !important;
+            font-family: Inter, system-ui, sans-serif !important;
             justify-self: start !important;
           }
 
           .header-content .header-actions {
             justify-self: end !important;
+          }
+
+          @media (max-width: 768px) {
+            .header-content {
+              grid-template-columns: 1fr auto !important;
+            }
           }
 
           .record-header {
@@ -529,6 +537,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
       const signOutButton = doc.querySelector('.header-actions .btn.btn-secondary')
       if (isFrameHTMLAnchorElement(signOutButton)) {
+        signOutButton.className = 'btn btn-secondary'
         signOutButton.href = '#'
         signOutButton.textContent = isAuthenticated ? 'Sign Out' : 'Sign In'
         signOutButton.target = ''
