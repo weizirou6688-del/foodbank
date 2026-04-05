@@ -57,6 +57,50 @@ DEFAULT_INVENTORY_CATEGORY = "Canned Goods"
 DEFAULT_INVENTORY_UNIT = "units"
 
 
+def _normalize_food_bank_match_text(value: str | None) -> str:
+    return " ".join((value or "").strip().lower().split())
+
+
+async def _resolve_food_bank_from_metadata(
+    *,
+    food_bank_name: str | None,
+    food_bank_address: str | None,
+    db: AsyncSession,
+) -> FoodBank | None:
+    normalized_name = _normalize_food_bank_match_text(food_bank_name)
+    normalized_address = _normalize_food_bank_match_text(food_bank_address)
+
+    if not normalized_name and not normalized_address:
+        return None
+
+    banks = (await db.execute(select(FoodBank))).scalars().all()
+    best_match: FoodBank | None = None
+    best_score = 0
+
+    for bank in banks:
+        bank_name = _normalize_food_bank_match_text(bank.name)
+        bank_address = _normalize_food_bank_match_text(bank.address)
+        score = 0
+
+        if normalized_name:
+            if bank_name == normalized_name:
+                score += 4
+            elif bank_name in normalized_name or normalized_name in bank_name:
+                score += 2
+
+        if normalized_address:
+            if bank_address == normalized_address:
+                score += 3
+            elif bank_address in normalized_address or normalized_address in bank_address:
+                score += 1
+
+        if score > best_score:
+            best_match = bank
+            best_score = score
+
+    return best_match
+
+
 def _ensure_pending_goods_pickup_date_is_not_past(
     pickup_date: date | None,
     status_value: str,
@@ -323,7 +367,11 @@ async def submit_goods_donation(
             if requested_food_bank_id is not None:
                 selected_food_bank = await _resolve_food_bank(requested_food_bank_id, db)
             else:
-                selected_food_bank = None
+                selected_food_bank = await _resolve_food_bank_from_metadata(
+                    food_bank_name=donation_in.food_bank_name,
+                    food_bank_address=donation_in.food_bank_address,
+                    db=db,
+                )
             created_items: list[DonationGoodsItem] = []
 
             donation = DonationGoods(

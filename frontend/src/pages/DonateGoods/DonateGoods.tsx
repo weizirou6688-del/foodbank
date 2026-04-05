@@ -12,11 +12,12 @@ import {
   X,
 } from 'lucide-react'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
-import { donationsAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
+import { donationsAPI, foodBanksAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
 import { isValidEmail } from '@/shared/lib/validation'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import {
   BACKEND_API_UNAVAILABLE_MESSAGE,
+  getCoordinatesFromPostcode,
   getFoodBankLookupErrorMessage,
   getNearbyFoodbanks,
 } from '@/utils/foodbankApi'
@@ -56,6 +57,15 @@ type DonationDetails = {
   condition: string
   quantity: string
   notes: string
+}
+
+type InternalFoodBankRecord = {
+  id: number
+  name: string
+  address: string
+  lat: number
+  lng: number
+  notification_email?: string | null
 }
 
 const STEP_FEATURES = [
@@ -193,6 +203,10 @@ function escapeRegExp(value: string) {
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, ' ').trim()
+}
+
+function normalizeText(value: string) {
+  return normalizeWhitespace(value).toLowerCase()
 }
 
 function buildFoodBankDisplayAddress(address: string, postcode: string) {
@@ -362,6 +376,36 @@ function estimateQuantity(value: string) {
   return total > 0 ? total : 1
 }
 
+function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const earthRadiusKm = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2)
+    + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180)
+    * Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return earthRadiusKm * c
+}
+
+function findInternalFoodBankMatch(
+  candidate: { name: string; address: string },
+  internalBanks: InternalFoodBankRecord[],
+) {
+  const normalizedName = normalizeText(candidate.name)
+  const normalizedAddress = normalizeText(candidate.address)
+
+  return internalBanks.find((bank) => {
+    const bankName = normalizeText(bank.name)
+    const bankAddress = normalizeText(bank.address)
+
+    return bankName === normalizedName
+      || bankAddress === normalizedAddress
+      || (bankName.includes(normalizedName) || normalizedName.includes(bankName))
+      || (bankAddress.includes(normalizedAddress) || normalizedAddress.includes(bankAddress))
+  }) ?? null
+}
+
 function formatDistanceMiles(distanceKm: number) {
   const distanceMiles = distanceKm * 0.621371
   return `${distanceMiles.toFixed(1)} miles`
@@ -442,18 +486,88 @@ export default function DonateGoods() {
     setSearching(true)
 
     try {
-      const rankedResults = (await getNearbyFoodbanks(normalizedPostcode))
-        .map((bank) => {
-          return {
-            id: `${bank.name}-${bank.postcode}-${bank.lat}-${bank.lng}`,
-            foodBankEmail: bank.email,
+      const [userCoords, internalBanksResponse, nearbyBanks] = await Promise.all([
+        getCoordinatesFromPostcode(normalizedPostcode),
+        foodBanksAPI.getFoodBanks(),
+        getNearbyFoodbanks(normalizedPostcode),
+      ])
+
+      const internalBanks = (internalBanksResponse.items ?? [])
+        .flatMap((bank) => {
+          const lat = Number(bank.lat)
+          const lng = Number(bank.lng)
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return []
+          }
+
+          const distanceKm = haversineDistanceKm(userCoords.lat, userCoords.lng, lat, lng)
+          if (distanceKm > LOCAL_SEARCH_RADIUS_KM) {
+            return []
+          }
+
+          return [{
+            id: Number(bank.id),
             name: bank.name,
-            address: buildFoodBankDisplayAddress(bank.address, bank.postcode),
+            address: bank.address,
+            lat,
+            lng,
+            notification_email:
+              'notification_email' in bank && typeof bank.notification_email === 'string'
+                ? bank.notification_email
+                : null,
+          } satisfies InternalFoodBankRecord]
+        })
+        .sort((left, right) => {
+          const leftDistance = haversineDistanceKm(userCoords.lat, userCoords.lng, left.lat, left.lng)
+          const rightDistance = haversineDistanceKm(userCoords.lat, userCoords.lng, right.lat, right.lng)
+          return leftDistance - rightDistance
+        })
+
+      const matchedInternalBankIds = new Set<number>()
+
+      const rankedResults = nearbyBanks
+        .map((bank) => {
+          const displayAddress = buildFoodBankDisplayAddress(bank.address, bank.postcode)
+          const matchedInternalBank = findInternalFoodBankMatch(
+            { name: bank.name, address: displayAddress },
+            internalBanks,
+          )
+
+          if (matchedInternalBank) {
+            matchedInternalBankIds.add(matchedInternalBank.id)
+          }
+
+          return {
+            id: matchedInternalBank
+              ? `internal-${matchedInternalBank.id}`
+              : `${bank.name}-${bank.postcode}-${bank.lat}-${bank.lng}`,
+            foodBankId: matchedInternalBank?.id,
+            foodBankEmail: matchedInternalBank?.notification_email?.trim() || bank.email,
+            name: bank.name,
+            address: displayAddress,
             postcode: bank.postcode,
             distance: formatDistanceMiles(bank.distance),
             distanceMiles: bank.distance * 0.621371,
           } satisfies FoodBankOption
         })
+        .concat(
+          internalBanks
+            .filter((bank) => !matchedInternalBankIds.has(bank.id))
+            .map((bank) => {
+              const distanceKm = haversineDistanceKm(userCoords.lat, userCoords.lng, bank.lat, bank.lng)
+
+              return {
+                id: `internal-${bank.id}`,
+                foodBankId: bank.id,
+                foodBankEmail: bank.notification_email?.trim() || undefined,
+                name: bank.name,
+                address: normalizeWhitespace(bank.address),
+                postcode: '',
+                distance: formatDistanceMiles(distanceKm),
+                distanceMiles: distanceKm * 0.621371,
+              } satisfies FoodBankOption
+            }),
+        )
         .sort((left, right) => left.distanceMiles - right.distanceMiles)
 
       setSearchResults(rankedResults)
