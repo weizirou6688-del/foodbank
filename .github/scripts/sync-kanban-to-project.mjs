@@ -25,7 +25,6 @@ const projectFieldNames = [
   "Estimate",
   "Area",
   "Sprint",
-  "Target Date",
 ];
 
 main().catch((error) => {
