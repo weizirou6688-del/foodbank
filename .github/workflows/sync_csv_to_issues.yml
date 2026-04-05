@@ -1,0 +1,26 @@
+name: Sync CSV to GitHub Issues
+
+on:
+  push:
+    paths:
+      - 'tasks.csv' # 当这个文件被修改并推送时触发
+
+jobs:
+  import-issues:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # 赋予创建 Issue 的权限
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Import Issues from CSV
+        shell: pwsh # 使用 PowerShell 解析 CSV
+        run: |
+          $csv = Import-Csv tasks.csv
+          foreach ($row in $csv) {
+            # 使用官方 GitHub CLI 创建 Issue
+            gh issue create --title $row.title --body $row.body --label $row.label
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 自动使用内置权限
