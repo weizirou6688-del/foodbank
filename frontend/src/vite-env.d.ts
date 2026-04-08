@@ -17,12 +17,12 @@ declare module '*.css' {
   export default classes
 }
 
-declare module 'virtual:food-management-reference' {
+declare module 'virtual:food-management-template' {
   const html: string
   export default html
 }
 
-declare module 'virtual:data-dashboard-reference' {
+declare module 'virtual:data-dashboard-template' {
   const html: string
   export default html
 }

@@ -27,7 +27,7 @@ function withSuspense(node: ReactNode) {
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/home" replace /> },
   {
-    path: '/data-dashboard-preview',
+    path: '/admin-statistics',
     element: withSuspense(
       <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
         <Navigate to="/admin?section=statistics" replace />
@@ -38,7 +38,7 @@ export const router = createBrowserRouter([
   { path: '/donate/cash', element: withSuspense(<DonateCash />) },
   { path: '/donate/goods', element: withSuspense(<DonateGoods />) },
   {
-    path: '/food-management-preview',
+    path: '/admin-food-management',
     element: withSuspense(
       <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
         <Navigate to="/admin?section=food" replace />

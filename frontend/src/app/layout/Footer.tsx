@@ -5,11 +5,11 @@ export default function Footer() {
   const location = useLocation()
   const isFindFoodBankPage = location.pathname === '/find-foodbank'
   const isAdminPage = location.pathname === '/admin'
-  const isStandalonePreviewPage =
-    location.pathname === '/food-management-preview' ||
-    location.pathname === '/data-dashboard-preview'
+  const isStandaloneAdminPage =
+    location.pathname === '/admin-food-management' ||
+    location.pathname === '/admin-statistics'
 
-  if (isFindFoodBankPage || isAdminPage || isStandalonePreviewPage) {
+  if (isFindFoodBankPage || isAdminPage || isStandaloneAdminPage) {
     return null
   }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import dataDashboardReferenceHtml from 'virtual:data-dashboard-reference'
+import { useNavigate } from 'react-router-dom'
+import dataDashboardTemplateHtml from 'virtual:data-dashboard-template'
 import { useAuthStore } from '@/app/store/authStore'
 import LoginModal from '@/features/auth/components/LoginModal'
 import { getAdminScopeMeta } from '@/shared/lib/adminScope'
@@ -33,16 +33,15 @@ const toneColorMap: Record<string, string> = {
 
 const remoteChartScriptTag = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>'
 const localChartScriptTag = '<script src="/vendor/chart.umd.min.js"></script>'
-const adminChartScriptTag = '<script>window.__skipDashboardAutoInit = true;</script>\n<script src="/vendor/chart.umd.min.js"></script>'
+const workspaceChartScriptTag = '<script>window.__skipDashboardAutoInit = true;</script>\n<script src="/vendor/chart.umd.min.js"></script>'
 
-const dataDashboardAdminHtml = dataDashboardReferenceHtml
-  .replace(remoteChartScriptTag, adminChartScriptTag)
-  .replace(localChartScriptTag, adminChartScriptTag)
+const dataDashboardWorkspaceHtml = dataDashboardTemplateHtml
+  .replace(remoteChartScriptTag, workspaceChartScriptTag)
+  .replace(localChartScriptTag, workspaceChartScriptTag)
 
-export default function AdminDataDashboardPreview() {
+export default function AdminDataDashboardWorkspace() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const navigate = useNavigate()
-  const location = useLocation()
   const user = useAuthStore((state) => state.user)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const accessToken = useAuthStore((state) => state.accessToken)
@@ -182,10 +181,7 @@ export default function AdminDataDashboardPreview() {
         cleanupFns.push(() => element.removeEventListener('click', handler as EventListener, true))
       }
 
-      const publicDashboardPath = location.pathname === '/data-dashboard-preview' ? '/data-dashboard-preview' : '/'
-      const dashboardPath = location.pathname.startsWith('/admin')
-        ? '/admin?section=statistics'
-        : publicDashboardPath
+      const dashboardPath = '/admin?section=statistics'
 
       const logo = doc.querySelector('.logo')
       if (isFrameHTMLElement(logo)) {
@@ -363,16 +359,14 @@ export default function AdminDataDashboardPreview() {
         setLoginModal({ open: true, tab: 'signin' })
       })
 
-      const foodManagementPath = location.pathname.startsWith('/admin')
-        ? '/admin?section=food'
-        : '/food-management-preview'
+      const foodManagementPath = '/admin?section=food'
 
       bindNavigation('.nav-links li:first-child a', foodManagementPath)
       bindNavigation('.nav-links li:nth-child(2) a', dashboardPath)
 
-      const previewFooter = doc.querySelector('footer')
-      if (previewFooter) {
-        previewFooter.remove()
+      const embeddedFooter = doc.querySelector('footer')
+      if (embeddedFooter) {
+        embeddedFooter.remove()
       }
 
       if (frameWindow && accessToken) {
@@ -565,12 +559,11 @@ export default function AdminDataDashboardPreview() {
     adminScope.isLocalFoodBankAdmin,
     adminScope.roleLabel,
     isAuthenticated,
-    location.pathname,
     logout,
     navigate,
   ])
 
-  if (!dataDashboardAdminHtml.trim()) {
+  if (!dataDashboardWorkspaceHtml.trim()) {
     return (
       <>
         <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-slate-600">
@@ -591,8 +584,8 @@ export default function AdminDataDashboardPreview() {
       <iframe
         key={iframeKey}
         ref={iframeRef}
-        title="Data Dashboard Preview"
-        srcDoc={dataDashboardAdminHtml}
+        title="Data Dashboard"
+        srcDoc={dataDashboardWorkspaceHtml}
         style={{
           display: 'block',
           width: '100%',

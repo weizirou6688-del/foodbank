@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import foodManagementReferenceHtml from 'virtual:food-management-reference'
+import { useNavigate } from 'react-router-dom'
+import foodManagementTemplateHtml from 'virtual:food-management-template'
 import { useAuthStore } from '@/app/store/authStore'
 import LoginModal from '@/features/auth/components/LoginModal'
 import { getAdminScopeMeta } from '@/shared/lib/adminScope'
@@ -16,13 +16,9 @@ import {
 } from '@/shared/lib/api'
 import type { DonationListRow } from '@/shared/types/common'
 
-interface Props {
-  onSwitch?: (s: 'statistics' | 'food') => void
-}
-
-const referenceHtmlWithoutScripts = foodManagementReferenceHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-const referenceScript = Array.from(
-  foodManagementReferenceHtml.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi),
+const templateHtmlWithoutScripts = foodManagementTemplateHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+const templateInlineScript = Array.from(
+  foodManagementTemplateHtml.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi),
 )
   .map((match) => match[1].trim())
   .filter(Boolean)
@@ -235,10 +231,9 @@ const getCodeStatusMeta = (record: AdminApplicationRecord): {
   return { label: 'Pending', color: 'var(--color-text-medium)' }
 }
 
-export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Props) {
+export default function AdminFoodManagementWorkspace() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const navigate = useNavigate()
-  const location = useLocation()
   const user = useAuthStore((state) => state.user)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const accessToken = useAuthStore((state) => state.accessToken)
@@ -327,10 +322,10 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         }
 
         const contactEmailField = getModalField(container, 'Contact Email')
-        const referenceGroup = contactEmailField?.parentElement
+        const emailFieldGroup = contactEmailField?.parentElement
         const editorActions = container.querySelector('.editor-actions')
         const phoneGroup = doc.createElement('div')
-        phoneGroup.className = referenceGroup?.className || 'form-group'
+        phoneGroup.className = emailFieldGroup?.className || 'form-group'
         phoneGroup.setAttribute('data-runtime-donor-phone', 'true')
         phoneGroup.innerHTML = `
           <label class="form-label">Donor Phone *</label>
@@ -354,8 +349,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           typedPhoneInput.value = normalizeGoodsDonationPhone(typedPhoneInput.value)
         })
 
-        if (referenceGroup?.nextSibling) {
-          referenceGroup.parentElement?.insertBefore(phoneGroup, referenceGroup.nextSibling)
+        if (emailFieldGroup?.nextSibling) {
+          emailFieldGroup.parentElement?.insertBefore(phoneGroup, emailFieldGroup.nextSibling)
         } else if (editorActions) {
           container.insertBefore(phoneGroup, editorActions)
         } else {
@@ -365,10 +360,10 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         return typedPhoneInput
       }
 
-      if (referenceScript && doc.body && doc.body.dataset.foodManagementScriptInjected !== 'true') {
+      if (templateInlineScript && doc.body && doc.body.dataset.foodManagementScriptInjected !== 'true') {
         const script = doc.createElement('script')
         script.type = 'text/javascript'
-        script.text = `${referenceScript}\ndocument.dispatchEvent(new Event('DOMContentLoaded'));`
+        script.text = `${templateInlineScript}\ndocument.dispatchEvent(new Event('DOMContentLoaded'));`
         doc.body.appendChild(script)
         doc.body.dataset.foodManagementScriptInjected = 'true'
       }
@@ -748,9 +743,9 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         navigate('/admin?section=statistics')
       })
 
-      const previewFooter = doc.querySelector('footer')
-      if (previewFooter) {
-        previewFooter.remove()
+      const embeddedFooter = doc.querySelector('footer')
+      if (embeddedFooter) {
+        embeddedFooter.remove()
       }
 
       if (isAuthenticated && accessToken) {
@@ -3721,12 +3716,11 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
     adminScope.isLocalFoodBankAdmin,
     adminScope.roleLabel,
     isAuthenticated,
-    location.key,
     logout,
     navigate,
   ])
 
-  if (!referenceHtmlWithoutScripts.trim()) {
+  if (!templateHtmlWithoutScripts.trim()) {
     return (
       <>
         <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-slate-600">
@@ -3747,8 +3741,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
       <iframe
         key={iframeKey}
         ref={iframeRef}
-        title="Food Management Preview"
-        srcDoc={referenceHtmlWithoutScripts}
+        title="Food Management"
+        srcDoc={templateHtmlWithoutScripts}
         style={{
           display: 'block',
           width: '100%',
