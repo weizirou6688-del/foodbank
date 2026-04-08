@@ -14,12 +14,30 @@ Donor contact info always captured for follow-up communication.
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.core.goods_donation_format import (
+    format_goods_pickup_date,
+    normalize_goods_donor_phone,
+)
 from app.schemas.donation_goods_item import DonationGoodsItemOut
 
 
 DONATION_DONOR_TYPE_PATTERN = "^(supermarket|individual|organization)$"
+
+
+class GoodsDonationFieldValidationModel(BaseModel):
+    @field_validator("donor_phone", mode="before", check_fields=False)
+    @classmethod
+    def validate_donor_phone(cls, value):
+        field = cls.model_fields.get("donor_phone")
+        required = bool(field and field.is_required())
+        return normalize_goods_donor_phone(value, required=required)
+
+    @field_validator("pickup_date", mode="before", check_fields=False)
+    @classmethod
+    def validate_pickup_date(cls, value):
+        return format_goods_pickup_date(value)
 
 
 # ==================== INNER PAYLOADS ====================
@@ -48,21 +66,20 @@ class SupermarketDonationItemPayload(BaseModel):
         return self
 
 
-class SupermarketDonationCreate(BaseModel):
+class SupermarketDonationCreate(GoodsDonationFieldValidationModel):
     items: list[SupermarketDonationItemPayload] = Field(min_length=1)
-    donor_phone: str | None = Field(default=None, min_length=3, max_length=30)
-    pickup_date: date | None = None
+    donor_phone: str | None = Field(default=None, min_length=11, max_length=11, pattern=r"^\d{11}$")
+    pickup_date: str | None = Field(default=None, min_length=10, max_length=10, pattern=r"^\d{2}/\d{2}/\d{4}$")
     notes: str | None = None
 
 # Common fields for goods donation creation and responses.
-class DonationGoodsBase(BaseModel):
+class DonationGoodsBase(GoodsDonationFieldValidationModel):
     # From spec: donor_user_id: UUID, FK -> users.id, NULLABLE
     # If set, links donation to registered user (for reputation/gamification).
     # If NULL, donation is anonymous. Optional.
     donor_user_id: uuid.UUID | None = None
 
     food_bank_id: int | None = Field(default=None, gt=0)
-    food_bank_email: str | None = Field(default=None, min_length=3, max_length=255)
     food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
     food_bank_address: str | None = Field(default=None, min_length=1)
 
@@ -79,11 +96,11 @@ class DonationGoodsBase(BaseModel):
 
     # From spec: donor_phone: VARCHAR(30), NOT NULL
     # Donor phone for follow-up if donation rejected. Validation: 3-30 chars.
-    donor_phone: str = Field(min_length=3, max_length=30)
+    donor_phone: str = Field(min_length=11, max_length=11, pattern=r"^\d{11}$")
 
     postcode: str | None = Field(default=None, min_length=2, max_length=16)
 
-    pickup_date: date | None = None
+    pickup_date: str | None = Field(default=None, min_length=10, max_length=10, pattern=r"^\d{2}/\d{2}/\d{4}$")
 
     item_condition: str | None = Field(default=None, min_length=1, max_length=50)
 
@@ -100,7 +117,7 @@ class DonationGoodsBase(BaseModel):
 
 
 # Schema for creating goods donations.
-class DonationGoodsCreate(BaseModel):
+class DonationGoodsCreate(GoodsDonationFieldValidationModel):
     # Typically called from donation submission form (user or staff entering data).
     # Does NOT require authentication (anonymous donations allowed).
 
@@ -109,7 +126,6 @@ class DonationGoodsCreate(BaseModel):
     donor_user_id: uuid.UUID | None = None
 
     food_bank_id: int | None = Field(default=None, gt=0)
-    food_bank_email: str | None = Field(default=None, min_length=3, max_length=255)
     food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
     food_bank_address: str | None = Field(default=None, min_length=1)
 
@@ -125,11 +141,11 @@ class DonationGoodsCreate(BaseModel):
 
     # From spec: donor_phone: VARCHAR(30), NOT NULL
     # Donor phone for follow-up.
-    donor_phone: str = Field(min_length=3, max_length=30)
+    donor_phone: str = Field(min_length=11, max_length=11, pattern=r"^\d{11}$")
 
     postcode: str | None = Field(default=None, min_length=2, max_length=16)
 
-    pickup_date: date | None = None
+    pickup_date: str | None = Field(default=None, min_length=10, max_length=10, pattern=r"^\d{2}/\d{2}/\d{4}$")
 
     item_condition: str | None = Field(default=None, min_length=1, max_length=50)
 
@@ -150,7 +166,7 @@ class DonationGoodsCreate(BaseModel):
 
 
 # Schema for updating goods donations.
-class DonationGoodsUpdate(BaseModel):
+class DonationGoodsUpdate(GoodsDonationFieldValidationModel):
     # Used primarily by admins: accepting/rejecting donations, updating contact info.
     # All fields optional for flexibility.
 
@@ -166,16 +182,15 @@ class DonationGoodsUpdate(BaseModel):
 
     # From spec: donor_phone: VARCHAR(30)
     # Can update if phone was incorrect.
-    donor_phone: str | None = Field(default=None, min_length=3, max_length=30)
+    donor_phone: str | None = Field(default=None, min_length=11, max_length=11, pattern=r"^\d{11}$")
 
     food_bank_id: int | None = Field(default=None, gt=0)
-    food_bank_email: str | None = Field(default=None, min_length=3, max_length=255)
     food_bank_name: str | None = Field(default=None, min_length=1, max_length=200)
     food_bank_address: str | None = Field(default=None, min_length=1)
 
     postcode: str | None = Field(default=None, min_length=2, max_length=16)
 
-    pickup_date: date | None = None
+    pickup_date: str | None = Field(default=None, min_length=10, max_length=10, pattern=r"^\d{2}/\d{2}/\d{4}$")
 
     item_condition: str | None = Field(default=None, min_length=1, max_length=50)
 

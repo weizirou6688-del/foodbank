@@ -101,20 +101,77 @@ const normalizeLooseText = (value: string): string =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 
+const XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
 const formatIsoDate = (value?: string | null): string => (value ? value.slice(0, 10) : '-')
+
+const GOODS_DONATION_DATE_PATTERN = /^\d{2}\/\d{2}\/\d{4}$/
+
+const normalizeGoodsDonationPhone = (value: string): string => value.replace(/\D/g, '').slice(0, 11)
+
+const formatGoodsDonationDate = (value?: string | null): string => {
+  if (!value) {
+    return '-'
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return '-'
+  }
+
+  if (GOODS_DONATION_DATE_PATTERN.test(trimmed)) {
+    return trimmed
+  }
+
+  const isoLike = trimmed.slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoLike)) {
+    const [year, month, day] = isoLike.split('-')
+    return `${day}/${month}/${year}`
+  }
+
+  return trimmed.slice(0, 10)
+}
+
+const isValidGoodsDonationDate = (value: string): boolean => {
+  if (!GOODS_DONATION_DATE_PATTERN.test(value)) {
+    return false
+  }
+
+  const [day, month, year] = value.split('/').map(Number)
+  const parsed = new Date(year, month - 1, day)
+  return (
+    !Number.isNaN(parsed.getTime())
+    && parsed.getFullYear() === year
+    && parsed.getMonth() === month - 1
+    && parsed.getDate() === day
+  )
+}
+
+const todayGoodsDonationDate = (): string => {
+  const today = new Date()
+  const day = String(today.getDate()).padStart(2, '0')
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const year = String(today.getFullYear()).padStart(4, '0')
+  return `${day}/${month}/${year}`
+}
 
 const formatMoney = (amountPence?: number): string =>
   `${'\u00A3'}${((amountPence ?? 0) / 100).toFixed(2)}`
 
 const normalizeRedemptionCode = (value: string): string => {
-  const compact = value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const trimmed = value.trim().toUpperCase()
+  if (trimmed.length === 9 && /^[A-Z]{2}-[A-Z0-9]{6}$/.test(trimmed)) {
+    return trimmed
+  }
+
+  const compact = trimmed.replace(/[^A-Z0-9]/g, '')
   if (compact.length === 8) {
     return `${compact.slice(0, 4)}-${compact.slice(4)}`
   }
   if (/^[A-Z]{2}\d{8}$/.test(compact)) {
     return compact
   }
-  return value.trim().toUpperCase()
+  return trimmed
 }
 
 const inferDonationDonorType = (row: DonationListRow): keyof typeof donorTypeLabelMap => {
@@ -150,7 +207,7 @@ const donationStatusLabel = (status?: string): string => {
 }
 
 const buildDonationDisplayId = (row: DonationListRow): string => {
-  const dateToken = formatIsoDate(row.pickup_date || row.created_at).replace(/-/g, '') || '00000000'
+  const dateToken = formatGoodsDonationDate(row.pickup_date || row.created_at).replace(/\D/g, '') || '00000000'
   return `D-${dateToken}-${row.id.slice(-4).toUpperCase()}`
 }
 
@@ -214,6 +271,18 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         return
       }
 
+      // The iframe can briefly surface an empty interim document before the
+      // srcDoc content is fully parsed. Skip runtime wiring until the expected
+      // admin markup is present.
+      if (
+        !doc.body ||
+        !doc.getElementById('new-donation-btn') ||
+        !doc.getElementById('new-item-btn') ||
+        !doc.getElementById('verify-code-btn')
+      ) {
+        return
+      }
+
       const frameWindow = doc.defaultView
       const isFrameHTMLElement = (value: Element | null | undefined): value is HTMLElement =>
         Boolean(frameWindow && value instanceof frameWindow.HTMLElement)
@@ -245,6 +314,55 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           return null
         }
         return parent.querySelector('input, select, textarea')
+      }
+
+      const ensureDonationPhoneField = (container: HTMLElement | null): HTMLInputElement | null => {
+        if (!container) {
+          return null
+        }
+
+        const existingField = getModalField(container, 'Donor Phone')
+        if (existingField?.tagName === 'INPUT') {
+          return existingField as HTMLInputElement
+        }
+
+        const contactEmailField = getModalField(container, 'Contact Email')
+        const referenceGroup = contactEmailField?.parentElement
+        const editorActions = container.querySelector('.editor-actions')
+        const phoneGroup = doc.createElement('div')
+        phoneGroup.className = referenceGroup?.className || 'form-group'
+        phoneGroup.setAttribute('data-runtime-donor-phone', 'true')
+        phoneGroup.innerHTML = `
+          <label class="form-label">Donor Phone *</label>
+          <input
+            type="text"
+            class="${contactEmailField?.className || ''}"
+            inputmode="numeric"
+            maxlength="11"
+            placeholder="07123456789"
+          />
+        `
+
+        const phoneInput = phoneGroup.querySelector('input')
+        if (!phoneInput || phoneInput.tagName !== 'INPUT') {
+          return null
+        }
+
+        const typedPhoneInput = phoneInput as HTMLInputElement
+
+        typedPhoneInput.addEventListener('input', () => {
+          typedPhoneInput.value = normalizeGoodsDonationPhone(typedPhoneInput.value)
+        })
+
+        if (referenceGroup?.nextSibling) {
+          referenceGroup.parentElement?.insertBefore(phoneGroup, referenceGroup.nextSibling)
+        } else if (editorActions) {
+          container.insertBefore(phoneGroup, editorActions)
+        } else {
+          container.appendChild(phoneGroup)
+        }
+
+        return typedPhoneInput
       }
 
       if (referenceScript && doc.body && doc.body.dataset.foodManagementScriptInjected !== 'true') {
@@ -648,6 +766,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         const donationPageSize = 5
         const codePageSize = 5
         const donationEditor = doc.getElementById('new-donation-editor')
+        ensureDonationPhoneField(donationEditor as HTMLElement | null)
         const verifyCodeEditor = doc.getElementById('verify-code-editor')
         const viewDonationEditor = doc.getElementById('view-donation-editor')
         const viewCodeEditor = doc.getElementById('view-code-editor')
@@ -1257,6 +1376,19 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           return xlsxModulePromise
         }
 
+        const downloadWorkbookBuffer = (filename: string, workbookBuffer: ArrayBuffer) => {
+          const blob = new Blob([workbookBuffer], { type: XLSX_MIME_TYPE })
+          const downloadUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = downloadUrl
+          link.download = filename
+          link.rel = 'noopener'
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+        }
+
         const exportRowsAsWorkbook = async (
           filename: string,
           sheetName: string,
@@ -1271,7 +1403,12 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           const worksheet = XLSX.utils.json_to_sheet(rows)
           const workbook = XLSX.utils.book_new()
           XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
-          XLSX.writeFile(workbook, filename)
+          const workbookBuffer = XLSX.write(workbook, {
+            bookType: 'xlsx',
+            type: 'array',
+            compression: true,
+          }) as ArrayBuffer
+          downloadWorkbookBuffer(filename, workbookBuffer)
         }
 
         const reloadPackageData = async () => {
@@ -1950,14 +2087,16 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           const donorTypeField = getModalField(donationEditor, 'Donor Type') as HTMLSelectElement | null
           const donorNameField = getModalField(donationEditor, 'Donor Name') as HTMLInputElement | null
           const contactEmailField = getModalField(donationEditor, 'Contact Email') as HTMLInputElement | null
+          const donorPhoneField = getModalField(donationEditor, 'Donor Phone') as HTMLInputElement | null
           const receivedDateField = getModalField(donationEditor, 'Received Date') as HTMLInputElement | null
 
           if (donation) {
             donorTypeField && (donorTypeField.value = inferDonationDonorType(donation))
             donorNameField && (donorNameField.value = donation.donor_name ?? '')
             contactEmailField && (contactEmailField.value = donation.donor_email ?? '')
+            donorPhoneField && (donorPhoneField.value = normalizeGoodsDonationPhone(donation.donor_phone ?? ''))
             receivedDateField &&
-              (receivedDateField.value = formatIsoDate(donation.pickup_date || donation.created_at) || '')
+              (receivedDateField.value = formatGoodsDonationDate(donation.pickup_date || donation.created_at) || '')
             setDonationItemRows(
               donation.donation_type === 'cash'
                 ? []
@@ -1971,7 +2110,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             donorTypeField && (donorTypeField.value = '')
             donorNameField && (donorNameField.value = '')
             contactEmailField && (contactEmailField.value = '')
-            receivedDateField && (receivedDateField.value = new Date().toISOString().slice(0, 10))
+            donorPhoneField && (donorPhoneField.value = '')
+            receivedDateField && (receivedDateField.value = todayGoodsDonationDate())
             setDonationItemRows([])
           }
         }
@@ -2146,7 +2286,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                         <td>${escapeHtml(buildDonationDisplayId(row))}</td>
                         <td>${escapeHtml(donorTypeLabelMap[donorType])}</td>
                         <td>${escapeHtml(row.donor_name ?? 'Anonymous')}</td>
-                        <td>${escapeHtml(formatIsoDate(row.pickup_date || row.created_at))}</td>
+                        <td>${escapeHtml(formatGoodsDonationDate(row.pickup_date || row.created_at))}</td>
                         <td>${escapeHtml(buildDonationTotalLabel(row))}</td>
                         <td>${escapeHtml(donationStatusLabel(row.status))}</td>
                         <td><div class="table-actions">${actions}</div></td>
@@ -2612,7 +2752,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                     'Donor Type': donorTypeLabelMap[donorType],
                     Donor: row.donor_name ?? 'Anonymous',
                     Email: row.donor_email ?? '',
-                    Date: formatIsoDate(row.pickup_date || row.created_at),
+                    Date: formatGoodsDonationDate(row.pickup_date || row.created_at),
                     Total: buildDonationTotalLabel(row),
                     Status: donationStatusLabel(row.status),
                   }
@@ -3268,6 +3408,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           const donorTypeField = getModalField(donationEditor, 'Donor Type') as HTMLSelectElement | null
           const donorNameField = getModalField(donationEditor, 'Donor Name') as HTMLInputElement | null
           const contactEmailField = getModalField(donationEditor, 'Contact Email') as HTMLInputElement | null
+          const donorPhoneField = getModalField(donationEditor, 'Donor Phone') as HTMLInputElement | null
           const receivedDateField = getModalField(donationEditor, 'Received Date') as HTMLInputElement | null
           const itemRows = Array.from(donationEditor.querySelectorAll('.donation-item-row'))
           const items = itemRows
@@ -3290,9 +3431,10 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             | ''
           const donorName = donorNameField?.value.trim() || ''
           const donorEmail = contactEmailField?.value.trim() || ''
+          const donorPhone = normalizeGoodsDonationPhone(donorPhoneField?.value || '')
           const receivedDate = receivedDateField?.value.trim() || ''
 
-          if (!donorType || !donorName || !donorEmail || !receivedDate || items.length === 0) {
+          if (!donorType || !donorName || !donorEmail || !donorPhone || !receivedDate || items.length === 0) {
             showToast('Please complete all donation fields before submitting.', 'error')
             return
           }
@@ -3302,8 +3444,13 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             return
           }
 
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(receivedDate)) {
-            showToast('Received Date must use YYYY-MM-DD.', 'error')
+          if (!/^\d{11}$/.test(donorPhone)) {
+            showToast('Donor Phone must use exactly 11 digits.', 'error')
+            return
+          }
+
+          if (!isValidGoodsDonationDate(receivedDate)) {
+            showToast('Received Date must use DD/MM/YYYY.', 'error')
             return
           }
 
@@ -3324,7 +3471,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                 donor_name: donorName,
                 donor_type: donorType,
                 donor_email: donorEmail,
-                donor_phone: 'Not provided',
+                donor_phone: donorPhone,
                 pickup_date: receivedDate,
                 status: 'received' as const,
                 items,
@@ -3562,8 +3709,6 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
     if (iframe.contentDocument?.readyState === 'complete') {
       handleLoad()
-    } else {
-      cleanup = syncIframe()
     }
 
     return () => {
