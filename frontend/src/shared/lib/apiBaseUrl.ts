@@ -10,9 +10,9 @@ const buildCodespacesApiUrl = (
     return `${protocol}//${prefix}-8000.app.github.dev`
   }
 
-  const githubPreviewMatch = hostname.match(/^(.*)-(\d+)\.githubpreview\.dev$/)
-  if (githubPreviewMatch) {
-    const prefix = githubPreviewMatch[1]
+  const githubPortForwardMatch = hostname.match(/^(.*)-(\d+)\.githubpreview\.dev$/)
+  if (githubPortForwardMatch) {
+    const prefix = githubPortForwardMatch[1]
     return `${protocol}//${prefix}-8000.githubpreview.dev`
   }
 

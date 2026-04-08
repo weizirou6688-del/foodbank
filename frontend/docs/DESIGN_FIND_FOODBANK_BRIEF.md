@@ -1,4 +1,4 @@
-# FindFoodBank Figma Brief
+# FindFoodBank Design Brief
 
 ## Goal
 Redesign `FindFoodBank` into a clean product-style page using yellow and white as the primary palette.

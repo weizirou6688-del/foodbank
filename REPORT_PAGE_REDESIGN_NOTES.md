@@ -8,7 +8,7 @@ This round of work focused on three closely related user-facing pages:
 - Find Food Bank
 - Food Packages
 
-The goal was not to rebuild the whole system, but to replace the front-end presentation of these pages so they matched the provided Figma/HTML references as closely as possible, while preserving the existing project structure, backend services, and database connections.
+The goal was not to rebuild the whole system, but to replace the front-end presentation of these pages so they matched the provided visual references as closely as possible, while preserving the existing project structure, backend services, and database connections.
 
 ## 2. Main Design Idea
 
@@ -146,7 +146,7 @@ Leaflet map controls use their own stacking behavior, which caused the map to ap
 
 The main technical difficulties worth discussing in a formal report are:
 
-1. Translating a static Figma/HTML reference into a live page without losing existing application behavior.
+1. Translating a static visual reference into a live page without losing existing application behavior.
 2. Combining external public food bank data with internal package data.
 3. Handling inconsistent external data quality, especially coordinates and opening hours.
 4. Preserving route protection and authentication behavior after redesigning UI entry points.
