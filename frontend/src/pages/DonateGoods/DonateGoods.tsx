@@ -16,7 +16,7 @@ import { donationsAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/ap
 import { isValidEmail } from '@/shared/lib/validation'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { getNearbyFoodbanks } from '@/utils/foodbankApi'
-import { ImageWithFallback } from './components/figma/ImageWithFallback'
+import { ImageWithFallback } from './components/media/ImageWithFallback'
 import styles from './DonateGoods.module.css'
 
 type FeatureCardProps = {
@@ -87,9 +87,9 @@ const FEATURE_STORIES = [
   },
   {
     icon: <Heart className={styles.featureImageIcon} />,
-    title: 'Community Support',
+    title: 'Local Coordination',
     description:
-      "Join a wider network of donors supporting local food banks. Together, we're helping communities respond with the right goods in the right place.",
+      'Donation requests are passed to the selected food bank so their team can review what is needed and arrange the next step.',
     image:
       'https://images.unsplash.com/photo-1617080090911-91409e3496ad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb21tdW5pdHklMjBzdXBwb3J0JTIwaGFuZHN8ZW58MXx8fHwxNzc0OTM1NDk1fDA&ixlib=rb-4.1.0&q=80&w=1080',
   },
@@ -643,10 +643,10 @@ export default function DonateGoods() {
           <section id="home" className={styles.heroSection}>
             <div className={styles.shell}>
               <div className={styles.heroInner}>
-                <h1 className={styles.heroTitle}>Your Unwanted Goods, Their Utilities</h1>
+                <h1 className={styles.heroTitle}>Donate Goods to a Local Food Bank</h1>
                 <p className={styles.heroText}>
-                  Choose a food bank near you and submit a goods donation request to their local
-                  team. We record the request through the platform and help coordinate the handover.
+                  Choose a nearby food bank and send donation details to their local team before
+                  collection or drop-off.
                 </p>
 
                 <div className={styles.heroBenefits}>
@@ -656,7 +656,7 @@ export default function DonateGoods() {
                   </div>
                   <div className={styles.heroBenefit}>
                     <Check className={styles.checkIcon} />
-                    <span>Your request is sent to the selected team</span>
+                    <span>Your request goes to the selected food bank team</span>
                   </div>
                   <div className={styles.heroBenefit}>
                     <Check className={styles.checkIcon} />
@@ -672,7 +672,7 @@ export default function DonateGoods() {
                   />
                   <div className={styles.heroImageOverlay}>
                     <p className={styles.heroQuote}>
-                      Every item donated is a step towards building a stronger, more caring community.
+                      Good donations help local teams respond faster.
                     </p>
                   </div>
                 </div>
@@ -688,7 +688,7 @@ export default function DonateGoods() {
           <div className={styles.shell}>
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>
-                Simple Steps to <span className={styles.highlight}>Give Back</span>
+                How the goods donation flow works
               </h2>
             </div>
 
@@ -721,7 +721,7 @@ export default function DonateGoods() {
           <div className={styles.shell}>
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>
-                Making a <span className={styles.highlight}>Difference</span> Together
+                Network goods support
               </h2>
               <p className={styles.sectionText}>
                 {impactStatsStatus === 'error'
@@ -744,7 +744,7 @@ export default function DonateGoods() {
           <div className={styles.shell}>
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>
-                Items We <span className={styles.highlight}>Gladly Accept</span>
+                Items we accept
               </h2>
               <p className={styles.sectionText}>
                 All items must be unopened, in original packaging, and within their best-before
@@ -798,10 +798,10 @@ export default function DonateGoods() {
           <div className={styles.shell}>
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>
-                Ready to <span className={styles.highlight}>Make a Difference?</span>
+                Submit a donation request
               </h2>
               <p className={styles.sectionText}>
-                Follow these steps to submit your request to the food bank you want to support
+                Follow the steps below to choose a food bank and send your donation details.
               </p>
             </div>
 
@@ -1114,21 +1114,19 @@ export default function DonateGoods() {
             <div className={styles.whyGrid}>
               <div className={styles.whyTextColumn}>
                 <h2 className={styles.whyTitle}>
-                  We&apos;re <span className={styles.highlight}>Good</span>, Ship the{' '}
-                  <span className={styles.highlight}>Boxes</span>
+                  Before you donate
                 </h2>
                 <p className={styles.whyText}>
-                  Our mission is simple: redirect quality goods from landfills into the food bank
-                  network. Every request helps the selected food bank review what is available and
-                  arrange the right next step with you.
+                  Goods donations work best when the selected food bank can review what is being
+                  offered and decide whether pickup or drop-off is the better option.
                 </p>
 
                 <ul className={styles.whyList}>
                   {[
                     'Pickup or drop-off options depend on the selected food bank',
-                    'Tax-deductible donations with receipt provided',
+                    'Please wait for local confirmation before travelling with goods',
                     'The selected food bank team follows up directly',
-                    'Environmentally responsible recycling',
+                    'Unopened and clearly described items are the easiest to process',
                   ].map((item) => (
                     <li key={item} className={styles.whyListItem}>
                       <span className={styles.whyListIcon}>
@@ -1142,7 +1140,7 @@ export default function DonateGoods() {
 
               <div className={styles.whyImageWrap}>
                 <ImageWithFallback
-                  src="https://images.unsplash.com/photo-1656336654278-d98a754436ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwYmFuayUyMGRlbGl2ZXJ5JTIwdHJ1Y2slMjBsb2dpc3RpY3N8ZW58MXx8fHwxNzc0OTM5ODMwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+                  src="https://images.unsplash.com/photo-1656336654278-d98a754436ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=80&w=1080"
                   alt="Food bank delivery and logistics"
                   className={styles.whyImage}
                 />

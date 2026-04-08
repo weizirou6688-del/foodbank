@@ -53,17 +53,17 @@
   }
 }
 
-.home-figma-font,
-.home-figma-font h1,
-.home-figma-font h2,
-.home-figma-font h3,
-.home-figma-font h4,
-.home-figma-font p,
-.home-figma-font span,
-.home-figma-font div,
-.home-figma-font button,
-.home-figma-font a,
-.home-figma-font input {
+.public-page-font,
+.public-page-font h1,
+.public-page-font h2,
+.public-page-font h3,
+.public-page-font h4,
+.public-page-font p,
+.public-page-font span,
+.public-page-font div,
+.public-page-font button,
+.public-page-font a,
+.public-page-font input {
   font-family: 'Inter', system-ui, sans-serif;
 }
 

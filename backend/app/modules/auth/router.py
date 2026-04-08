@@ -4,6 +4,8 @@ Authentication routes: user registration, login, logout, token refresh, profile.
 Spec § 2.1: All endpoints prefixed with /api/v1/auth
 """
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import (
     create_access_token,
+    create_password_reset_token,
     create_refresh_token,
     decode_token,
     get_current_user,
@@ -19,8 +22,16 @@ from app.core.security import (
 )
 from app.models.food_bank import FoodBank
 from app.models.user import User
-from app.modules.auth.schema import LoginRequest, TokenResponse
+from app.modules.auth.schema import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    LoginRequest,
+    MessageResponse,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from app.schemas.user import UserCreate, UserOut
+from app.services.email_service import is_smtp_configured, send_password_reset_email
 
 
 router = APIRouter(tags=["Authentication"])
@@ -121,6 +132,72 @@ async def login(
         token_type="bearer",
         user=await _serialize_user(user, db),
     )
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse, status_code=status.HTTP_200_OK)
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Start a password reset flow.
+
+    Returns a generic response even when the email does not exist, to avoid
+    leaking which accounts are registered. In local development, when SMTP is
+    not configured, a short-lived reset token is returned directly so the UI can
+    continue the reset flow.
+    """
+    generic_message = "If this email exists, password reset instructions are now available."
+
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalar_one_or_none()
+    if user is None:
+        return ForgotPasswordResponse(message=generic_message)
+
+    reset_token = create_password_reset_token(
+        {"sub": str(user.id), "email": user.email},
+        expires_delta=timedelta(minutes=30),
+    )
+
+    if is_smtp_configured():
+        await send_password_reset_email(to_email=user.email, reset_token=reset_token)
+        return ForgotPasswordResponse(message=generic_message)
+
+    return ForgotPasswordResponse(
+        message="Local reset token generated. Continue below to choose a new password.",
+        reset_token=reset_token,
+    )
+
+
+@router.post("/reset-password", response_model=MessageResponse, status_code=status.HTTP_200_OK)
+async def reset_password(
+    payload: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Complete a password reset using a short-lived reset token.
+    """
+    token_payload = decode_token(payload.reset_token)
+    if token_payload.get("type") != "password_reset":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password reset token",
+        )
+
+    user_id = token_payload.get("sub")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    user.password_hash = get_password_hash(payload.new_password)
+    await db.flush()
+    await db.refresh(user)
+
+    return MessageResponse(message="Password reset successful. You can now sign in with the new password.")
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

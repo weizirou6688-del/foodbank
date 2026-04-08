@@ -10,10 +10,10 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models.user import User
-from app.routers.auth import register, login, logout, refresh, get_profile
-from app.schemas.auth import LoginRequest
+from app.routers.auth import forgot_password, get_profile, login, logout, refresh, register, reset_password
+from app.schemas.auth import ForgotPasswordRequest, LoginRequest, ResetPasswordRequest
 from app.schemas.user import UserCreate
-from app.core.security import create_refresh_token, decode_token
+from app.core.security import create_password_reset_token, create_refresh_token, decode_token, verify_password
 
 
 class _Begin:
@@ -257,3 +257,63 @@ async def test_get_profile_not_found():
         await get_profile(current_user=current_user, db=db)
 
     assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_returns_local_reset_token_without_smtp(monkeypatch):
+    from app.modules.auth import router as auth_router
+
+    user_id = uuid.uuid4()
+    user = User(
+        id=user_id,
+        name="Reset User",
+        email="reset@example.com",
+        password_hash="hashed",
+        role="public",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db = FakeSession(search_result=user)
+
+    monkeypatch.setattr(auth_router, "is_smtp_configured", lambda: False)
+
+    async def _noop_send_password_reset_email(**_kwargs):
+        return None
+
+    monkeypatch.setattr(auth_router, "send_password_reset_email", _noop_send_password_reset_email)
+
+    result = await forgot_password(
+        payload=ForgotPasswordRequest(email="reset@example.com"),
+        db=db,
+    )
+
+    assert result.reset_token
+    assert decode_token(result.reset_token)["type"] == "password_reset"
+
+
+@pytest.mark.asyncio
+async def test_reset_password_updates_password_hash():
+    from app.core.security import get_password_hash
+
+    user_id = uuid.uuid4()
+    user = User(
+        id=user_id,
+        name="Reset User",
+        email="reset@example.com",
+        password_hash=get_password_hash("Original123!"),
+        role="public",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db = FakeSession(search_result=user)
+
+    result = await reset_password(
+        payload=ResetPasswordRequest(
+            reset_token=create_password_reset_token({"sub": str(user_id), "email": user.email}),
+            new_password="NewPassword123!",
+        ),
+        db=db,
+    )
+
+    assert "successful" in result.message.lower()
+    assert verify_password("NewPassword123!", user.password_hash)

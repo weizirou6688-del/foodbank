@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 import sys
 
@@ -10,6 +10,8 @@ from fastapi import HTTPException
 
 from app.models.application import Application
 from app.routers.applications import (
+    _normalize_redemption_code,
+    _serialize_admin_application,
     get_my_applications,
     list_all_applications,
     update_application_status,
@@ -242,6 +244,34 @@ async def test_update_application_status_empty_payload_rejected():
 
     assert exc.value.status_code == 400
     assert exc.value.detail == "No fields provided to update"
+
+
+def test_normalize_redemption_code_preserves_legacy_dash_format():
+    assert _normalize_redemption_code("fb-b97d51") == "FB-B97D51"
+
+
+def test_application_update_accepts_legacy_redemption_code_format():
+    payload = ApplicationUpdate(redemption_code="FB-B97D51")
+    assert payload.redemption_code == "FB-B97D51"
+
+
+def test_serialize_admin_application_accepts_legacy_redemption_code():
+    application = Application(
+        id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        food_bank_id=1,
+        redemption_code="FB-B97D51",
+        status="pending",
+        week_start=date(2026, 3, 16),
+        total_quantity=1,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    application.items = []
+
+    result = _serialize_admin_application(application)
+
+    assert result.redemption_code == "FB-B97D51"
 
 
 @pytest.mark.asyncio
