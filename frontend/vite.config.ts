@@ -50,11 +50,11 @@ const apiProxyTarget = getConfigValue(
   `http://${devHost}:${backendPort}`,
 )
 
-const foodManagementReferencePath = path.resolve(projectRoot, 'scripts', 'food_management.html')
-const dataDashboardReferencePath = path.resolve(projectRoot, 'scripts', 'Data_dashboard.html')
-const FOOD_MANAGEMENT_VIRTUAL_MODULE = 'virtual:food-management-reference'
+const foodManagementTemplatePath = path.resolve(projectRoot, 'scripts', 'food_management.html')
+const dataDashboardTemplatePath = path.resolve(projectRoot, 'scripts', 'Data_dashboard.html')
+const FOOD_MANAGEMENT_VIRTUAL_MODULE = 'virtual:food-management-template'
 const FOOD_MANAGEMENT_VIRTUAL_MODULE_ID = `\0${FOOD_MANAGEMENT_VIRTUAL_MODULE}`
-const DATA_DASHBOARD_VIRTUAL_MODULE = 'virtual:data-dashboard-reference'
+const DATA_DASHBOARD_VIRTUAL_MODULE = 'virtual:data-dashboard-template'
 const DATA_DASHBOARD_VIRTUAL_MODULE_ID = `\0${DATA_DASHBOARD_VIRTUAL_MODULE}`
 
 const listFilesRecursively = (dirPath: string): string[] => {
@@ -94,17 +94,17 @@ const readFoodManagementBackup = (): string => {
   return ''
 }
 
-const loadFoodManagementReference = (): string => {
-  if (fs.existsSync(foodManagementReferencePath) && fs.statSync(foodManagementReferencePath).size > 0) {
-    return fs.readFileSync(foodManagementReferencePath, 'utf8')
+const loadFoodManagementTemplate = (): string => {
+  if (fs.existsSync(foodManagementTemplatePath) && fs.statSync(foodManagementTemplatePath).size > 0) {
+    return fs.readFileSync(foodManagementTemplatePath, 'utf8')
   }
 
   return readFoodManagementBackup()
 }
 
-const loadDataDashboardReference = (): string => {
-  if (fs.existsSync(dataDashboardReferencePath) && fs.statSync(dataDashboardReferencePath).size > 0) {
-    return fs.readFileSync(dataDashboardReferencePath, 'utf8')
+const loadDataDashboardTemplate = (): string => {
+  if (fs.existsSync(dataDashboardTemplatePath) && fs.statSync(dataDashboardTemplatePath).size > 0) {
+    return fs.readFileSync(dataDashboardTemplatePath, 'utf8')
   }
 
   return ''
@@ -145,8 +145,8 @@ const getNodeModulePackageName = (id: string): string | null => {
 
 const sanitizeChunkName = (name: string): string => name.replace(/^@/, '').replace(/[\\/]/g, '-')
 
-const htmlReferencePlugin = () => ({
-  name: 'html-reference-plugin',
+const htmlTemplatePlugin = () => ({
+  name: 'html-template-plugin',
   resolveId(id: string) {
     if (id === FOOD_MANAGEMENT_VIRTUAL_MODULE) {
       return FOOD_MANAGEMENT_VIRTUAL_MODULE_ID
@@ -160,18 +160,18 @@ const htmlReferencePlugin = () => ({
   },
   load(id: string) {
     if (id === FOOD_MANAGEMENT_VIRTUAL_MODULE_ID) {
-      return `export default ${JSON.stringify(loadFoodManagementReference())};`
+      return `export default ${JSON.stringify(loadFoodManagementTemplate())};`
     }
 
     if (id === DATA_DASHBOARD_VIRTUAL_MODULE_ID) {
-      return `export default ${JSON.stringify(loadDataDashboardReference())};`
+      return `export default ${JSON.stringify(loadDataDashboardTemplate())};`
     }
 
     return null
   },
 })
 export default defineConfig({
-  plugins: [react(), htmlReferencePlugin()],
+  plugins: [react(), htmlTemplatePlugin()],
   build: {
     rollupOptions: {
       output: {

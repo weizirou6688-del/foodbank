@@ -7,8 +7,8 @@ export default function Navbar() {
     '/home',
     '/find-foodbank',
     '/admin',
-    '/food-management-preview',
-    '/data-dashboard-preview',
+    '/admin-food-management',
+    '/admin-statistics',
     '/supermarket',
   ])
 
