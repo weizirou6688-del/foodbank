@@ -60,12 +60,16 @@ def _new_redemption_code() -> str:
 
 
 def _normalize_redemption_code(raw_code: str) -> str:
-    compact = "".join(char for char in raw_code.upper() if char.isalnum())
+    trimmed = raw_code.strip().upper()
+    if len(trimmed) == 9 and trimmed[:2].isalpha() and trimmed[2] == "-" and trimmed[3:].isalnum():
+        return trimmed
+
+    compact = "".join(char for char in trimmed if char.isalnum())
     if len(compact) == 8:
         return f"{compact[:4]}-{compact[4:]}"
     if len(compact) == 10 and compact[:2].isalpha() and compact[2:].isdigit():
         return compact
-    return raw_code.strip().upper()
+    return trimmed
 
 
 async def _generate_unique_redemption_code(db: AsyncSession) -> str:

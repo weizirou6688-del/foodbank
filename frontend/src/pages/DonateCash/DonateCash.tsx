@@ -11,12 +11,11 @@ import {
   isValidExpiry,
 } from '@/shared/lib/validation'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
-import { ImageWithFallback } from './components/figma/ImageWithFallback'
+import { ImageWithFallback } from './components/media/ImageWithFallback'
 import styles from './DonateCash.module.css'
 
 const DONATION_AMOUNTS = [10, 20, 50, 100]
 const POUND_SYMBOL = '\u00A3'
-const HERO_EM_DASH = '\u2014'
 
 export default function DonateCash() {
   const location = useLocation()
@@ -114,15 +113,15 @@ export default function DonateCash() {
   const isMonthlyDonation = donationType === 'monthly'
   const isOneTimeDonation = donationType === 'onetime' || donationType === 'one-time'
   const formHeading = isMonthlyDonation
-    ? 'Monthly Giving'
+    ? 'Monthly Donation'
     : isOneTimeDonation
-      ? 'One-Time Donation'
-      : 'Donate Now'
+      ? 'One-Off Donation'
+      : 'Donate'
   const formSubtext = isMonthlyDonation
-    ? 'You are setting up a monthly platform donation. All fields are required.'
+    ? 'Set up a recurring donation using the form below.'
     : isOneTimeDonation
-      ? 'You are making a one-time platform donation. All fields are required.'
-      : 'Your gift supports our wider food bank network. All fields are required.'
+      ? 'Make a single donation using the form below.'
+      : 'Use the form below to submit a cash donation.'
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -196,7 +195,7 @@ export default function DonateCash() {
       resetForm()
       setSubmitFeedback({
         type: 'success',
-        message: `Thank you for supporting our wider food bank network with ${amountLabel}.${referenceLine}`,
+        message: `Thank you for your donation of ${amountLabel}.${referenceLine}`,
       })
     } catch (error) {
       const message =
@@ -220,13 +219,10 @@ export default function DonateCash() {
         <main className={styles.main}>
           <section className={styles.section}>
             <div className={`${styles.sectionInner} ${styles.heroInner}`}>
-              <h1 className={styles.heroTitle}>Support the Wider Food Bank Network</h1>
+              <h1 className={styles.heroTitle}>Support Food Banks Across the Network</h1>
               <p className={styles.heroText}>
-                Your cash donation supports food purchasing, urgent needs, and platform-wide
-                coordination across our food bank network. No{' '}
-                <span className={styles.heroTextLine}>
-                  admin fees {HERO_EM_DASH} 100% impact.
-                </span>
+                Cash donations help cover urgent purchases, transport, and shared coordination
+                costs when local stock is short.
               </p>
 
               <div className={styles.checkList}>
@@ -234,19 +230,19 @@ export default function DonateCash() {
                   <Check className={styles.checkIcon} strokeWidth={3} />
                   <span className={styles.checkText}>
                     {POUND_SYMBOL}
-                    10 helps fund food and essentials where demand is highest
+                    10 can help cover a small urgent top-up
                   </span>
                 </div>
                 <div className={styles.checkItem}>
                   <Check className={styles.checkIcon} strokeWidth={3} />
                   <span className={styles.checkText}>
                     {POUND_SYMBOL}
-                    20 strengthens local food bank response across the network
+                    20 can support food and household essentials
                   </span>
                 </div>
                 <div className={styles.checkItem}>
                   <Check className={styles.checkIcon} strokeWidth={3} />
-                  <span className={styles.checkText}>Cash support is coordinated by the platform team</span>
+                  <span className={styles.checkText}>Donations are recorded and tracked through the platform</span>
                 </div>
               </div>
 
@@ -267,10 +263,9 @@ export default function DonateCash() {
         <section className={`${styles.section} ${styles.sectionMuted}`}>
           <div className={styles.sectionInner}>
             <div className={styles.sectionIntro}>
-              <h2 className={styles.sectionTitle}>How We Help</h2>
+              <h2 className={styles.sectionTitle}>Where Donations Go</h2>
               <p className={styles.sectionDescription}>
-                Every donation strengthens the wider response. Here&apos;s how your contribution helps
-                the network act quickly when support is needed most.
+                Donations are used across the network where a local team needs extra support.
               </p>
             </div>
 
@@ -281,10 +276,10 @@ export default function DonateCash() {
                     <Check className={styles.helpIcon} strokeWidth={3} />
                   </div>
                   <div>
-                    <h3 className={styles.helpItemTitle}>Emergency Food Parcels</h3>
+                    <h3 className={styles.helpItemTitle}>Urgent Top-Ups</h3>
                     <p className={styles.helpItemText}>
-                      Helps fund the food, essentials, and urgent top-ups needed across our partner
-                      food banks.
+                      Helps cover food, toiletries, and other essentials when a local food bank
+                      needs a quick restock.
                     </p>
                   </div>
                 </div>
@@ -294,10 +289,10 @@ export default function DonateCash() {
                     <Check className={styles.helpIcon} strokeWidth={3} />
                   </div>
                   <div>
-                    <h3 className={styles.helpItemTitle}>No Questions Asked</h3>
+                    <h3 className={styles.helpItemTitle}>Local Response</h3>
                     <p className={styles.helpItemText}>
-                      Supports dignified, responsive help for households reaching out through local
-                      food banks.
+                      Supports practical response work such as purchasing, packing, and local
+                      distribution.
                     </p>
                   </div>
                 </div>
@@ -307,10 +302,10 @@ export default function DonateCash() {
                     <Check className={styles.helpIcon} strokeWidth={3} />
                   </div>
                   <div>
-                    <h3 className={styles.helpItemTitle}>100% Transparency</h3>
+                    <h3 className={styles.helpItemTitle}>Tracked Support</h3>
                     <p className={styles.helpItemText}>
-                      Funds are received and coordinated by the platform team for network-wide
-                      operations and food support.
+                      Donations are logged through the platform so teams can track what was
+                      received and where it was used.
                     </p>
                   </div>
                 </div>
@@ -357,12 +352,13 @@ export default function DonateCash() {
         <section className={styles.section}>
           <div className={styles.sectionInner}>
             <div className={styles.sectionIntro}>
-              <h2 className={styles.sectionTitle}>Stories Of Change</h2>
+              <h2 className={styles.sectionTitle}>A Typical Support Case</h2>
               <p className={styles.sectionDescription}>
-                Your donation doesn't just fill fridges - it restores dignity, stability, and hope{' '}
+                A short gap in income can quickly turn into a food emergency. Donations help local
+                teams bridge that gap while a household gets back on its feet.
                 <span className={styles.sectionDescriptionLine}>
-                  for families across the UK. These are the real stories of people your gift has
-                  helped.
+                  Food banks often use flexible funds to cover the essentials that are missing
+                  that week.
                 </span>
               </p>
             </div>
@@ -372,27 +368,26 @@ export default function DonateCash() {
                 <div className={styles.storyImageWrap}>
                   <ImageWithFallback
                     src="https://images.unsplash.com/photo-1667354436356-a6264939ff27?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzaW5nbGUlMjBtb3RoZXIlMjBjaGlsZHJlbiUyMGZhbWlseSUyMHBvcnRyYWl0fGVufDF8fHx8MTc3NDkyODQwN3ww&ixlib=rb-4.1.0&q=80&w=1080"
-                    alt="Sarah and her children"
+                    alt="Household receiving support"
                     className={styles.storyImage}
                   />
                 </div>
 
                 <blockquote className={styles.storyQuote}>
-                  "I didn't have to choose between feeding my kids and paying the electricity bill
-                  anymore."
+                  A few missed shifts or an unexpected bill can be enough to put a household under
+                  immediate pressure.
                 </blockquote>
 
                 <p className={styles.storyText}>
-                  Sarah is a single mum to two young boys, aged 4 and 6. After losing her job when
-                  the nursery she worked at closed, she found herself stuck between a shrinking
-                  universal credit payment and rising living costs. For months, she skipped meals to
-                  make sure her boys had enough to eat, and struggled to afford even basic
-                  essentials like milk and bread.
+                  In cases like this, a food bank may need to buy a short list of missing items,
+                  cover transport, or prepare an emergency parcel quickly. Regular cash donations
+                  make that response easier because the team does not need to wait for the exact
+                  items to arrive first.
                 </p>
 
                 <div className={styles.storyBadge}>
                   <span className={styles.storyBadgeText}>
-                    This story was made possible by a {POUND_SYMBOL}20 monthly donation
+                    Monthly giving helps teams respond faster when demand changes week to week.
                   </span>
                 </div>
               </div>
@@ -403,11 +398,12 @@ export default function DonateCash() {
         <section className={`${styles.section} ${styles.sectionMuted}`}>
           <div className={styles.sectionInner}>
             <div className={styles.sectionIntro}>
-              <h2 className={styles.sectionTitle}>Join Our Community Of Givers</h2>
+              <h2 className={styles.sectionTitle}>Why People Give Regularly</h2>
               <p className={styles.sectionDescription}>
-                Thousands of people across the UK are standing with us to end local food poverty.{' '}
+                Regular donors usually mention the same three reasons: it is easy to budget, it
+                helps teams plan ahead, and it supports urgent local gaps.
                 <span className={styles.sectionDescriptionLine}>
-                  Here's what some of our monthly donors have to say.
+                  The comments below reflect the kind of feedback teams hear most often.
                 </span>
               </p>
             </div>
@@ -417,18 +413,17 @@ export default function DonateCash() {
                 <div className={styles.testimonialHeader}>
                   <ImageWithFallback
                     src="https://images.unsplash.com/photo-1623594675959-02360202d4d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjB3b21hbiUyMHBvcnRyYWl0JTIwc21pbGluZ3xlbnwxfHx8fDE3NzQ5MzAzOTh8MA&ixlib=rb-4.1.0&q=80&w=1080"
-                    alt="Emma L."
+                    alt="Monthly donor"
                     className={styles.testimonialAvatar}
                   />
                   <div>
-                    <h3 className={styles.testimonialName}>Emma L.</h3>
-                    <p className={styles.testimonialMeta}>Monthly donor for 18 months</p>
+                    <h3 className={styles.testimonialName}>Monthly donor</h3>
+                    <p className={styles.testimonialMeta}>Regular supporter</p>
                   </div>
                 </div>
                 <blockquote className={styles.testimonialQuote}>
-                  "I've been donating {POUND_SYMBOL}20 a month for over a year now, and it's the
-                  best thing I do each month. I love that I get a simple update every month,
-                  showing how my donation has supported households across the network."
+                  Monthly giving is easy to plan for and helps local teams respond without waiting
+                  for a separate fundraising push.
                 </blockquote>
               </div>
 
@@ -436,18 +431,17 @@ export default function DonateCash() {
                 <div className={styles.testimonialHeader}>
                   <ImageWithFallback
                     src="https://images.unsplash.com/photo-1769636930047-4478f12cf430?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBtYW4lMjBwb3J0cmFpdCUyMGNvbmZpZGVudHxlbnwxfHx8fDE3NzQ5MzAzOTh8MA&ixlib=rb-4.1.0&q=80&w=1080"
-                    alt="Mark T."
+                    alt="Long-term supporter"
                     className={styles.testimonialAvatar}
                   />
                   <div>
-                    <h3 className={styles.testimonialName}>Mark T.</h3>
-                    <p className={styles.testimonialMeta}>Monthly donor for 8 months</p>
+                    <h3 className={styles.testimonialName}>Long-term supporter</h3>
+                    <p className={styles.testimonialMeta}>Recurring donor</p>
                   </div>
                 </div>
                 <blockquote className={styles.testimonialQuote}>
-                  "I grew up in a family that used a food bank when I was a kid, so I know exactly
-                  what a difference this makes. The transparency here is amazing - I never have to
-                  wonder where my money is going."
+                  Clear reporting and a simple donation flow make it easier to keep supporting the
+                  work over time.
                 </blockquote>
               </div>
             </div>

@@ -35,14 +35,6 @@ cd scripts
 stop.bat
 ```
 
-### Repair Codex `apply_patch` On Windows
-
-If Codex tooling on this machine starts failing with an `apply_patch` crash or exit code `-1073741515`, run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\fix_codex_apply_patch_runtime.ps1
-```
-
 ### Cleanup Synthetic Analytics Data
 
 Preview what the local analytics-data cleanup would remove:
@@ -135,6 +127,6 @@ In restricted or sandboxed Windows environments, Vite/esbuild can still fail wit
 
 - Demo data is now explicitly ensured by the quick-start flow instead of being implicitly mutated during every FastAPI startup.
 - Inventory is tracked with lot-based stock internally, while some frontend screens still use compatibility `stock` fields from the API.
-- Some admin reporting widgets are still demo-style placeholders and do not yet represent complete production analytics.
+- Some admin reporting widgets are still limited and do not yet cover the full analytics workflow.
 - If local PostgreSQL has been used before, prefer running Alembic against a clean project database rather than reusing a half-initialized schema.
 - For the full Windows database setup and analytics-data workflow, see [docs/Windows本地数据库与分析数据生成指南_20260329.md](docs/Windows本地数据库与分析数据生成指南_20260329.md).

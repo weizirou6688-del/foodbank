@@ -57,6 +57,15 @@ def _operations_fallback_email() -> str | None:
     )
 
 
+def is_smtp_configured() -> bool:
+    smtp_settings = _load_smtp_settings()
+    return bool(
+        smtp_settings["smtp_username"]
+        and smtp_settings["smtp_password"]
+        and smtp_settings["smtp_from_email"]
+    )
+
+
 async def _send_email_message(message: EmailMessage) -> None:
     smtp_settings = _load_smtp_settings()
     smtp_username = smtp_settings["smtp_username"]
@@ -160,6 +169,28 @@ async def send_goods_donation_notification(
         f"Preferred Pickup Date: {pickup_date or 'Not provided'}\n"
         f"Notes: {notes or 'None'}\n\n"
         "Please contact the donor to arrange collection or drop-off."
+    )
+
+    await _send_email_message(message)
+
+
+async def send_password_reset_email(*, to_email: str, reset_token: str) -> None:
+    recipient = _normalize_recipient(to_email)
+    if recipient is None:
+        logger.warning("Recipient email is empty or invalid; skip password reset email send")
+        return
+
+    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
+
+    message = EmailMessage()
+    message["From"] = smtp_from_email
+    message["To"] = recipient
+    message["Subject"] = "Password Reset | ABC Community Food Bank"
+    message.set_content(
+        "We received a request to reset your password.\n\n"
+        "Use the following password reset token in the app:\n"
+        f"{reset_token}\n\n"
+        "This token will expire in 30 minutes. If you did not request a reset, you can ignore this email."
     )
 
     await _send_email_message(message)

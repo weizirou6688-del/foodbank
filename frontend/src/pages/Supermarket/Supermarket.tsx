@@ -203,7 +203,7 @@ export default function Supermarket() {
 
   return (
     <div
-      className="home-figma-font flex min-h-screen flex-col"
+      className="public-page-font flex min-h-screen flex-col"
       style={{ backgroundColor: '#FFFFFF', fontFamily: 'Inter, system-ui, sans-serif' }}
     >
       <Header />

@@ -93,35 +93,35 @@ const goodsCategories: DonationCategory[] = [
 
 const goodsBannerBenefits = [
   'Search for a nearby food bank',
-  'Your request is sent to the selected team',
-  'Collection or drop-off is arranged locally',
-  'Platform support across the wider network',
+  'Send donation details to the selected team',
+  'Arrange collection or drop-off locally',
+  'Keep stock records aligned across the network',
 ]
 
 const uniqueCards: UniqueCard[] = [
   {
-    title: 'Filling Essential Gaps',
+    title: 'Staples and Essentials',
     description:
-      'We provide essential ingredients to encourage nutritious home cooking. We supply everyday toiletries, cleaning and personal hygiene products.',
-    image: '/figma-home/photo-1701914446310-8b63a547ab37',
+      'Food and household basics are grouped so local teams can respond quickly to common requests.',
+    image: '/home-gallery/photo-1701914446310-8b63a547ab37',
   },
   {
-    title: 'Reducing Food Waste',
+    title: 'Less Waste',
     description:
-      'We communicate weekly with our food banks, sending them an option sheet and providing only what they need. This way nothing is wasted.',
-    image: '/figma-home/photo-1603418735094-800d47a56ea1',
+      'Shared reporting helps teams request what they need and move surplus stock before it sits unused.',
+    image: '/home-gallery/photo-1603418735094-800d47a56ea1',
   },
   {
-    title: 'Connecting Food Banks',
+    title: 'Local Coordination',
     description:
-      'We connect partner food banks so teams can share expertise, coordinate requests, and move surplus stock where it is needed most.',
-    image: '/figma-home/photo-1588822534638-028d5ddc07ac',
+      'Food banks can compare stock, requests, and local demand across the wider network.',
+    image: '/home-gallery/photo-1588822534638-028d5ddc07ac',
   },
   {
-    title: 'Community Volunteering',
+    title: 'Volunteer Support',
     description:
-      'Our volunteer network helps sort, pack, and move donations so local food banks can respond quickly and consistently.',
-    image: '/figma-home/photo-1758599668178-d9716bbda9d5',
+      'Volunteers help sort, pack, and move donations so fewer requests are delayed.',
+    image: '/home-gallery/photo-1758599668178-d9716bbda9d5',
   },
 ]
 
@@ -129,36 +129,36 @@ const donationTiers: DonationTier[] = [
   {
     name: 'Supporter',
     amount: '\u00A35',
-    description: 'Monthly gift that helps cover essential goods across the network',
-    cta: 'Donate \u00A35 Monthly',
+    description: 'Helps cover a small urgent purchase or local transport cost',
+    cta: 'Give \u00A35 Monthly',
     href: '/donate/cash?type=monthly&amount=5#donate-form',
-    features: ['Monthly impact updates', 'Digital donation certificate', 'Community newsletter'],
+    features: ['Email receipt', 'Monthly summary updates', 'Secure online payment'],
   },
   {
     name: 'Champion',
     amount: '\u00A315',
-    description: 'Monthly gift that helps fund urgent support where demand is highest',
-    cta: 'Donate \u00A315 Monthly',
+    description: 'Supports recurring gaps in food and household essentials',
+    cta: 'Give \u00A315 Monthly',
     href: '/donate/cash?type=monthly&amount=15#donate-form',
     features: [
-      'Everything in Supporter',
-      'Quarterly impact calls',
-      'Early program access',
-      'Tax-efficient giving',
+      'Email receipt',
+      'Monthly summary updates',
+      'Supports recurring essential purchases',
+      'Secure online payment',
     ],
     featured: true,
   },
   {
     name: 'Hero',
     amount: '\u00A330',
-    description: 'Monthly gift that strengthens food purchasing and coordination across multiple sites',
-    cta: 'Donate \u00A330 Monthly',
+    description: 'Contributes to shared purchasing, logistics, and coordination costs',
+    cta: 'Give \u00A330 Monthly',
     href: '/donate/cash?type=monthly&amount=30#donate-form',
     features: [
-      'Everything in Champion',
-      'Annual site visits',
-      'Donor wall recognition',
-      'Network impact updates',
+      'Email receipt',
+      'Monthly summary updates',
+      'Supports shared logistics and purchasing',
+      'Secure online payment',
     ],
   },
 ]
@@ -268,7 +268,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="home-figma-font min-h-screen bg-white">
+      <div className="public-page-font min-h-screen bg-white">
         <PrimaryNavbar variant="public" />
 
         <main>
@@ -277,11 +277,11 @@ export default function Home() {
               <div className="grid md:grid-cols-12 gap-12 items-center">
                 <div className="md:col-span-7">
                   <h1 className="text-[3.5rem] md:text-[4rem] leading-[1.1] font-bold text-[#0D1117] mb-6 tracking-tight">
-                    Food security, <span className="text-[#FFB800]">engineered</span>
+                    Find support. <span className="text-[#FFB800]">Coordinate donations.</span>
                   </h1>
                   <p className="text-[1.25rem] leading-relaxed text-[#57606A] mb-8 max-w-[560px]">
-                    Modern infrastructure supporting food banks across our network. Real-time
-                    locations, coordinated operations, and dignified access to support.
+                    Search local food banks, submit donation details, and manage shared stock
+                    across the network from one place.
                   </p>
                   <div className="flex max-w-[360px] flex-col gap-4">
                     <button
@@ -289,7 +289,7 @@ export default function Home() {
                       onClick={() => navigate('/find-foodbank')}
                       className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] bg-[#FFB800] px-4 py-[0.85rem] text-center text-[0.95rem] font-semibold text-[#121212] transition-all duration-300 hover:-translate-y-px hover:bg-[#FFA900]"
                     >
-                      Find Foodbank Now
+                      Find a Food Bank
                     </button>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <button
@@ -314,7 +314,7 @@ export default function Home() {
                   <div className="relative">
                     <div className="relative bg-white rounded-[8px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-[#E5E8ED]">
                       <div className="relative h-[420px]">
-                        <img src="/figma-home/photo-1710092784814-4a6f158913b8" alt="Food bank operations" className="w-full h-full object-cover" />
+                        <img src="/home-gallery/photo-1710092784814-4a6f158913b8" alt="Food bank operations" className="w-full h-full object-cover" />
                       </div>
                     </div>
                   </div>
@@ -327,11 +327,11 @@ export default function Home() {
             <div className="max-w-[1200px] mx-auto px-6 py-24">
               <div className="text-center max-w-[640px] mx-auto mb-16">
                 <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">
-                  Platform-wide impact
+                  Current network totals
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  These figures reflect support coordinated across our food bank network, not a
-                  single local site. Updated from live platform reporting.
+                  These figures combine reporting from participating food banks and shared platform
+                  services.
                 </p>
               </div>
 
@@ -354,11 +354,8 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="mt-6 flex items-center justify-center gap-1.5 text-center text-[0.75rem] text-[#4B4B4B]">
-                <span className="inline-block h-[6px] w-[6px] rounded-full bg-[#059669]" />
-                <span>Live data</span>
-                <span aria-hidden="true">&bull;</span>
-                <span>Updated every 15 minutes</span>
+              <div className="mt-6 text-center text-[0.75rem] text-[#4B4B4B]">
+                Uses current reporting when available.
               </div>
             </div>
           </div>
@@ -367,8 +364,8 @@ export default function Home() {
               <div className="text-center max-w-[640px] mx-auto mb-20">
                 <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">How it works</h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  A streamlined, dignified process built on modern infrastructure. From search to
-                  support in three simple steps.
+                  Search for a nearby location, review what it offers, and follow the next step
+                  online.
                 </p>
               </div>
 
@@ -395,8 +392,8 @@ export default function Home() {
                     </div>
                     <h3 className="text-[1.5rem] font-semibold text-[#0D1117] mb-3 tracking-tight">Search &amp; Locate</h3>
                     <p className="text-[15px] text-[#57606A] leading-relaxed max-w-[280px] mx-auto">
-                      Enter your postcode to instantly find nearby food banks. Our platform shows
-                      real-time availability and operating hours.
+                      Enter a postcode to find nearby food banks, contact details, and opening
+                      information.
                     </p>
                   </div>
 
@@ -417,8 +414,8 @@ export default function Home() {
                     </div>
                     <h3 className="text-[1.5rem] font-semibold text-[#0D1117] mb-3 tracking-tight">Apply Online</h3>
                     <p className="text-[15px] text-[#57606A] leading-relaxed max-w-[280px] mx-auto">
-                      Complete a simple digital application. No paperwork, no waiting. Receive
-                      instant confirmation and next steps.
+                      Choose a location and complete the application or donation form that matches
+                      your situation.
                     </p>
                   </div>
 
@@ -439,8 +436,8 @@ export default function Home() {
                     </div>
                     <h3 className="text-[1.5rem] font-semibold text-[#0D1117] mb-3 tracking-tight">Receive Support</h3>
                     <p className="text-[15px] text-[#57606A] leading-relaxed max-w-[280px] mx-auto">
-                      Visit your chosen location with digital confirmation. Track your support
-                      history and access resources through your dashboard.
+                      The local team reviews the request, arranges collection or pickup, and
+                      records the outcome in the platform.
                     </p>
                   </div>
                 </div>
@@ -452,7 +449,7 @@ export default function Home() {
             <div className="max-w-[1200px] mx-auto px-6 py-32">
               <div className="text-center max-w-[640px] mx-auto mb-16">
                 <h2 className="text-[2.75rem] font-bold text-[#0D1117] mb-4 tracking-tight">
-                  What makes Food Bank Aid unique?
+                  How the network helps
                 </h2>
               </div>
 
@@ -479,8 +476,8 @@ export default function Home() {
                   Donate Goods
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  Choose a food bank near you and submit a donation request for their local team.
-                  We record the request through the platform and help coordinate next steps.
+                  Choose a nearby food bank and send donation details before drop-off or collection.
+                  The local team can then follow up with the next step.
                 </p>
               </div>
 
@@ -508,7 +505,7 @@ export default function Home() {
               <div className="rounded-[10px] bg-[#FFF3CD] px-6 py-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <h3 className="text-[1.25rem] font-semibold text-[#0D1117] mb-3 tracking-tight">
-                    Donate Goods Through a Local Food Bank
+                    Donate Through a Local Food Bank
                   </h3>
                   <div className="grid grid-cols-1 gap-x-8 gap-y-2 min-[576px]:grid-cols-2">
                     {goodsBannerBenefits.map((benefit) => (
@@ -526,7 +523,7 @@ export default function Home() {
                     onClick={() => navigate('/donate/goods')}
                     className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] bg-[#FFB800] px-5 py-[0.55rem] text-center text-[0.85rem] font-semibold text-[#121212] transition-all duration-300 hover:-translate-y-px hover:bg-[#FFA900]"
                   >
-                    View Full Donation Guide
+                    Open Donation Form
                   </button>
                 </div>
               </div>
@@ -538,11 +535,11 @@ export default function Home() {
               <div className="text-center max-w-[640px] mx-auto mb-16">
 
                 <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">
-                  Support the wider network
+                  Support shared costs and urgent purchases
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  Cash donations are received and coordinated by the platform team to support food
-                  purchasing, urgent needs, and network-wide operations.
+                  Cash donations help cover urgent purchases, shared logistics, and coordination
+                  where local supply is short.
                 </p>
               </div>
 
@@ -598,9 +595,9 @@ export default function Home() {
               <div className="rounded-[10px] border border-[#E5E8ED] bg-white px-6 py-6">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div className="text-center md:text-left">
-                    <p className="text-[1.25rem] font-semibold text-[#0D1117] tracking-tight">Prefer a one-time donation?</p>
+                    <p className="text-[1.25rem] font-semibold text-[#0D1117] tracking-tight">Prefer a one-off donation?</p>
                     <p className="mt-1 text-[15px] leading-relaxed text-[#57606A]">
-                      Make a one-time platform donation of any amount in the same Donate Cash form.
+                      Use the same form to make a single contribution of any amount.
                     </p>
                   </div>
                   <button

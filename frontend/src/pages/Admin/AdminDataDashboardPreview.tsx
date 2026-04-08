@@ -73,6 +73,12 @@ export default function AdminDataDashboardPreview() {
         return undefined
       }
 
+      // The iframe can briefly point at an empty interim document before the
+      // dashboard srcDoc markup is ready. Wait for the expected shell first.
+      if (!doc.body || !doc.getElementById('time-range-select') || !doc.getElementById('refresh-data-btn')) {
+        return undefined
+      }
+
       const frameWindow = doc.defaultView as DashboardFrameWindow | null
       const scrollingElement = doc.scrollingElement ?? doc.documentElement
       const cleanupFns: Array<() => void> = []
@@ -548,8 +554,6 @@ export default function AdminDataDashboardPreview() {
 
     if (iframe.contentDocument?.readyState === 'complete') {
       handleLoad()
-    } else {
-      cleanup = syncIframe()
     }
 
     return () => {

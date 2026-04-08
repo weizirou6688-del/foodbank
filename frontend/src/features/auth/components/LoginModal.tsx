@@ -14,7 +14,13 @@ interface LoginModalProps {
 
 const getPasswordEmoji = (visible: boolean) => (visible ? '\u{1F441}\uFE0F' : '\u{1F648}')
 
-export default function LoginModal({ isOpen, onClose, initialTab = 'signin', redirectTo = null, requiredRole = null }: LoginModalProps) {
+export default function LoginModal({
+  isOpen,
+  onClose,
+  initialTab = 'signin',
+  redirectTo = null,
+  requiredRole = null,
+}: LoginModalProps) {
   const [tab, setTab] = useState<'signin' | 'register'>(initialTab)
   const { login, register } = useAuthStore()
   const navigate = useNavigate()
@@ -283,4 +289,3 @@ export default function LoginModal({ isOpen, onClose, initialTab = 'signin', red
     </div>
   )
 }
-

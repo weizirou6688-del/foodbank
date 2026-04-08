@@ -7,7 +7,9 @@ These schemas handle:
 - ApplicationUpdate: Admin updates status (pending->collected/expired) or regenerates code.
 - ApplicationOut: Response includes all application details with timestamps.
 
-Redemption code format enforced as an eight-character collection code in 4-4 format.
+Redemption code format primarily uses an eight-character collection code in 4-4
+format, while still accepting legacy demo codes that were seeded in older
+deployments.
 Status lifecycle: pending -> collected (or expired).
 Week start enforces business rule: max 3 packages per user per week.
 """
@@ -20,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 ApplicationStatus = Literal["pending", "collected", "expired"]
-APPLICATION_REDEMPTION_CODE_PATTERN = r"^(?:[A-Z0-9]{4}-[A-Z0-9]{4}|[A-Z]{2}\d{8})$"
+APPLICATION_REDEMPTION_CODE_PATTERN = r"^(?:[A-Z0-9]{4}-[A-Z0-9]{4}|[A-Z]{2}\d{8}|[A-Z]{2}-[A-Z0-9]{6})$"
 
 
 # ==================== INNER PAYLOADS ====================
@@ -55,7 +57,7 @@ class ApplicationBase(BaseModel):
 
     # From spec: redemption_code: VARCHAR(20), NOT NULL, UNIQUE
     # Local UX uses a 4-4 collection code such as ABCD-EFGH.
-    # Legacy seeded demo records may also include digits like 0 and 1.
+    # Legacy demo data may also contain older codes such as FB-B97D51.
     # Usually generated server-side; included here for full repr.
     redemption_code: str = Field(
         pattern=APPLICATION_REDEMPTION_CODE_PATTERN,
@@ -116,7 +118,8 @@ class ApplicationUpdate(BaseModel):
 
     # From spec: redemption_code: VARCHAR(20), UNIQUE
     # Admin can regenerate code if original lost/damaged.
-    # Regex enforces the 4-4 collection code format.
+    # Regex enforces the supported collection code formats, including legacy
+    # demo codes that still exist in some local databases.
     redemption_code: str | None = Field(
         default=None,
         pattern=APPLICATION_REDEMPTION_CODE_PATTERN,
