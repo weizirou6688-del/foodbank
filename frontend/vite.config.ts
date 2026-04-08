@@ -51,11 +51,8 @@ const apiProxyTarget = getConfigValue(
 )
 
 const foodManagementTemplatePath = path.resolve(projectRoot, 'scripts', 'food_management.html')
-const dataDashboardTemplatePath = path.resolve(projectRoot, 'scripts', 'Data_dashboard.html')
 const FOOD_MANAGEMENT_VIRTUAL_MODULE = 'virtual:food-management-template'
 const FOOD_MANAGEMENT_VIRTUAL_MODULE_ID = `\0${FOOD_MANAGEMENT_VIRTUAL_MODULE}`
-const DATA_DASHBOARD_VIRTUAL_MODULE = 'virtual:data-dashboard-template'
-const DATA_DASHBOARD_VIRTUAL_MODULE_ID = `\0${DATA_DASHBOARD_VIRTUAL_MODULE}`
 
 const listFilesRecursively = (dirPath: string): string[] => {
   if (!fs.existsSync(dirPath)) {
@@ -102,15 +99,6 @@ const loadFoodManagementTemplate = (): string => {
   return readFoodManagementBackup()
 }
 
-const loadDataDashboardTemplate = (): string => {
-  if (fs.existsSync(dataDashboardTemplatePath) && fs.statSync(dataDashboardTemplatePath).size > 0) {
-    return fs.readFileSync(dataDashboardTemplatePath, 'utf8')
-  }
-
-  return ''
-}
-
-
 const xlsxChunkPackages = new Set([
   'xlsx',
   'cfb',
@@ -152,19 +140,11 @@ const htmlTemplatePlugin = () => ({
       return FOOD_MANAGEMENT_VIRTUAL_MODULE_ID
     }
 
-    if (id === DATA_DASHBOARD_VIRTUAL_MODULE) {
-      return DATA_DASHBOARD_VIRTUAL_MODULE_ID
-    }
-
     return null
   },
   load(id: string) {
     if (id === FOOD_MANAGEMENT_VIRTUAL_MODULE_ID) {
       return `export default ${JSON.stringify(loadFoodManagementTemplate())};`
-    }
-
-    if (id === DATA_DASHBOARD_VIRTUAL_MODULE_ID) {
-      return `export default ${JSON.stringify(loadDataDashboardTemplate())};`
     }
 
     return null

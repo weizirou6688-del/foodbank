@@ -21,8 +21,3 @@ declare module 'virtual:food-management-template' {
   const html: string
   export default html
 }
-
-declare module 'virtual:data-dashboard-template' {
-  const html: string
-  export default html
-}

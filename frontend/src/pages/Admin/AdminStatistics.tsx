@@ -55,7 +55,7 @@ const PERIOD_LABEL: Record<Period, string> = {
   Month: 'last 30 days',
 }
 
-export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
+export default function AdminStatistics({ onSwitch }: Props) {
   const [period, setPeriod] = useState<Period>('Day')
   const accessToken = useAuthStore((state) => state.accessToken)
   const [donations, setDonations] = useState<DonationListRow[]>([])
@@ -201,9 +201,30 @@ export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
 
   return (
     <div className="fade-in">
-      <h2 className="text-2xl md:text-[1.6rem] font-bold text-[#1A1A1A] border-l-[6px] border-[#F7DC6F] pl-4 mb-6" style={{ fontFamily: 'serif' }}>
-        Statistics
-      </h2>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">Admin Workspace</p>
+          <h2 className="text-2xl md:text-[1.6rem] font-bold text-[#1A1A1A] border-l-[6px] border-[#F7DC6F] pl-4" style={{ fontFamily: 'serif' }}>
+            Statistics
+          </h2>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onSwitch('food')}
+            className="rounded-full border-[1.5px] border-[#E8E8E8] px-5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-gray-50"
+          >
+            Food Management
+          </button>
+          <button
+            type="button"
+            className="rounded-full border-[1.5px] border-[#F7DC6F] bg-[#F7DC6F] px-5 py-2 text-sm font-medium text-[#1A1A1A]"
+            aria-current="page"
+          >
+            Statistics
+          </button>
+        </div>
+      </div>
 
       {loadError && (
         <div className="mb-6 rounded-xl border border-[#E63946]/30 bg-[#E63946]/[0.08] px-4 py-3 text-sm text-[#E63946]">
