@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.goods_donation_format import parse_goods_pickup_date
 from app.core.security import get_admin_food_bank_id, require_admin
 from app.models.application import Application
 from app.models.application_distribution_snapshot import ApplicationDistributionSnapshot
@@ -871,7 +872,7 @@ async def get_dashboard_analytics(
             ) or donor_label == "Supermarket"
 
     for donation in valid_goods_donations:
-        donation_date = donation.pickup_date or _event_date(donation.created_at)
+        donation_date = parse_goods_pickup_date(donation.pickup_date) or _event_date(donation.created_at)
         donor_label = _normalize_donor_type(donation.donor_type)
         donation_source_counts[donor_label] += 1
 

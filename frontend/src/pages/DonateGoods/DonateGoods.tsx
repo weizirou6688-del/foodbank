@@ -12,15 +12,10 @@ import {
   X,
 } from 'lucide-react'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
-import { donationsAPI, foodBanksAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
+import { donationsAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
 import { isValidEmail } from '@/shared/lib/validation'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
-import {
-  BACKEND_API_UNAVAILABLE_MESSAGE,
-  getCoordinatesFromPostcode,
-  getFoodBankLookupErrorMessage,
-  getNearbyFoodbanks,
-} from '@/utils/foodbankApi'
+import { getNearbyFoodbanks } from '@/utils/foodbankApi'
 import { ImageWithFallback } from './components/figma/ImageWithFallback'
 import styles from './DonateGoods.module.css'
 
@@ -40,7 +35,6 @@ type ImpactCardProps = {
 type FoodBankOption = {
   id: string
   foodBankId?: number | null
-  foodBankEmail?: string
   name: string
   address: string
   postcode: string
@@ -57,15 +51,6 @@ type DonationDetails = {
   condition: string
   quantity: string
   notes: string
-}
-
-type InternalFoodBankRecord = {
-  id: number
-  name: string
-  address: string
-  lat: number
-  lng: number
-  notification_email?: string | null
 }
 
 const STEP_FEATURES = [
@@ -205,10 +190,6 @@ function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
 
-function normalizeText(value: string) {
-  return normalizeWhitespace(value).toLowerCase()
-}
-
 function buildFoodBankDisplayAddress(address: string, postcode: string) {
   const normalizedAddress = normalizeWhitespace(address)
   const normalizedPostcode = normalizeWhitespace(postcode).toUpperCase()
@@ -240,6 +221,10 @@ function buildFoodBankDisplayAddress(address: string, postcode: string) {
 
 function sanitizePickupDateInput(value: string) {
   return value.replace(/[^\d/-]/g, '').slice(0, 10)
+}
+
+function sanitizePhoneInput(value: string) {
+  return value.replace(/\D/g, '').slice(0, 11)
 }
 
 function formatUkDate(date: Date) {
@@ -315,13 +300,13 @@ function getPickupDateError(value: string) {
 }
 
 function getPhoneError(value: string) {
-  const trimmedValue = value.trim()
-  if (!trimmedValue) {
-    return 'Phone number is required.'
+  const digitsOnly = value.replace(/\D/g, '')
+  if (!digitsOnly) {
+    return 'Phone number is required and must contain 11 digits.'
   }
 
-  if (trimmedValue.length < 3) {
-    return 'Phone number must be at least 3 characters.'
+  if (digitsOnly.length !== 11) {
+    return 'Phone number must be exactly 11 digits.'
   }
 
   return ''
@@ -374,36 +359,6 @@ function estimateQuantity(value: string) {
   if (!numbers) return 1
   const total = numbers.reduce((sum, current) => sum + Number(current), 0)
   return total > 0 ? total : 1
-}
-
-function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const earthRadiusKm = 6371
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2)
-    + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180)
-    * Math.sin(dLng / 2) * Math.sin(dLng / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return earthRadiusKm * c
-}
-
-function findInternalFoodBankMatch(
-  candidate: { name: string; address: string },
-  internalBanks: InternalFoodBankRecord[],
-) {
-  const normalizedName = normalizeText(candidate.name)
-  const normalizedAddress = normalizeText(candidate.address)
-
-  return internalBanks.find((bank) => {
-    const bankName = normalizeText(bank.name)
-    const bankAddress = normalizeText(bank.address)
-
-    return bankName === normalizedName
-      || bankAddress === normalizedAddress
-      || (bankName.includes(normalizedName) || normalizedName.includes(bankName))
-      || (bankAddress.includes(normalizedAddress) || normalizedAddress.includes(bankAddress))
-  }) ?? null
 }
 
 function formatDistanceMiles(distanceKm: number) {
@@ -486,88 +441,17 @@ export default function DonateGoods() {
     setSearching(true)
 
     try {
-      const [userCoords, internalBanksResponse, nearbyBanks] = await Promise.all([
-        getCoordinatesFromPostcode(normalizedPostcode),
-        foodBanksAPI.getFoodBanks(),
-        getNearbyFoodbanks(normalizedPostcode),
-      ])
-
-      const internalBanks = (internalBanksResponse.items ?? [])
-        .flatMap((bank) => {
-          const lat = Number(bank.lat)
-          const lng = Number(bank.lng)
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-            return []
-          }
-
-          const distanceKm = haversineDistanceKm(userCoords.lat, userCoords.lng, lat, lng)
-          if (distanceKm > LOCAL_SEARCH_RADIUS_KM) {
-            return []
-          }
-
-          return [{
-            id: Number(bank.id),
-            name: bank.name,
-            address: bank.address,
-            lat,
-            lng,
-            notification_email:
-              'notification_email' in bank && typeof bank.notification_email === 'string'
-                ? bank.notification_email
-                : null,
-          } satisfies InternalFoodBankRecord]
-        })
-        .sort((left, right) => {
-          const leftDistance = haversineDistanceKm(userCoords.lat, userCoords.lng, left.lat, left.lng)
-          const rightDistance = haversineDistanceKm(userCoords.lat, userCoords.lng, right.lat, right.lng)
-          return leftDistance - rightDistance
-        })
-
-      const matchedInternalBankIds = new Set<number>()
-
-      const rankedResults = nearbyBanks
+      const rankedResults = (await getNearbyFoodbanks(normalizedPostcode))
         .map((bank) => {
-          const displayAddress = buildFoodBankDisplayAddress(bank.address, bank.postcode)
-          const matchedInternalBank = findInternalFoodBankMatch(
-            { name: bank.name, address: displayAddress },
-            internalBanks,
-          )
-
-          if (matchedInternalBank) {
-            matchedInternalBankIds.add(matchedInternalBank.id)
-          }
-
           return {
-            id: matchedInternalBank
-              ? `internal-${matchedInternalBank.id}`
-              : `${bank.name}-${bank.postcode}-${bank.lat}-${bank.lng}`,
-            foodBankId: matchedInternalBank?.id,
-            foodBankEmail: matchedInternalBank?.notification_email?.trim() || bank.email,
+            id: `${bank.name}-${bank.postcode}-${bank.lat}-${bank.lng}`,
             name: bank.name,
-            address: displayAddress,
+            address: buildFoodBankDisplayAddress(bank.address, bank.postcode),
             postcode: bank.postcode,
             distance: formatDistanceMiles(bank.distance),
             distanceMiles: bank.distance * 0.621371,
           } satisfies FoodBankOption
         })
-        .concat(
-          internalBanks
-            .filter((bank) => !matchedInternalBankIds.has(bank.id))
-            .map((bank) => {
-              const distanceKm = haversineDistanceKm(userCoords.lat, userCoords.lng, bank.lat, bank.lng)
-
-              return {
-                id: `internal-${bank.id}`,
-                foodBankId: bank.id,
-                foodBankEmail: bank.notification_email?.trim() || undefined,
-                name: bank.name,
-                address: normalizeWhitespace(bank.address),
-                postcode: '',
-                distance: formatDistanceMiles(distanceKm),
-                distanceMiles: distanceKm * 0.621371,
-              } satisfies FoodBankOption
-            }),
-        )
         .sort((left, right) => left.distanceMiles - right.distanceMiles)
 
       setSearchResults(rankedResults)
@@ -581,10 +465,9 @@ export default function DonateGoods() {
       setSearchResults([])
       setStep(1)
       setPostcodeError(
-        getFoodBankLookupErrorMessage(
-          error,
-          BACKEND_API_UNAVAILABLE_MESSAGE,
-        ),
+        error instanceof Error
+          ? error.message
+          : 'Unable to look up nearby foodbanks right now. Please try again.',
       )
     } finally {
       setSearching(false)
@@ -692,14 +575,13 @@ export default function DonateGoods() {
     try {
       await donationsAPI.donateGoods({
         food_bank_id: selectedBank.foodBankId ?? undefined,
-        food_bank_email: selectedBank.foodBankEmail?.trim() || undefined,
         food_bank_name: selectedBank.name,
         food_bank_address: selectedBank.address,
         donor_name: details.name.trim(),
         donor_email: details.email.trim(),
         donor_phone: details.phone.trim(),
         postcode: postcode.trim().toUpperCase(),
-        pickup_date: parsedPickupDate.isoDate,
+        pickup_date: parsedPickupDate.ukDate,
         item_condition: details.condition,
         estimated_quantity: details.quantity.trim() || undefined,
         notes: details.notes.trim() || undefined,
@@ -719,10 +601,10 @@ export default function DonateGoods() {
       })
     } catch (error) {
       if (error instanceof Error) {
-        if (/at least 3 characters/i.test(error.message)) {
+        if (/11 digits/i.test(error.message)) {
           setFieldErrors((current) => ({
             ...current,
-            phone: 'Phone number must be at least 3 characters.',
+            phone: 'Phone number must be exactly 11 digits.',
           }))
           return
         }
@@ -733,7 +615,8 @@ export default function DonateGoods() {
         ) {
           setFieldErrors((current) => ({
             ...current,
-            pickupDate: getPickupDateError(details.pickupDate) || 'Please enter a valid date on or after today.',
+            pickupDate:
+              getPickupDateError(details.pickupDate) || 'Please enter a valid date on or after today.',
           }))
           return
         }
@@ -1110,7 +993,10 @@ export default function DonateGoods() {
                           id="donor-phone"
                           type="tel"
                           value={details.phone}
-                          onChange={(event) => updateDetails('phone', event.target.value)}
+                          onChange={(event) => updateDetails('phone', sanitizePhoneInput(event.target.value))}
+                          inputMode="numeric"
+                          maxLength={11}
+                          placeholder="07123456789"
                           className={styles.formInput}
                         />
                         {fieldErrors.phone ? <p className={styles.fieldError}>{fieldErrors.phone}</p> : null}

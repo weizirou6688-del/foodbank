@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import select
 
 from app.core.database import AsyncSessionLocal
+from app.core.goods_donation_format import format_goods_pickup_date, normalize_goods_donor_phone
 from app.core.security import get_password_hash, verify_password
 from app.models.application import Application
 from app.models.application_item import ApplicationItem
@@ -275,7 +276,7 @@ DEMO_LOCAL_SCOPE_GOODS_DONATIONS = [
     {
         "donor_name": "Ahmed Goods Donor",
         "donor_email": "ahmed.goods.donor@example.com",
-        "donor_phone": "07123 456789",
+        "donor_phone": "07123456789",
         "postcode": "SW1A 1AA",
         "pickup_date_offset_days": 2,
         "item_condition": "New or unopened",
@@ -670,9 +671,10 @@ async def ensure_demo_admin_scope_records() -> None:
                     DonationGoods.donor_name == goods_seed["donor_name"],
                 )
             )
-            pickup_date = date.today() + timedelta(
+            pickup_date = format_goods_pickup_date(date.today() + timedelta(
                 days=goods_seed["pickup_date_offset_days"]
-            )
+            ))
+            donor_phone = normalize_goods_donor_phone(goods_seed["donor_phone"], required=True)
             if donation is None:
                 donation = DonationGoods(
                     food_bank_id=bank.id,
@@ -680,7 +682,7 @@ async def ensure_demo_admin_scope_records() -> None:
                     food_bank_address=bank.address,
                     donor_name=goods_seed["donor_name"],
                     donor_email=goods_seed["donor_email"],
-                    donor_phone=goods_seed["donor_phone"],
+                    donor_phone=donor_phone,
                     postcode=goods_seed["postcode"],
                     pickup_date=pickup_date,
                     item_condition=goods_seed["item_condition"],
@@ -696,7 +698,7 @@ async def ensure_demo_admin_scope_records() -> None:
                     donation.food_bank_id != bank.id
                     or donation.food_bank_name != bank.name
                     or donation.food_bank_address != bank.address
-                    or donation.donor_phone != goods_seed["donor_phone"]
+                    or donation.donor_phone != donor_phone
                     or donation.postcode != goods_seed["postcode"]
                     or donation.pickup_date != pickup_date
                     or donation.item_condition != goods_seed["item_condition"]
@@ -707,7 +709,7 @@ async def ensure_demo_admin_scope_records() -> None:
                     donation.food_bank_id = bank.id
                     donation.food_bank_name = bank.name
                     donation.food_bank_address = bank.address
-                    donation.donor_phone = goods_seed["donor_phone"]
+                    donation.donor_phone = donor_phone
                     donation.postcode = goods_seed["postcode"]
                     donation.pickup_date = pickup_date
                     donation.item_condition = goods_seed["item_condition"]

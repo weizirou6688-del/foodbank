@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 
 from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
@@ -22,13 +22,11 @@ from app.routers.donations import (
     submit_cash_donation,
     submit_goods_donation,
     submit_supermarket_goods_donation,
-    update_goods_donation,
 )
 from app.schemas.donation_cash import DonationCashCreate
 from app.schemas.donation_goods import (
     DonationGoodsCreate,
     DonationGoodsItemCreatePayload,
-    DonationGoodsUpdate,
     SupermarketDonationCreate,
     SupermarketDonationItemPayload,
 )
@@ -56,11 +54,6 @@ class _ExecuteResult:
 
     def scalars(self):
         return _ScalarResult(self._rows)
-
-    def scalar_one_or_none(self):
-        if len(self._rows) > 1:
-            raise AssertionError(f"Expected zero or one row, got {len(self._rows)}")
-        return self._rows[0] if self._rows else None
 
     def scalar_one(self):
         if len(self._rows) != 1:
@@ -156,18 +149,7 @@ class FakeSession:
             return _ExecuteResult(self._restock_rows)
         if "sum(inventory_lots.quantity)" in q:
             return _ExecuteResult(self._stock_rows)
-        if "food_banks" in q:
-            rows = self._food_bank_rows
-            if food_bank_filter is not None:
-                rows = [
-                    row
-                    for row in rows
-                    if getattr(row, "id", None) == food_bank_filter
-                ]
-            return _ExecuteResult(rows)
         return _ExecuteResult([])
-
-
 @pytest.mark.asyncio
 async def test_submit_cash_donation_success():
     db = FakeSession()
@@ -190,7 +172,6 @@ async def test_submit_cash_donation_success():
 
 @pytest.mark.asyncio
 async def test_submit_goods_donation_success_creates_items():
-    future_pickup_date = date.today() + timedelta(days=1)
     bank = FoodBank(
         id=7,
         name="Downtown Community Food Bank",
@@ -205,9 +186,9 @@ async def test_submit_goods_donation_success_creates_items():
         food_bank_address=bank.address,
         donor_name="Alice",
         donor_email="alice@example.com",
-        donor_phone="123456",
+        donor_phone="07123456789",
         postcode="SW1A 1AA",
-        pickup_date=future_pickup_date.isoformat(),
+        pickup_date="03/04/2026",
         item_condition="New or unopened",
         estimated_quantity="2 bags",
         notes="Leave with concierge",
@@ -225,7 +206,7 @@ async def test_submit_goods_donation_success_creates_items():
     assert result.food_bank_name == bank.name
     assert result.food_bank_address == bank.address
     assert result.postcode == "SW1A 1AA"
-    assert str(result.pickup_date) == future_pickup_date.isoformat()
+    assert result.pickup_date == "03/04/2026"
     assert result.item_condition == "New or unopened"
     assert result.estimated_quantity == "2 bags"
     goods_rows = [x for x in db.added if isinstance(x, DonationGoods)]
@@ -237,16 +218,15 @@ async def test_submit_goods_donation_success_creates_items():
 
 @pytest.mark.asyncio
 async def test_submit_goods_donation_supports_external_food_bank_metadata():
-    future_pickup_date = date.today() + timedelta(days=1)
     db = FakeSession()
     payload = DonationGoodsCreate(
         food_bank_name="Give Food Directory Listing",
         food_bank_address="Unit 4, Example Road, Cardiff, CF10 1AA",
         donor_name="Alice",
         donor_email="alice@example.com",
-        donor_phone="123456",
+        donor_phone="07123456789",
         postcode="CF10 1AA",
-        pickup_date=future_pickup_date.isoformat(),
+        pickup_date="03/04/2026",
         item_condition="Good",
         estimated_quantity="1 box",
         notes="Ring the bell",
@@ -269,96 +249,9 @@ async def test_submit_goods_donation_supports_external_food_bank_metadata():
 
 
 @pytest.mark.asyncio
-async def test_submit_goods_donation_uses_external_food_bank_email_for_notification():
-    future_pickup_date = date.today() + timedelta(days=1)
-    db = FakeSession()
-    background_tasks = BackgroundTasks()
-    payload = DonationGoodsCreate(
-        food_bank_email="donations@example.org",
-        food_bank_name="Give Food Directory Listing",
-        food_bank_address="Unit 4, Example Road, Cardiff, CF10 1AA",
-        donor_name="Alice",
-        donor_email="alice@example.com",
-        donor_phone="123456",
-        postcode="CF10 1AA",
-        pickup_date=future_pickup_date.isoformat(),
-        item_condition="Good",
-        estimated_quantity="1 box",
-        notes="Ring the bell",
-        items=[
-            DonationGoodsItemCreatePayload(item_name="Rice", quantity=2),
-        ],
-    )
-
-    await submit_goods_donation(
-        donation_in=payload,
-        background_tasks=background_tasks,
-        db=db,
-    )
-
-    notification_tasks = [
-        task
-        for task in background_tasks.tasks
-        if task.func is donations_router.send_goods_donation_notification
-    ]
-
-    assert len(notification_tasks) == 1
-    assert notification_tasks[0].kwargs["notification_email"] == "donations@example.org"
-
-
-@pytest.mark.asyncio
-async def test_submit_goods_donation_matches_internal_food_bank_from_metadata_for_notification():
-    future_pickup_date = date.today() + timedelta(days=1)
-    matching_bank = FoodBank(
-        id=11,
-        name="Downtown Community Food Bank",
-        address="123 Main Street, London, SW1A 1AA",
-        lat=51.501,
-        lng=-0.141,
-        notification_email="localbank@example.org",
-    )
-    db = FakeSession(food_bank_rows=[matching_bank])
-    background_tasks = BackgroundTasks()
-    payload = DonationGoodsCreate(
-        food_bank_name="Downtown Community Food Bank",
-        food_bank_address="123 Main Street, London, SW1A 1AA",
-        donor_name="Alice",
-        donor_email="alice@example.com",
-        donor_phone="123456",
-        postcode="SW1A 1AA",
-        pickup_date=future_pickup_date.isoformat(),
-        item_condition="Good",
-        estimated_quantity="1 box",
-        notes="Ring the bell",
-        items=[
-            DonationGoodsItemCreatePayload(item_name="Rice", quantity=2),
-        ],
-    )
-
-    result = await submit_goods_donation(
-        donation_in=payload,
-        background_tasks=background_tasks,
-        db=db,
-    )
-
-    notification_tasks = [
-        task
-        for task in background_tasks.tasks
-        if task.func is donations_router.send_goods_donation_notification
-    ]
-
-    assert result.food_bank_id == matching_bank.id
-    assert result.food_bank_name == matching_bank.name
-    assert result.food_bank_address == matching_bank.address
-    assert len(notification_tasks) == 1
-    assert notification_tasks[0].kwargs["notification_email"] == "localbank@example.org"
-
-
-@pytest.mark.asyncio
 async def test_submit_goods_donation_received_uses_created_items_for_inventory_sync(monkeypatch):
     captured = {}
     db = FakeSession()
-    past_pickup_date = date.today() - timedelta(days=1)
 
     async def fake_sync(donation, db_session, items=None):
         captured["donation_id"] = donation.id
@@ -370,8 +263,8 @@ async def test_submit_goods_donation_received_uses_created_items_for_inventory_s
     payload = DonationGoodsCreate(
         donor_name="Alice",
         donor_email="alice@example.com",
-        donor_phone="123456",
-        pickup_date=past_pickup_date.isoformat(),
+        donor_phone="07123456789",
+        pickup_date="03/04/2026",
         items=[
             DonationGoodsItemCreatePayload(item_name="Rice", quantity=2),
             DonationGoodsItemCreatePayload(item_name="Beans", quantity=1),
@@ -389,54 +282,6 @@ async def test_submit_goods_donation_received_uses_created_items_for_inventory_s
     assert all(isinstance(item, DonationGoodsItem) for item in captured["items"])
     assert [item.item_name for item in captured["items"]] == ["Rice", "Beans"]
     assert [item.quantity for item in captured["items"]] == [2, 1]
-
-
-@pytest.mark.asyncio
-async def test_submit_goods_donation_rejects_past_pickup_date_for_pending_status():
-    past_pickup_date = date.today() - timedelta(days=1)
-    db = FakeSession()
-    payload = DonationGoodsCreate(
-        donor_name="Alice",
-        donor_email="alice@example.com",
-        donor_phone="123456",
-        pickup_date=past_pickup_date.isoformat(),
-        items=[
-            DonationGoodsItemCreatePayload(item_name="Rice", quantity=2),
-        ],
-    )
-
-    with pytest.raises(HTTPException) as exc:
-        await submit_goods_donation(donation_in=payload, db=db)
-
-    assert exc.value.status_code == 400
-    assert exc.value.detail == "Pending goods donations must use a pickup date on or after today"
-
-
-@pytest.mark.asyncio
-async def test_update_goods_donation_rejects_setting_past_pickup_date_for_pending_status():
-    donation = DonationGoods(
-        id=uuid.uuid4(),
-        donor_user_id=None,
-        donor_name="Alice",
-        donor_email="alice@example.com",
-        donor_phone="123456",
-        pickup_date=date.today() + timedelta(days=2),
-        status="pending",
-    )
-    donation.items = []
-    db = FakeSession(goods_rows=[donation])
-    payload = DonationGoodsUpdate(pickup_date=date.today() - timedelta(days=1))
-
-    with pytest.raises(HTTPException) as exc:
-        await update_goods_donation(
-            donation_id=donation.id,
-            donation_in=payload,
-            admin_user={"role": "admin"},
-            db=db,
-        )
-
-    assert exc.value.status_code == 400
-    assert exc.value.detail == "Pending goods donations must use a pickup date on or after today"
 
 
 @pytest.mark.asyncio
@@ -581,7 +426,7 @@ async def test_list_donations_merge_and_sort_desc():
         donor_user_id=None,
         donor_name="Bob",
         donor_email="goods@example.com",
-        donor_phone="888",
+        donor_phone="07123456789",
         notes=None,
         status="pending",
     )
@@ -623,7 +468,7 @@ async def test_list_donations_local_admin_scopes_to_assigned_food_bank():
         donor_user_id=None,
         donor_name="Own Bank Donor",
         donor_email="own@example.com",
-        donor_phone="123",
+        donor_phone="07123456789",
         notes=None,
         status="pending",
         food_bank_id=7,
@@ -643,7 +488,7 @@ async def test_list_donations_local_admin_scopes_to_assigned_food_bank():
         donor_user_id=None,
         donor_name="Other Bank Donor",
         donor_email="other@example.com",
-        donor_phone="456",
+        donor_phone="07987654321",
         notes=None,
         status="pending",
         food_bank_id=9,

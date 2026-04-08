@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Sequence
 
+from app.core.goods_donation_format import parse_goods_pickup_date
+
 
 @dataclass(frozen=True)
 class SharedGoodsImpactSnapshot:
@@ -84,7 +86,9 @@ def calculate_shared_goods_impact_snapshot(
             partner_organization_keys.add(donor_key)
 
     for donation in valid_goods_donations:
-        donation_date = getattr(donation, 'pickup_date', None) or _event_date(getattr(donation, 'created_at', None))
+        donation_date = parse_goods_pickup_date(getattr(donation, 'pickup_date', None)) or _event_date(
+            getattr(donation, 'created_at', None)
+        )
         donation_quantity = sum(getattr(item, 'quantity', 0) for item in getattr(donation, 'items', []))
         if _in_period(donation_date, current_start, next_start):
             current_goods_units += donation_quantity

@@ -12,9 +12,9 @@ or rejected. Items are recorded in junction table DonationGoodsItem.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, Text, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +31,19 @@ class DonationGoods(Base):
         CheckConstraint(
             "status IN ('pending','received','rejected')",
             name="ck_donations_goods_status",
+        ),
+        CheckConstraint(
+            r"donor_phone ~ '^[0-9]{11}$'",
+            name="ck_donations_goods_donor_phone",
+        ),
+        CheckConstraint(
+            r"""
+            pickup_date IS NULL OR (
+                pickup_date ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}$'
+                AND to_char(to_date(pickup_date, 'DD/MM/YYYY'), 'DD/MM/YYYY') = pickup_date
+            )
+            """,
+            name="ck_donations_goods_pickup_date_format",
         ),
     )
 
@@ -76,13 +89,13 @@ class DonationGoods(Base):
     # index=True enables quick lookup by donor email.
     donor_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
 
-    # From spec: donor_phone: VARCHAR(30), NOT NULL
+    # From spec: donor_phone is now stored as an 11-digit normalized string.
     # Donor's phone for follow-up (if donation rejected or needs clarification).
-    donor_phone: Mapped[str] = mapped_column(String(30), nullable=False)
+    donor_phone: Mapped[str] = mapped_column(String(11), nullable=False)
 
     postcode: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
-    pickup_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    pickup_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     item_condition: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
