@@ -1,4 +1,4 @@
-# Figma -> Current Project Guide
+# Design -> Current Project Guide
 
 ## Goal
 Redesign the UI without breaking frontend/backend/database integration.
@@ -23,7 +23,7 @@ Redesign the UI without breaking frontend/backend/database integration.
 - modal styling
 - navigation styling
 
-## Figma File Structure
+## Design File Structure
 - `Foundations / Colors`
 - `Foundations / Typography`
 - `Foundations / Spacing`
@@ -42,8 +42,8 @@ Redesign the UI without breaking frontend/backend/database integration.
 - Avoid vague names like `Card 12`, `Section Copy`, `Frame 98`.
 
 ## Implementation Rules
-- Figma is the visual source, not the code source.
-- Do not paste generated Figma code into the repo as-is.
+- The design brief is the visual source, not the code source.
+- Do not paste generated design-export code into the repo as-is.
 - Rebuild visuals with existing React components and app state.
 - Keep container logic and data loading in page/store files.
 - Move only presentational patterns into reusable UI/components.

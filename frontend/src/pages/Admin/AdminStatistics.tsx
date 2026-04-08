@@ -112,7 +112,7 @@ export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
 
   const latestDonations = useMemo(() => donations.slice(0, 12), [donations])
   const topPackages = useMemo(() => packageStats.slice(0, 5), [packageStats])
-  const stockGapPreview = useMemo(() => stockGapRows.slice(0, 6), [stockGapRows])
+  const stockGapTopRows = useMemo(() => stockGapRows.slice(0, 6), [stockGapRows])
 
   const periodSummary = useMemo<PeriodSummary | null>(() => {
     if (donations.length === 0) {
@@ -285,17 +285,17 @@ export default function AdminStatistics({ onSwitch: _onSwitch }: Props) {
               </tr>
             </thead>
             <tbody>
-              {isLoading && stockGapPreview.length === 0 && (
+              {isLoading && stockGapTopRows.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-3 text-sm text-gray-500">Loading stock gap analysis...</td>
                 </tr>
               )}
-              {!isLoading && stockGapPreview.length === 0 && (
+              {!isLoading && stockGapTopRows.length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-3 text-sm text-gray-500">No packages are currently below threshold.</td>
                 </tr>
               )}
-              {stockGapPreview.map((row) => (
+              {stockGapTopRows.map((row) => (
                 <tr key={row.package_id}>
                   <td className="py-3 border-b border-[#E8E8E8] text-[#1A1A1A]">{row.package_name}</td>
                   <td className="py-3 border-b border-[#E8E8E8] text-[#1A1A1A]">{row.threshold}</td>

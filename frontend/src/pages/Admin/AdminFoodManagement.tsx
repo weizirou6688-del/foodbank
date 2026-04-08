@@ -91,7 +91,7 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
   const [lotDamageTarget, setLotDamageTarget] = useState<{ id: number; itemName: string } | null>(null)
   const [lotExpiryTarget, setLotExpiryTarget] = useState<{ id: number; itemName: string; expiryDate: string } | null>(null)
   const [lotStatusTarget, setLotStatusTarget] = useState<{ id: number; itemName: string; currentStatus: InventoryLotRow['status'] } | null>(null)
-  const [deleteItemTarget, setDeleteItemTarget] = useState<{ id: number; itemName: string; referencedByPackages: string[] } | null>(null)
+  const [deleteItemTarget, setDeleteItemTarget] = useState<{ id: number; itemName: string; linkedPackageNames: string[] } | null>(null)
   const [pendingAction, setPendingAction] = useState<'lot-damage' | 'lot-expiry' | 'lot-status' | 'delete-item' | 'restock-fulfil' | 'restock-cancel' | null>(null)
   const [restockConfirmTarget, setRestockConfirmTarget] = useState<{ id: number; mode: 'fulfil' | 'cancel' } | null>(null)
 
@@ -452,7 +452,7 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
 
   const handleDeleteItem = async (itemId: number, itemName: string) => {
     const normalizedItemName = itemName.trim().toLowerCase()
-    const referencedByPackages = packageRows
+    const linkedPackageNames = packageRows
       .filter((pkg) =>
         pkg.contents.some((content) => {
           const normalizedContent = content.trim().toLowerCase()
@@ -465,7 +465,7 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
       )
       .map((pkg) => pkg.name)
 
-    setDeleteItemTarget({ id: itemId, itemName, referencedByPackages })
+    setDeleteItemTarget({ id: itemId, itemName, linkedPackageNames })
   }
 
   const submitDeleteItem = async () => {
@@ -484,10 +484,10 @@ export default function AdminFoodManagement({ onSwitch: _onSwitch }: Props) {
       const isConflict = message.toLowerCase().includes('used in packages')
         || message.toLowerCase().includes('conflict')
 
-      if (isConflict && deleteItemTarget.referencedByPackages.length > 0) {
-        const preview = deleteItemTarget.referencedByPackages.slice(0, 3).join(', ')
-        const suffix = deleteItemTarget.referencedByPackages.length > 3 ? ', ...' : ''
-        setPageFeedback({ tone: 'error', message: `Cannot delete this item because it is referenced by: ${preview}${suffix}` })
+      if (isConflict && deleteItemTarget.linkedPackageNames.length > 0) {
+        const packageListExcerpt = deleteItemTarget.linkedPackageNames.slice(0, 3).join(', ')
+        const suffix = deleteItemTarget.linkedPackageNames.length > 3 ? ', ...' : ''
+        setPageFeedback({ tone: 'error', message: `Cannot delete this item because it is used in: ${packageListExcerpt}${suffix}` })
       } else {
         setPageFeedback({ tone: 'error', message })
       }

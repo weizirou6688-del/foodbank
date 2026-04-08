@@ -73,7 +73,7 @@
 4. Food bank card grid
 5. Empty/discovery-only states
 
-### UI States To Design In Figma
+### UI States To Cover In Design
 - initial idle
 - searching
 - results found
