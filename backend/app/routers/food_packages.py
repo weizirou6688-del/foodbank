@@ -17,7 +17,11 @@ from app.core.database_errors import (
     is_database_unavailable_exception,
     raise_database_unavailable_http_exception,
 )
-from app.core.security import require_platform_admin
+from app.core.security import (
+    enforce_admin_food_bank_scope,
+    get_admin_food_bank_id,
+    require_admin,
+)
 from app.models.food_bank import FoodBank
 from app.models.food_package import FoodPackage
 from app.models.inventory_item import InventoryItem
@@ -37,6 +41,105 @@ from app.services.pack_service import pack_package_transaction
 
 
 router = APIRouter(tags=["Food Packages"])
+
+
+async def _resolve_package_food_bank_id(
+    requested_food_bank_id: int | None,
+    admin_user: dict,
+    db: AsyncSession,
+) -> int:
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is not None:
+        if requested_food_bank_id is not None:
+            enforce_admin_food_bank_scope(
+                admin_user,
+                requested_food_bank_id,
+                detail="You can only manage packages for your assigned food bank",
+            )
+        target_food_bank_id = admin_food_bank_id
+    else:
+        if requested_food_bank_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="food_bank_id is required for package creation",
+            )
+        target_food_bank_id = requested_food_bank_id
+
+    food_bank_exists = await db.scalar(
+        select(FoodBank.id).where(FoodBank.id == target_food_bank_id)
+    )
+    if food_bank_exists is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Food bank not found",
+        )
+
+    return target_food_bank_id
+
+
+async def _get_package_for_admin(
+    package_id: int,
+    admin_user: dict,
+    db: AsyncSession,
+    *,
+    load_items: bool = False,
+) -> FoodPackage:
+    query = select(FoodPackage).where(FoodPackage.id == package_id)
+    if load_items:
+        query = query.options(selectinload(FoodPackage.package_items))
+
+    result = await db.execute(query)
+    package = result.scalar_one_or_none()
+    if not package:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Package not found",
+        )
+
+    enforce_admin_food_bank_scope(
+        admin_user,
+        package.food_bank_id,
+        detail="You can only manage packages for your assigned food bank",
+    )
+    return package
+
+
+async def _validate_package_contents(
+    item_ids: list[int],
+    admin_user: dict,
+    db: AsyncSession,
+) -> None:
+    inventory_rows = (
+        await db.execute(
+            select(InventoryItem).where(InventoryItem.id.in_(item_ids))
+        )
+    ).scalars().all()
+
+    inventory_ids = {
+        row.id if isinstance(row, InventoryItem) else int(row)
+        for row in inventory_rows
+    }
+    if len(inventory_ids) != len(item_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more inventory items do not exist",
+        )
+
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is None:
+        return
+
+    inaccessible_items = [
+        row.id
+        for row in inventory_rows
+        if isinstance(row, InventoryItem)
+        and row.food_bank_id not in (None, admin_food_bank_id)
+    ]
+    if inaccessible_items:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="One or more inventory items are outside your food bank scope",
+        )
 
 
 @router.get("/food-banks/{food_bank_id}/packages", response_model=List[FoodPackageOut])
@@ -87,12 +190,10 @@ async def get_package_details(
 @router.post("/packages", response_model=FoodPackageCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_package(
     package_in: FoodPackageCreateRequest,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a food package with package contents in one transaction (admin only)."""
-    _ = admin_user
-
     item_ids = [content.item_id for content in package_in.contents]
     if len(set(item_ids)) != len(item_ids):
         raise HTTPException(
@@ -101,31 +202,12 @@ async def create_package(
         )
 
     try:
-        if package_in.food_bank_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="food_bank_id is required for package creation",
-            )
-
-        food_bank_exists = await db.scalar(
-            select(FoodBank.id).where(FoodBank.id == package_in.food_bank_id)
+        target_food_bank_id = await _resolve_package_food_bank_id(
+            package_in.food_bank_id,
+            admin_user,
+            db,
         )
-        if food_bank_exists is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Food bank not found",
-            )
-
-        inventory_rows = (
-            await db.execute(
-                select(InventoryItem.id).where(InventoryItem.id.in_(item_ids))
-            )
-        ).scalars().all()
-        if len(inventory_rows) != len(item_ids):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="One or more inventory items do not exist",
-            )
+        await _validate_package_contents(item_ids, admin_user, db)
 
         package = FoodPackage(
             name=package_in.name.strip(),
@@ -135,7 +217,7 @@ async def create_package(
             threshold=package_in.threshold,
             applied_count=0,
             image_url=package_in.image_url,
-            food_bank_id=package_in.food_bank_id,
+            food_bank_id=target_food_bank_id,
             is_active=True,
         )
         db.add(package)
@@ -193,37 +275,31 @@ async def create_package(
 async def update_package(
     package_id: int,
     package_in: FoodPackageUpdate,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a food package (admin only)."""
-    _ = admin_user
-    
-    result = await db.execute(
-        select(FoodPackage)
-        .options(selectinload(FoodPackage.package_items))
-        .where(FoodPackage.id == package_id)
+    package = await _get_package_for_admin(
+        package_id,
+        admin_user,
+        db,
+        load_items=True,
     )
-    package = result.scalar_one_or_none()
-    
-    if not package:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Package not found",
-        )
 
     update_data = package_in.model_dump(exclude_unset=True, exclude={"contents"})
     contents_payload = package_in.contents if "contents" in package_in.model_fields_set else None
 
-    if "food_bank_id" in package_in.model_fields_set and package_in.food_bank_id is not None:
-        food_bank_exists = await db.scalar(
-            select(FoodBank.id).where(FoodBank.id == package_in.food_bank_id)
-        )
-        if food_bank_exists is None:
+    if "food_bank_id" in package_in.model_fields_set:
+        if package_in.food_bank_id is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Food bank not found",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="food_bank_id cannot be cleared from a package",
             )
+        update_data["food_bank_id"] = await _resolve_package_food_bank_id(
+            package_in.food_bank_id,
+            admin_user,
+            db,
+        )
 
     for key, value in update_data.items():
         if value is not None:
@@ -237,16 +313,7 @@ async def update_package(
                 detail="Duplicate item_id in package contents",
             )
 
-        inventory_rows = (
-            await db.execute(
-                select(InventoryItem.id).where(InventoryItem.id.in_(item_ids))
-            )
-        ).scalars().all()
-        if len(inventory_rows) != len(item_ids):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="One or more inventory items do not exist",
-            )
+        await _validate_package_contents(item_ids, admin_user, db)
 
         existing_items = (
             await db.execute(
@@ -276,22 +343,15 @@ async def update_package(
 @router.delete("/packages/{package_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_package(
     package_id: int,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a package when safe, otherwise soft-delete it for history retention."""
-    _ = admin_user
-    
-    result = await db.execute(
-        select(FoodPackage).where(FoodPackage.id == package_id)
+    package = await _get_package_for_admin(
+        package_id,
+        admin_user,
+        db,
     )
-    package = result.scalar_one_or_none()
-    
-    if not package:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Package not found",
-        )
 
     application_usage_count = await db.scalar(
         select(func.count(ApplicationItem.id)).where(ApplicationItem.package_id == package_id)
@@ -310,7 +370,7 @@ async def delete_package(
 async def pack_package(
     package_id: int,
     pack_in: PackRequest,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -349,11 +409,33 @@ async def pack_package(
         404: Package not found
         400: Insufficient inventory for an ingredient
     """
-    _ = admin_user
-    
     try:
+        await _get_package_for_admin(package_id, admin_user, db)
+
+        admin_food_bank_id = get_admin_food_bank_id(admin_user)
+        if admin_food_bank_id is not None:
+            inventory_items = (
+                await db.execute(
+                    select(InventoryItem)
+                    .join(PackageItem, PackageItem.inventory_item_id == InventoryItem.id)
+                    .where(PackageItem.package_id == package_id)
+                )
+            ).scalars().all()
+            inaccessible_items = [
+                item.id
+                for item in inventory_items
+                if item.food_bank_id not in (None, admin_food_bank_id)
+            ]
+            if inaccessible_items:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="One or more inventory items are outside your food bank scope",
+                )
+
         result = await pack_package_transaction(package_id, pack_in.quantity, db)
         return PackResponse(**result)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

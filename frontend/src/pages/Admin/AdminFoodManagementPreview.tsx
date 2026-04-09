@@ -528,15 +528,6 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
       doc.getElementById('admin-scope-banner')?.remove()
       doc.getElementById('admin-food-scope-banner-styles')?.remove()
 
-      const toggleLocalOnlyDisplay = (id: string) => {
-        const element = doc.getElementById(id)
-        if (isFrameHTMLElement(element)) {
-          element.style.display = isLocalFoodBankAdmin ? 'none' : ''
-        }
-      }
-      toggleLocalOnlyDisplay('low-stock')
-      toggleLocalOnlyDisplay('expiry-tracking')
-
       const heroButtonsContainer = doc.querySelector('.hero-buttons')
       if (isFrameHTMLElement(heroButtonsContainer)) {
         heroButtonsContainer.innerHTML = foodManagementHeroButtonConfig
@@ -689,7 +680,6 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         const donationTableBody = doc.getElementById('donation-table-body')
         const codeTableBody = doc.getElementById('code-table-body')
         const inventoryCardGrid = doc.getElementById('inventory-card-grid')
-        const newItemButton = doc.getElementById('new-item-btn')
         const newItemEditor = doc.getElementById('new-item-editor')
         const editItemEditor = doc.getElementById('edit-item-editor')
         const stockInEditor = doc.getElementById('stock-in-editor')
@@ -722,7 +712,6 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         const packageSearchInput = doc.querySelector(
           '#package-management .table-search-input',
         ) as HTMLInputElement | null
-        const newPackageButton = doc.getElementById('new-package-btn')
         const newPackageEditor = doc.getElementById('new-package-editor')
         const editPackageEditor = doc.getElementById('edit-package-editor')
         const packingEditor = doc.getElementById('packing-editor')
@@ -1105,16 +1094,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                     `)
                     .join('')
                 : '<div style="font-size: 14px; color: var(--color-text-light);">No contents configured</div>'
-              const readOnlyNotice = isLocalFoodBankAdmin
-                ? `
-                    <p style="font-size: 13px; color: var(--color-text-light); margin-top: 12px;">
-                      Package definitions are managed by the platform team for this release.
-                    </p>
-                  `
-                : ''
-              const actionMarkup = isLocalFoodBankAdmin
-                ? ''
-                : `
+              const readOnlyNotice = ''
+              const actionMarkup = `
                     <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
                       <button class="btn btn-primary btn-sm packing-btn" data-package-id="${pkg.id}">Packing</button>
                       <button class="btn btn-secondary btn-sm edit-package-btn" data-package-id="${pkg.id}">Edit</button>
@@ -1295,10 +1276,35 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             let nextLotRecords: InventoryLotRecord[] = []
 
             if (isLocalFoodBankAdmin) {
+              const [inventoryResponse, lotResponse] = await Promise.all([
+                adminAPI.getInventoryItems(accessToken),
+                adminAPI.getInventoryLots(accessToken, true),
+              ])
+
               bankIds =
                 adminScope.foodBankId != null && Number.isFinite(adminScope.foodBankId) && adminScope.foodBankId > 0
                   ? [adminScope.foodBankId]
                   : []
+
+              nextInventoryItems = Array.isArray(inventoryResponse.items)
+                ? inventoryResponse.items.map((item) => ({
+                    ...item,
+                    id: Number(item.id),
+                    stock: Number(item.stock ?? 0),
+                    total_stock: Number(item.total_stock ?? item.stock ?? 0),
+                    threshold: Number(item.threshold ?? 0),
+                  }))
+                : []
+              nextLotRecords = Array.isArray(lotResponse)
+                ? lotResponse.map((lot) => ({
+                    ...lot,
+                    id: Number(lot.id),
+                    inventory_item_id: Number(lot.inventory_item_id),
+                    quantity: Number(lot.quantity ?? 0),
+                    expiry_date: formatIsoDate(String(lot.expiry_date)),
+                    received_date: formatIsoDate(String(lot.received_date)),
+                  }))
+                : []
             } else {
               const [foodBankResponse, inventoryResponse, lotResponse] = await Promise.all([
                 foodBanksAPI.getFoodBanks(),
@@ -2523,11 +2529,6 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
             event.preventDefault()
 
-            if (isLocalFoodBankAdmin) {
-              showToast('Package management is view-only for local food bank admins.', 'error')
-              return
-            }
-
             if (button.classList.contains('edit-package-btn')) {
               prepareEditPackageEditor(selectedPackage)
               showEditor('edit-package-editor')
@@ -2567,26 +2568,12 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           cleanupFns.push(() => packingQuantityInput.removeEventListener('input', handlePackingQuantityChange))
         }
 
-        if (newPackageButton) {
-          newPackageButton.style.pointerEvents = isLocalFoodBankAdmin ? 'none' : 'auto'
-          newPackageButton.style.display = isLocalFoodBankAdmin ? 'none' : ''
-        }
-
         bindCaptureClick('#new-package-btn', (event) => {
           event.preventDefault()
           event.stopImmediatePropagation()
-          if (isLocalFoodBankAdmin) {
-            showToast('Package management is view-only for local food bank admins.', 'error')
-            return
-          }
           prepareNewPackageEditor()
           showEditor('new-package-editor')
         })
-
-        if (newItemButton) {
-          newItemButton.style.pointerEvents = isLocalFoodBankAdmin ? 'none' : 'auto'
-          newItemButton.style.display = isLocalFoodBankAdmin ? 'none' : ''
-        }
 
         if (batchReceiveDonationsButton) {
           batchReceiveDonationsButton.className = 'btn btn-primary btn-sm'

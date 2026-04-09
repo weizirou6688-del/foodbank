@@ -1,8 +1,4 @@
-from datetime import date, datetime
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from datetime import date
 
 import pytest
 from fastapi import HTTPException
@@ -17,33 +13,7 @@ from app.routers.restock import (
     list_restock_requests,
 )
 from app.schemas.restock_request import RestockRequestCreate, RestockRequestFulfil
-
-
-class _Begin:
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def all(self):
-        return self._rows
+from tests.support import AsyncBegin, ExecuteResult, utcnow
 
 
 class FakeSession:
@@ -53,7 +23,7 @@ class FakeSession:
         self.added = []
 
     def begin(self):
-        return _Begin()
+        return AsyncBegin()
 
     async def scalar(self, _query):
         if self.scalar_values:
@@ -62,14 +32,14 @@ class FakeSession:
 
     async def execute(self, _query):
         if self.execute_rows_seq:
-            return _ExecuteResult(self.execute_rows_seq.pop(0))
-        return _ExecuteResult([])
+            return ExecuteResult(self.execute_rows_seq.pop(0))
+        return ExecuteResult([])
 
     def add(self, obj):
         self.added.append(obj)
         if isinstance(obj, RestockRequest) and getattr(obj, "id", None) is None:
             obj.id = 77
-            obj.created_at = datetime.utcnow()
+            obj.created_at = utcnow()
         if isinstance(obj, InventoryLot) and getattr(obj, "id", None) is None:
             obj.id = 88
 
@@ -150,7 +120,14 @@ async def test_decline_restock_request_fulfilled_conflict():
         urgency="Critical",
         status="fulfilled",
     )
-    db = FakeSession(scalar_values=[request])
+    item = InventoryItem(
+        id=2,
+        name="Beans",
+        category="Proteins & Meat",
+        unit="can",
+        threshold=5,
+    )
+    db = FakeSession(scalar_values=[request, item])
 
     with pytest.raises(HTTPException) as exc:
         await decline_restock_request(request_id=1, admin_user={"role": "admin"}, db=db)
@@ -168,7 +145,14 @@ async def test_decline_restock_request_success():
         urgency="Low",
         status="open",
     )
-    db = FakeSession(scalar_values=[request])
+    item = InventoryItem(
+        id=2,
+        name="Rice",
+        category="Grains & Pasta",
+        unit="kg",
+        threshold=5,
+    )
+    db = FakeSession(scalar_values=[request, item])
 
     result = await decline_restock_request(request_id=1, admin_user={"role": "admin"}, db=db)
 
@@ -186,7 +170,14 @@ async def test_fulfil_restock_request_cancelled_conflict():
         urgency="Critical",
         status="cancelled",
     )
-    db = FakeSession(scalar_values=[request])
+    item = InventoryItem(
+        id=2,
+        name="Beans",
+        category="Proteins & Meat",
+        unit="can",
+        threshold=5,
+    )
+    db = FakeSession(scalar_values=[request, item])
 
     with pytest.raises(HTTPException) as exc:
         await fulfil_restock_request(
@@ -232,3 +223,32 @@ async def test_fulfil_restock_request_success_updates_stock_to_threshold():
     assert lots[0].quantity == 4
     assert lots[0].received_date == date.today()
     assert lots[0].batch_reference == "restock-request-1"
+
+
+@pytest.mark.asyncio
+async def test_create_restock_request_rejects_other_food_bank_item_for_local_admin():
+    item = InventoryItem(
+        id=10,
+        name="Rice",
+        category="Grains & Pasta",
+        unit="kg",
+        threshold=5,
+        food_bank_id=2,
+    )
+    payload = RestockRequestCreate(
+        inventory_item_id=10,
+        current_stock=1,
+        threshold=5,
+        urgency="Critical",
+    )
+    db = FakeSession(scalar_values=[item])
+
+    with pytest.raises(HTTPException) as exc:
+        await create_restock_request(
+            request_in=payload,
+            admin_user={"role": "admin", "food_bank_id": 1},
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "You can only create restock requests for your assigned food bank"

@@ -5,7 +5,7 @@ Restock request management routes.
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,12 @@ from app.core.database_errors import (
     is_database_unavailable_exception,
     raise_database_unavailable_http_exception,
 )
-from app.core.security import require_admin, require_admin_or_supermarket
+from app.core.security import (
+    enforce_admin_food_bank_scope,
+    get_admin_food_bank_id,
+    require_admin,
+    require_admin_or_supermarket,
+)
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.models.restock_request import RestockRequest
@@ -29,15 +34,65 @@ from app.schemas.restock_request import (
 router = APIRouter(tags=["Restock Requests"])
 
 
+def _restock_scope_filter(admin_user: dict):
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is None:
+        return None
+    return or_(
+        InventoryItem.food_bank_id == admin_food_bank_id,
+        InventoryItem.food_bank_id.is_(None),
+    )
+
+
+def _enforce_restock_item_access(
+    admin_user: dict,
+    item: InventoryItem,
+    *,
+    detail: str,
+) -> None:
+    enforce_admin_food_bank_scope(
+        admin_user,
+        item.food_bank_id,
+        allow_platform_records=True,
+        detail=detail,
+    )
+
+
+async def _get_restock_item(
+    db: AsyncSession,
+    inventory_item_id: int,
+    admin_user: dict,
+    *,
+    detail: str,
+) -> InventoryItem:
+    item = await db.scalar(
+        select(InventoryItem).where(InventoryItem.id == inventory_item_id)
+    )
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory item not found",
+        )
+
+    _enforce_restock_item_access(admin_user, item, detail=detail)
+    return item
+
+
 @router.get("", response_model=RestockRequestListResponse)
 async def list_restock_requests(
     admin_user: dict = Depends(require_admin_or_supermarket),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-    result = await db.execute(
-        select(RestockRequest).order_by(RestockRequest.created_at.desc())
+    query = (
+        select(RestockRequest)
+        .join(InventoryItem, InventoryItem.id == RestockRequest.inventory_item_id)
+        .order_by(RestockRequest.created_at.desc())
     )
+    scope_filter = _restock_scope_filter(admin_user)
+    if scope_filter is not None:
+        query = query.where(scope_filter)
+
+    result = await db.execute(query)
     items = list(result.scalars().all())
     total = len(items)
     return {
@@ -55,17 +110,14 @@ async def create_restock_request(
     admin_user: dict = Depends(require_admin_or_supermarket),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
     try:
         async with db.begin():
-            item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == request_in.inventory_item_id)
+            item = await _get_restock_item(
+                db,
+                request_in.inventory_item_id,
+                admin_user,
+                detail="You can only create restock requests for your assigned food bank",
             )
-            if item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found",
-                )
 
             existing_open_request = await db.scalar(
                 select(RestockRequest).where(
@@ -113,7 +165,6 @@ async def decline_restock_request(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
     try:
         async with db.begin():
             request = await db.scalar(
@@ -124,6 +175,14 @@ async def decline_restock_request(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Restock request not found",
                 )
+
+            item = await _get_restock_item(
+                db,
+                request.inventory_item_id,
+                admin_user,
+                detail="You can only manage restock requests for your assigned food bank",
+            )
+            _ = item
 
             if request.status == "fulfilled":
                 raise HTTPException(
@@ -152,7 +211,6 @@ async def fulfil_restock_request(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
     _ = fulfil_in.notes
     try:
         async with db.begin():
@@ -165,19 +223,17 @@ async def fulfil_restock_request(
                     detail="Restock request not found",
                 )
 
+            item = await _get_restock_item(
+                db,
+                request.inventory_item_id,
+                admin_user,
+                detail="You can only manage restock requests for your assigned food bank",
+            )
+
             if request.status == "cancelled":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Cancelled request cannot be fulfilled",
-                )
-
-            item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == request.inventory_item_id)
-            )
-            if item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found",
                 )
 
             replenish_quantity = max(request.threshold - request.current_stock, 1)

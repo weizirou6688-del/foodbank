@@ -1,72 +1,17 @@
 """Integration tests for pack_package endpoint."""
 
 from datetime import date, datetime
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 from fastapi import HTTPException, status
 
 from app.models.food_package import FoodPackage
+from app.models.inventory_item import InventoryItem
 from app.models.package_item import PackageItem
 from app.models.inventory_lot import InventoryLot
 from app.routers.food_packages import pack_package
 from app.schemas.food_package import PackRequest
-
-
-class MockAsyncSession:
-    """Mock database session for integration testing."""
-
-    def __init__(self):
-        self.packages = {}
-        self.package_items = {}
-        self.inventory_lots = {}
-        self.committed = False
-        self.rolled_back = False
-        self.execute_queue = []
-
-    def add_execute_result(self, result_rows):
-        """Queue results for execute() calls."""
-        self.execute_queue.append(result_rows)
-
-    async def execute(self, query):
-        """Simulate db.execute()."""
-        if self.execute_queue:
-            return _ExecuteResult(self.execute_queue.pop(0))
-        return _ExecuteResult([])
-
-    async def flush(self):
-        pass
-
-    async def refresh(self, obj):
-        pass
-
-    async def commit(self):
-        self.committed = True
-
-    async def rollback(self):
-        self.rolled_back = True
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def scalar_one_or_none(self):
-        return self._rows[0] if self._rows else None
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
+from tests.support import QueuedAsyncSession, utcnow
 
 
 @pytest.mark.asyncio
@@ -82,7 +27,7 @@ async def test_pack_package_endpoint_success():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
     recipe_item = PackageItem(
@@ -104,7 +49,8 @@ async def test_pack_package_endpoint_success():
         deleted_at=None,
     )
 
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
+    db.add_execute_result([package])
     db.add_execute_result([package])
     db.add_execute_result([recipe_item])
     db.add_execute_result([lot1])
@@ -142,7 +88,7 @@ async def test_pack_package_endpoint_insufficient_inventory():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
     recipe_item = PackageItem(
@@ -164,7 +110,8 @@ async def test_pack_package_endpoint_insufficient_inventory():
         deleted_at=None,
     )
 
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
+    db.add_execute_result([package])
     db.add_execute_result([package])
     db.add_execute_result([recipe_item])
     db.add_execute_result([lot1])
@@ -188,7 +135,7 @@ async def test_pack_package_endpoint_insufficient_inventory():
 @pytest.mark.asyncio
 async def test_pack_package_endpoint_not_found():
     """Test pack_package endpoint returns 404 when package not found."""
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
     db.add_execute_result([])  # No package
 
     admin_user = {"role": "admin", "id": 1}
@@ -203,7 +150,7 @@ async def test_pack_package_endpoint_not_found():
             db=db,
         )
 
-    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.asyncio
@@ -218,7 +165,7 @@ async def test_pack_package_endpoint_fefo_ordering():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
     recipe_item = PackageItem(
@@ -253,7 +200,8 @@ async def test_pack_package_endpoint_fefo_ordering():
         deleted_at=None,
     )
 
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
+    db.add_execute_result([package])
     db.add_execute_result([package])
     db.add_execute_result([recipe_item])
     db.add_execute_result([lot1, lot2])  # Sorted by expiry_date
@@ -285,3 +233,41 @@ async def test_pack_package_endpoint_fefo_ordering():
     # Verify soft-delete of empty lot
     assert lot1.deleted_at is not None
     assert lot2.deleted_at is None
+
+
+@pytest.mark.asyncio
+async def test_pack_package_endpoint_rejects_other_bank_inventory_for_local_admin():
+    package = FoodPackage(
+        id=1,
+        name="Scoped Pack",
+        category="Breakfast",
+        stock=0,
+        threshold=5,
+        applied_count=0,
+        food_bank_id=1,
+        is_active=True,
+        created_at=utcnow(),
+    )
+    foreign_item = InventoryItem(
+        id=10,
+        name="Foreign Rice",
+        category="Grains & Pasta",
+        unit="kg",
+        threshold=5,
+        food_bank_id=2,
+    )
+
+    db = QueuedAsyncSession()
+    db.add_execute_result([package])
+    db.add_execute_result([foreign_item])
+
+    with pytest.raises(HTTPException) as exc:
+        await pack_package(
+            package_id=1,
+            pack_in=PackRequest(quantity=1),
+            admin_user={"role": "admin", "id": 1, "food_bank_id": 1},
+            db=db,
+        )
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    assert exc.value.detail == "One or more inventory items are outside your food bank scope"

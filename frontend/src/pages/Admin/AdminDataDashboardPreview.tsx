@@ -269,26 +269,7 @@ export default function AdminDataDashboardPreview() {
       doc.getElementById('admin-scope-banner')?.remove()
       doc.getElementById('admin-scope-banner-styles')?.remove()
 
-      const toggleLocalOnlyDisplay = (id: string) => {
-        const element = doc.getElementById(id)
-        if (isFrameHTMLElement(element)) {
-          element.style.display = adminScope.isLocalFoodBankAdmin ? 'none' : ''
-        }
-      }
-      const applyDashboardScopeVisibility = () => {
-        toggleLocalOnlyDisplay('donation-analysis')
-        toggleLocalOnlyDisplay('inventory-health')
-        toggleLocalOnlyDisplay('waste-analysis')
-
-        const kpiCards = Array.from(doc.querySelectorAll('.kpi-grid .kpi-card'))
-        const hiddenKpiIndexes = new Set([1, 3, 4])
-        kpiCards.forEach((card, index) => {
-          if (isFrameHTMLElement(card)) {
-            card.style.display =
-              adminScope.isLocalFoodBankAdmin && hiddenKpiIndexes.has(index) ? 'none' : ''
-          }
-        })
-      }
+      const applyDashboardScopeVisibility = () => {}
       applyDashboardScopeVisibility()
 
       const heroButtonsContainer = doc.querySelector('.hero-buttons')

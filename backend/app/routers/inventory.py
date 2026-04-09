@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,10 +20,12 @@ from app.core.database_errors import (
     raise_database_unavailable_http_exception,
 )
 from app.core.security import (
+    enforce_admin_food_bank_scope,
     get_admin_food_bank_id,
+    require_admin,
     require_admin_or_supermarket,
-    require_platform_admin,
 )
+from app.models.food_bank import FoodBank
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.models.package_item import PackageItem
@@ -50,6 +52,120 @@ def _future_expiry_date() -> date:
     return date.today() + timedelta(days=365)
 
 
+def _inventory_scope_filter(
+    admin_user: dict,
+    *,
+    include_shared_for_local_admin: bool = True,
+):
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is None:
+        return None
+
+    if include_shared_for_local_admin:
+        return or_(
+            InventoryItem.food_bank_id == admin_food_bank_id,
+            InventoryItem.food_bank_id.is_(None),
+        )
+
+    return InventoryItem.food_bank_id == admin_food_bank_id
+
+
+def _apply_inventory_scope(query, admin_user: dict):
+    scope_filter = _inventory_scope_filter(admin_user)
+    if scope_filter is None:
+        return query
+    return query.where(scope_filter)
+
+
+def _enforce_inventory_item_access(
+    admin_user: dict,
+    inventory_item: InventoryItem,
+    *,
+    detail: str,
+) -> None:
+    enforce_admin_food_bank_scope(
+        admin_user,
+        inventory_item.food_bank_id,
+        allow_platform_records=True,
+        detail=detail,
+    )
+
+
+async def _get_inventory_item_for_admin(
+    db: AsyncSession,
+    item_id: int,
+    admin_user: dict,
+    *,
+    detail: str,
+) -> InventoryItem:
+    item = await db.scalar(select(InventoryItem).where(InventoryItem.id == item_id))
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory item not found",
+        )
+
+    _enforce_inventory_item_access(admin_user, item, detail=detail)
+    return item
+
+
+async def _get_inventory_lot_for_admin(
+    db: AsyncSession,
+    lot_id: int,
+    admin_user: dict,
+    *,
+    detail: str,
+) -> tuple[InventoryLot, InventoryItem]:
+    lot = await db.scalar(select(InventoryLot).where(InventoryLot.id == lot_id))
+    if lot is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory lot not found",
+        )
+
+    inventory_item = await db.scalar(
+        select(InventoryItem).where(InventoryItem.id == lot.inventory_item_id)
+    )
+    if inventory_item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory item not found for lot",
+        )
+
+    _enforce_inventory_item_access(admin_user, inventory_item, detail=detail)
+    return lot, inventory_item
+
+
+async def _resolve_inventory_item_food_bank_id(
+    requested_food_bank_id: int | None,
+    admin_user: dict,
+    db: AsyncSession,
+) -> int | None:
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is not None:
+        if requested_food_bank_id is not None:
+            enforce_admin_food_bank_scope(
+                admin_user,
+                requested_food_bank_id,
+                detail="You can only create inventory items for your assigned food bank",
+            )
+        return admin_food_bank_id
+
+    if requested_food_bank_id is None:
+        return None
+
+    food_bank_exists = await db.scalar(
+        select(FoodBank.id).where(FoodBank.id == requested_food_bank_id)
+    )
+    if food_bank_exists is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Food bank not found",
+        )
+
+    return requested_food_bank_id
+
+
 async def _get_total_stock_for_item(db: AsyncSession, item_id: int) -> int:
     total_stock = await db.scalar(
         select(func.coalesce(func.sum(InventoryLot.quantity), 0)).where(
@@ -74,7 +190,7 @@ async def _serialize_inventory_item(db: AsyncSession, item: InventoryItem) -> In
         total_stock=total_stock,
         unit=item.unit,
         threshold=item.threshold,
-        food_bank_id=None,
+        food_bank_id=item.food_bank_id,
         updated_at=updated_at,
     )
 
@@ -82,15 +198,24 @@ async def _serialize_inventory_item(db: AsyncSession, item: InventoryItem) -> In
 @router.get("", response_model=InventoryItemListResponse)
 async def list_inventory(
     food_bank_id: int | None = None,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-    _ = food_bank_id
+    query = select(InventoryItem).order_by(InventoryItem.updated_at.desc())
 
-    result = await db.execute(
-        select(InventoryItem).order_by(InventoryItem.updated_at.desc())
-    )
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if food_bank_id is not None:
+        if admin_food_bank_id is not None:
+            enforce_admin_food_bank_scope(
+                admin_user,
+                food_bank_id,
+                detail="You can only view inventory for your assigned food bank",
+            )
+        query = query.where(InventoryItem.food_bank_id == food_bank_id)
+    else:
+        query = _apply_inventory_scope(query, admin_user)
+
+    result = await db.execute(query)
     items = list(result.scalars().all())
     serialized_items = [await _serialize_inventory_item(db, item) for item in items]
     total = len(serialized_items)
@@ -106,15 +231,31 @@ async def list_inventory(
 @router.post("", response_model=InventoryItemOut, status_code=status.HTTP_201_CREATED)
 async def create_inventory_item(
     item_in: InventoryItemCreateRequest,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
     try:
-        existing_item_id = await db.scalar(
-            select(InventoryItem.id).where(
-                func.lower(InventoryItem.name) == item_in.name.strip().lower()
+        target_food_bank_id = await _resolve_inventory_item_food_bank_id(
+            item_in.food_bank_id,
+            admin_user,
+            db,
+        )
+        normalized_name = item_in.name.strip()
+        duplicate_query = select(InventoryItem.id).where(
+            func.lower(InventoryItem.name) == normalized_name.lower()
+        )
+        if target_food_bank_id is None:
+            duplicate_query = duplicate_query.where(InventoryItem.food_bank_id.is_(None))
+        else:
+            duplicate_query = duplicate_query.where(
+                or_(
+                    InventoryItem.food_bank_id == target_food_bank_id,
+                    InventoryItem.food_bank_id.is_(None),
+                )
             )
+
+        existing_item_id = await db.scalar(
+            duplicate_query
         )
         if existing_item_id is not None:
             raise HTTPException(
@@ -123,10 +264,11 @@ async def create_inventory_item(
             )
 
         item = InventoryItem(
-            name=item_in.name.strip(),
+            name=normalized_name,
             category=item_in.category,
             unit=item_in.unit,
             threshold=item_in.threshold,
+            food_bank_id=target_food_bank_id,
         )
         db.add(item)
         await db.flush()
@@ -164,11 +306,9 @@ async def create_inventory_item(
 @router.get("/lots", response_model=List[InventoryLotOut])
 async def list_inventory_lots(
     include_inactive: bool = Query(True, description="Include inactive (wasted) lots"),
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     try:
         query = (
             select(InventoryLot, InventoryItem.name)
@@ -178,6 +318,8 @@ async def list_inventory_lots(
 
         if not include_inactive:
             query = query.where(InventoryLot.deleted_at.is_(None))
+
+        query = _apply_inventory_scope(query, admin_user)
 
         result = await db.execute(query)
         rows = result.all()
@@ -220,11 +362,9 @@ async def list_inventory_lots(
 async def adjust_inventory_lot(
     lot_id: int,
     adjustment_in: InventoryLotAdjustRequest,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     if adjustment_in.model_dump(exclude_unset=True) == {}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -233,20 +373,12 @@ async def adjust_inventory_lot(
 
     try:
         async with db.begin():
-            lot = await db.scalar(select(InventoryLot).where(InventoryLot.id == lot_id))
-            if lot is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory lot not found",
-                )
-            inventory_item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == lot.inventory_item_id)
+            lot, inventory_item = await _get_inventory_lot_for_admin(
+                db,
+                lot_id,
+                admin_user,
+                detail="You can only manage inventory lots for your assigned food bank",
             )
-            if inventory_item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found for lot",
-                )
 
             if adjustment_in.expiry_date is not None:
                 lot.expiry_date = adjustment_in.expiry_date
@@ -326,11 +458,9 @@ async def adjust_inventory_lot(
 async def update_inventory_item(
     item_id: int,
     item_in: InventoryItemUpdate,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     updates = item_in.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(
@@ -343,14 +473,12 @@ async def update_inventory_item(
 
     try:
         async with db.begin():
-            item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == item_id)
+            item = await _get_inventory_item_for_admin(
+                db,
+                item_id,
+                admin_user,
+                detail="You can only manage inventory items for your assigned food bank",
             )
-            if item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found",
-                )
 
             for field, value in updates.items():
                 setattr(item, field, value)
@@ -378,21 +506,17 @@ async def update_inventory_item(
 async def stock_in(
     item_id: int,
     adjustment_in: StockAdjustment,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     try:
         async with db.begin():
-            item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == item_id)
+            item = await _get_inventory_item_for_admin(
+                db,
+                item_id,
+                admin_user,
+                detail="You can only manage inventory items for your assigned food bank",
             )
-            if item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found",
-                )
 
             db.add(
                 InventoryLot(
@@ -422,21 +546,17 @@ async def stock_in(
 async def stock_out(
     item_id: int,
     adjustment_in: StockAdjustment,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     try:
         async with db.begin():
-            item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == item_id)
+            item = await _get_inventory_item_for_admin(
+                db,
+                item_id,
+                admin_user,
+                detail="You can only manage inventory items for your assigned food bank",
             )
-            if item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found",
-                )
 
             try:
                 await consume_inventory_lots(item.id, adjustment_in.quantity, db)
@@ -463,20 +583,17 @@ async def stock_out(
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_inventory_item(
     item_id: int,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
     try:
         async with db.begin():
-            item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == item_id)
+            item = await _get_inventory_item_for_admin(
+                db,
+                item_id,
+                admin_user,
+                detail="You can only delete inventory items for your assigned food bank",
             )
-            if item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found",
-                )
 
             package_usage_count = await db.scalar(
                 select(func.count(PackageItem.id)).where(
@@ -506,30 +623,17 @@ async def delete_inventory_item(
 @router.delete("/lots/{lot_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_inventory_lot(
     lot_id: int,
-    admin_user: dict = Depends(require_platform_admin),
+    admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    _ = admin_user
-
     try:
         async with db.begin():
-            lot = await db.scalar(
-                select(InventoryLot).where(InventoryLot.id == lot_id)
+            lot, inventory_item = await _get_inventory_lot_for_admin(
+                db,
+                lot_id,
+                admin_user,
+                detail="You can only delete inventory lots for your assigned food bank",
             )
-            if lot is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory lot not found",
-                )
-
-            inventory_item = await db.scalar(
-                select(InventoryItem).where(InventoryItem.id == lot.inventory_item_id)
-            )
-            if inventory_item is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Inventory item not found for lot",
-                )
 
             if not await lot_has_waste_event(db, lot.id):
                 reason = "deleted"
@@ -569,12 +673,6 @@ async def get_low_stock_items(
     admin_user: dict = Depends(require_admin_or_supermarket),
     db: AsyncSession = Depends(get_db),
 ):
-    if admin_user.get("role") == "admin" and get_admin_food_bank_id(admin_user) is not None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Platform admin privileges required",
-        )
-
     try:
         stock_subquery = (
             select(
@@ -609,6 +707,8 @@ async def get_low_stock_items(
             InventoryItem.id == stock_subquery.c.inventory_item_id,
             isouter=True,
         )
+
+        query = _apply_inventory_scope(query, admin_user)
 
         if threshold is not None:
             query = query.where(effective_total_stock < threshold)
