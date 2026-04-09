@@ -1,13 +1,8 @@
-from datetime import datetime
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 import pytest
 from fastapi import HTTPException
 
 from app.models.food_package import FoodPackage
+from app.models.inventory_item import InventoryItem
 from app.models.package_item import PackageItem
 from app.routers.food_packages import (
     list_packages_for_bank,
@@ -18,25 +13,7 @@ from app.routers.food_packages import (
 )
 from app.schemas.food_package import FoodPackageUpdate
 from app.schemas.food_package import FoodPackageCreateRequest
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def scalar_one_or_none(self):
-        return self._rows[0] if self._rows else None
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
+from tests.support import ExecuteResult, utcnow
 
 
 class FakeSession:
@@ -52,8 +29,8 @@ class FakeSession:
 
     async def execute(self, query):
         if self.execute_rows_seq:
-            return _ExecuteResult(self.execute_rows_seq.pop(0))
-        return _ExecuteResult(list(self.packages.values()))
+            return ExecuteResult(self.execute_rows_seq.pop(0))
+        return ExecuteResult(list(self.packages.values()))
 
     async def scalar(self, _query):
         if self.scalar_values:
@@ -64,7 +41,7 @@ class FakeSession:
         self.added.append(obj)
         if isinstance(obj, FoodPackage) and getattr(obj, "id", None) is None:
             obj.id = 999
-            obj.created_at = datetime.utcnow()
+            obj.created_at = utcnow()
 
     async def delete(self, obj):
         self.deleted.append(obj)
@@ -100,7 +77,7 @@ async def test_list_packages_for_bank_returns_rows():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     db = FakeSession(packages={1: pkg})
 
@@ -121,7 +98,7 @@ async def test_get_package_success():
         applied_count=2,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     db = FakeSession(packages={1: pkg})
 
@@ -203,6 +180,68 @@ async def test_create_package_rejects_unknown_food_bank():
 
 
 @pytest.mark.asyncio
+async def test_create_package_defaults_to_local_admin_food_bank():
+    db = FakeSession(
+        execute_rows_seq=[[
+            InventoryItem(
+                id=1,
+                name="Rice",
+                category="Grains & Pasta",
+                unit="kg",
+                threshold=5,
+                food_bank_id=None,
+            )
+        ]],
+        scalar_values=[3],
+    )
+    admin = {"role": "admin", "food_bank_id": 3}
+
+    payload = FoodPackageCreateRequest(
+        name="Scoped Pack",
+        category="Breakfast",
+        threshold=4,
+        contents=[{"item_id": 1, "quantity": 1}],
+        food_bank_id=None,
+    )
+
+    result = await create_package(package_in=payload, admin_user=admin, db=db)
+
+    assert result.food_bank_id == 3
+
+
+@pytest.mark.asyncio
+async def test_create_package_rejects_foreign_inventory_for_local_admin():
+    db = FakeSession(
+        execute_rows_seq=[[
+            InventoryItem(
+                id=1,
+                name="Rice",
+                category="Grains & Pasta",
+                unit="kg",
+                threshold=5,
+                food_bank_id=2,
+            )
+        ]],
+        scalar_values=[1],
+    )
+    admin = {"role": "admin", "food_bank_id": 1}
+
+    payload = FoodPackageCreateRequest(
+        name="Scoped Pack",
+        category="Breakfast",
+        threshold=4,
+        contents=[{"item_id": 1, "quantity": 1}],
+        food_bank_id=None,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await create_package(package_in=payload, admin_user=admin, db=db)
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "One or more inventory items are outside your food bank scope"
+
+
+@pytest.mark.asyncio
 async def test_update_package_success():
     pkg = FoodPackage(
         id=1,
@@ -213,7 +252,7 @@ async def test_update_package_success():
         applied_count=1,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     db = FakeSession(packages={1: pkg})
     admin = {"role": "admin"}
@@ -239,7 +278,7 @@ async def test_update_package_replaces_package_contents():
         applied_count=1,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     existing_item = PackageItem(
         id=10,
@@ -290,6 +329,34 @@ async def test_update_package_not_found():
 
 
 @pytest.mark.asyncio
+async def test_update_package_rejects_other_food_bank_for_local_admin():
+    pkg = FoodPackage(
+        id=1,
+        name="Other Bank Pack",
+        category="Breakfast",
+        stock=5,
+        threshold=3,
+        applied_count=1,
+        food_bank_id=2,
+        is_active=True,
+        created_at=utcnow(),
+    )
+    db = FakeSession(packages={1: pkg})
+    admin = {"role": "admin", "food_bank_id": 1}
+
+    with pytest.raises(HTTPException) as exc:
+        await update_package(
+            package_id=1,
+            package_in=FoodPackageUpdate(name="Updated Pack"),
+            admin_user=admin,
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "You can only manage packages for your assigned food bank"
+
+
+@pytest.mark.asyncio
 async def test_delete_package_success():
     pkg = FoodPackage(
         id=1,
@@ -300,7 +367,7 @@ async def test_delete_package_success():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     db = FakeSession(packages={1: pkg}, scalar_values=[0])
     admin = {"role": "admin"}
@@ -322,7 +389,7 @@ async def test_delete_package_soft_deletes_when_used_in_applications():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     db = FakeSession(packages={1: pkg}, scalar_values=[2])
     admin = {"role": "admin"}

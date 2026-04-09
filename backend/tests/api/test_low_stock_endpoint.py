@@ -9,10 +9,6 @@ Tests:
 """
 
 from datetime import date, datetime, timedelta
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 from fastapi import status
@@ -21,35 +17,7 @@ from sqlalchemy import func, select, and_
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.routers.inventory import get_low_stock_items
-
-
-class _ExecuteResult:
-    """Mock execute result for database queries."""
-    
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def scalar_one_or_none(self):
-        return self._rows[0] if self._rows else None
-
-
-class _ScalarResult:
-    """Mock scalar result."""
-    
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-    def one_or_none(self):
-        return self._rows[0] if self._rows else None
+from tests.support import ExecuteResult
 
 
 class MockAsyncSession:
@@ -95,9 +63,9 @@ class MockAsyncSession:
                         threshold - total_stock,  # deficit
                     ))
             
-            return _ExecuteResult(results)
+            return ExecuteResult(results)
         
-        return _ExecuteResult([])
+        return ExecuteResult([])
 
     async def flush(self):
         pass
@@ -201,6 +169,40 @@ async def test_low_stock_items_with_default_threshold(mock_db: MockAsyncSession)
     assert result[0].current_stock == 30
     assert result[0].threshold == 50
     assert result[0].stock_deficit == 20
+
+
+@pytest.mark.asyncio
+async def test_low_stock_items_allow_local_food_bank_admin(mock_db: MockAsyncSession):
+    item = InventoryItem(
+        id=1,
+        name="Scoped Item",
+        category="Canned Goods",
+        unit="cans",
+        threshold=10,
+        food_bank_id=1,
+        updated_at=datetime.now(),
+    )
+    lot = InventoryLot(
+        id=1,
+        inventory_item_id=1,
+        quantity=2,
+        expiry_date=date.today() + timedelta(days=30),
+        received_date=date.today(),
+        batch_reference="scoped",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    mock_db.all_items = [item]
+    mock_db.all_lots = [lot]
+
+    result = await get_low_stock_items(
+        threshold=None,
+        admin_user={"id": 1, "role": "admin", "food_bank_id": 1},
+        db=mock_db,
+    )
+
+    assert len(result) == 1
+    assert result[0].id == 1
 
 
 @pytest.mark.asyncio

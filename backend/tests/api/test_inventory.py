@@ -1,8 +1,4 @@
 from datetime import date, datetime
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from fastapi import HTTPException
@@ -20,33 +16,7 @@ from app.routers.inventory import (
 )
 from app.schemas.inventory_item import InventoryItemUpdate, StockAdjustment
 from app.schemas.inventory_item import InventoryItemCreateRequest
-
-
-class _Begin:
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def all(self):
-        return self._rows
+from tests.support import AsyncBegin, ExecuteResult, utcnow
 
 
 class FakeSession:
@@ -59,7 +29,7 @@ class FakeSession:
         self.did_rollback = False
 
     def begin(self):
-        return _Begin()
+        return AsyncBegin()
 
     async def scalar(self, _query):
         if self.scalar_values:
@@ -68,14 +38,14 @@ class FakeSession:
 
     async def execute(self, _query):
         if self.execute_rows_seq:
-            return _ExecuteResult(self.execute_rows_seq.pop(0))
-        return _ExecuteResult([])
+            return ExecuteResult(self.execute_rows_seq.pop(0))
+        return ExecuteResult([])
 
     def add(self, obj):
         self.added.append(obj)
         if isinstance(obj, InventoryItem) and getattr(obj, "id", None) is None:
             obj.id = 99
-            obj.updated_at = datetime.utcnow()
+            obj.updated_at = utcnow()
         if isinstance(obj, InventoryLot) and getattr(obj, "id", None) is None:
             obj.id = 199
 
@@ -132,6 +102,27 @@ async def test_create_inventory_item_success():
 
 
 @pytest.mark.asyncio
+async def test_create_inventory_item_defaults_to_local_admin_food_bank():
+    db = FakeSession(scalar_values=[None, 4])
+    payload = InventoryItemCreateRequest(
+        name="Beans",
+        category="Proteins & Meat",
+        initial_stock=4,
+        unit="can",
+        threshold=1,
+    )
+
+    result = await create_inventory_item(
+        item_in=payload,
+        admin_user={"role": "admin", "food_bank_id": 3},
+        db=db,
+    )
+
+    assert result.name == "Beans"
+    assert result.food_bank_id == 3
+
+
+@pytest.mark.asyncio
 async def test_create_inventory_item_conflict_when_name_exists():
     db = FakeSession(scalar_values=[1])
     payload = InventoryItemCreateRequest(
@@ -185,6 +176,30 @@ async def test_update_inventory_item_not_found():
         )
 
     assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_inventory_item_rejects_other_food_bank_for_local_admin():
+    item = InventoryItem(
+        id=1,
+        name="Rice",
+        category="Grains & Pasta",
+        unit="kg",
+        threshold=1,
+        food_bank_id=2,
+    )
+    db = FakeSession(scalar_values=[item])
+
+    with pytest.raises(HTTPException) as exc:
+        await update_inventory_item(
+            item_id=1,
+            item_in=InventoryItemUpdate(name="New"),
+            admin_user={"role": "admin", "food_bank_id": 1},
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "You can only manage inventory items for your assigned food bank"
 
 
 @pytest.mark.asyncio
@@ -329,7 +344,14 @@ async def test_delete_inventory_lot_success():
         expiry_date=date.today(),
         batch_reference="lot-7",
     )
-    db = FakeSession(scalar_values=[lot])
+    item = InventoryItem(
+        id=1,
+        name="Salt",
+        category="Snacks",
+        unit="pack",
+        threshold=1,
+    )
+    db = FakeSession(scalar_values=[lot, item])
 
     result = await delete_inventory_lot(lot_id=7, admin_user={"role": "admin"}, db=db)
 

@@ -142,28 +142,54 @@ async def _load_goods_donation(db: AsyncSession, donation_id: uuid.UUID) -> Dona
     return result.scalar_one_or_none()
 
 
-async def _resolve_or_create_inventory_item(item_name: str, db: AsyncSession) -> InventoryItem:
+async def _resolve_or_create_inventory_item(
+    item_name: str,
+    food_bank_id: int | None,
+    db: AsyncSession,
+) -> InventoryItem:
     normalized_name = item_name.strip()
-
-    exact_item = await db.scalar(
-        select(InventoryItem).where(func.lower(InventoryItem.name) == normalized_name.lower())
+    exact_name_query = select(InventoryItem).where(
+        func.lower(InventoryItem.name) == normalized_name.lower()
     )
-    if exact_item is not None:
-        return exact_item
 
-    fuzzy_item = await db.scalar(
+    if food_bank_id is not None:
+        exact_scoped_item = await db.scalar(
+            exact_name_query.where(InventoryItem.food_bank_id == food_bank_id)
+        )
+        if exact_scoped_item is not None:
+            return exact_scoped_item
+
+    exact_shared_item = await db.scalar(
+        exact_name_query.where(InventoryItem.food_bank_id.is_(None)).order_by(InventoryItem.id)
+    )
+    if exact_shared_item is not None:
+        return exact_shared_item
+
+    fuzzy_name_query = (
         select(InventoryItem)
         .where(func.lower(InventoryItem.name).like(f"{normalized_name.lower()}%"))
         .order_by(InventoryItem.id)
     )
-    if fuzzy_item is not None:
-        return fuzzy_item
+
+    if food_bank_id is not None:
+        fuzzy_scoped_item = await db.scalar(
+            fuzzy_name_query.where(InventoryItem.food_bank_id == food_bank_id)
+        )
+        if fuzzy_scoped_item is not None:
+            return fuzzy_scoped_item
+
+    fuzzy_shared_item = await db.scalar(
+        fuzzy_name_query.where(InventoryItem.food_bank_id.is_(None))
+    )
+    if fuzzy_shared_item is not None:
+        return fuzzy_shared_item
 
     item = InventoryItem(
         name=normalized_name,
         category=DEFAULT_INVENTORY_CATEGORY,
         unit=DEFAULT_INVENTORY_UNIT,
         threshold=10,
+        food_bank_id=food_bank_id,
     )
     db.add(item)
     await db.flush()
@@ -179,7 +205,11 @@ async def _sync_goods_donation_inventory(
     donation_items = items if items is not None else list(donation.items)
 
     for item in donation_items:
-        inventory_item = await _resolve_or_create_inventory_item(item.item_name, db)
+        inventory_item = await _resolve_or_create_inventory_item(
+            item.item_name,
+            donation.food_bank_id,
+            db,
+        )
         lot_expiry = item.expiry_date or (received_date + timedelta(days=365))
         db.add(
             InventoryLot(

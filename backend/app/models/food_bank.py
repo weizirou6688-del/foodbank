@@ -44,6 +44,10 @@ class FoodBank(Base):
         back_populates="food_bank",
     )
 
+    inventory_items: Mapped[list["InventoryItem"]] = relationship(
+        back_populates="food_bank",
+    )
+
     # food_banks -> applications is one-to-many.
     applications: Mapped[list["Application"]] = relationship(back_populates="food_bank")
 

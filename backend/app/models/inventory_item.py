@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Integer, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -36,12 +36,19 @@ class InventoryItem(Base):
         nullable=False,
         server_default=text("10"),
     )
+    food_bank_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food_banks.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         nullable=False,
         server_default=text("now()"),
         onupdate=text("now()"),
     )
+
+    food_bank: Mapped["FoodBank | None"] = relationship(back_populates="inventory_items")
 
     # inventory_items -> package_items is one-to-many.
     package_items: Mapped[list["PackageItem"]] = relationship(
