@@ -2,8 +2,8 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 
-const AdminFoodManagementWorkspace = lazy(() => import('./AdminFoodManagementWorkspace'))
-const AdminStatistics = lazy(() => import('./AdminStatistics'))
+const AdminDataDashboardPreview = lazy(() => import('./AdminDataDashboardPreview'))
+const AdminFoodManagementPreview = lazy(() => import('./AdminFoodManagementPreview'))
 
 type Section = 'statistics' | 'food'
 
@@ -49,11 +49,11 @@ export default function Admin() {
     const idleWindow = window as IdleWindow
     const preload = () => {
       if (section === 'food') {
-        void import('./AdminStatistics')
+        void import('./AdminDataDashboardPreview')
         return
       }
 
-      void import('./AdminFoodManagementWorkspace')
+      void import('./AdminFoodManagementPreview')
     }
 
     if (typeof idleWindow.requestIdleCallback === 'function') {
@@ -72,14 +72,9 @@ export default function Admin() {
   return (
     <Suspense fallback={<AdminSectionFallback />}>
       {section === 'food' ? (
-        <AdminFoodManagementWorkspace />
+        <AdminFoodManagementPreview onSwitch={setSection} />
       ) : (
-        <AdminStatistics
-          onSwitch={(nextSection) => {
-            setSection(nextSection)
-            navigate(`/admin?section=${nextSection}`)
-          }}
-        />
+        <AdminDataDashboardPreview />
       )}
     </Suspense>
   )

@@ -4,7 +4,6 @@ Application submission and management routes.
 Spec § 2.4: POST (submit), GET /my (user's), PATCH/:id (admin status update)
 """
 
-import secrets
 import uuid
 from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,6 +16,11 @@ from app.core.database import get_db
 from app.core.database_errors import (
     is_database_unavailable_exception,
     raise_database_unavailable_http_exception,
+)
+from app.core.redemption_codes import (
+    new_redemption_code,
+    normalize_redemption_code,
+    redemption_code_lookup_candidates,
 )
 from app.core.security import (
     enforce_admin_food_bank_scope,
@@ -53,23 +57,11 @@ MAX_SINGLE_INDIVIDUAL_ITEM_QUANTITY = 5
 
 
 def _new_redemption_code() -> str:
-    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    left = "".join(secrets.choice(alphabet) for _ in range(4))
-    right = "".join(secrets.choice(alphabet) for _ in range(4))
-    return f"{left}-{right}"
+    return new_redemption_code()
 
 
 def _normalize_redemption_code(raw_code: str) -> str:
-    trimmed = raw_code.strip().upper()
-    if len(trimmed) == 9 and trimmed[:2].isalpha() and trimmed[2] == "-" and trimmed[3:].isalnum():
-        return trimmed
-
-    compact = "".join(char for char in trimmed if char.isalnum())
-    if len(compact) == 8:
-        return f"{compact[:4]}-{compact[4:]}"
-    if len(compact) == 10 and compact[:2].isalpha() and compact[2:].isdigit():
-        return compact
-    return trimmed
+    return normalize_redemption_code(raw_code)
 
 
 async def _generate_unique_redemption_code(db: AsyncSession) -> str:
@@ -525,14 +517,14 @@ async def get_application_by_redemption_code(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    normalized_code = _normalize_redemption_code(redemption_code)
+    lookup_codes = redemption_code_lookup_candidates(redemption_code)
     result = await db.execute(
         select(Application)
         .options(
             selectinload(Application.items).selectinload(ApplicationItem.package),
             selectinload(Application.items).selectinload(ApplicationItem.inventory_item),
         )
-        .where(Application.redemption_code == normalized_code)
+        .where(Application.redemption_code.in_(lookup_codes))
     )
     application = result.scalar_one_or_none()
     if application is None:
@@ -710,9 +702,10 @@ async def update_application_status(
 
             if application_in.redemption_code is not None:
                 normalized_code = _normalize_redemption_code(application_in.redemption_code)
+                lookup_codes = redemption_code_lookup_candidates(application_in.redemption_code)
                 code_owner = await db.scalar(
                     select(Application.id).where(
-                        Application.redemption_code == normalized_code,
+                        Application.redemption_code.in_(lookup_codes),
                         Application.id != application_id,
                     )
                 )

@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from app.core.database import AsyncSessionLocal
 from app.core.goods_donation_format import format_goods_pickup_date, normalize_goods_donor_phone
+from app.core.redemption_codes import is_canonical_redemption_code, normalize_redemption_code
 from app.core.security import get_password_hash, verify_password
 from app.models.application import Application
 from app.models.application_item import ApplicationItem
@@ -290,22 +291,96 @@ DEMO_LOCAL_SCOPE_GOODS_DONATIONS = [
     },
 ]
 
-DEMO_LOCAL_SCOPE_APPLICATIONS = [
-    {
-        "redemption_code": "LFB1-0001",
-        "package_name": "Basic Essentials Package",
-        "status": "pending",
-        "week_offset": 0,
-        "quantity": 1,
-    },
-    {
-        "redemption_code": "LFB1-0002",
-        "package_name": "Family Support Package",
-        "status": "collected",
-        "week_offset": -1,
-        "quantity": 1,
-    },
-]
+def _build_demo_local_scope_applications() -> list[dict[str, object]]:
+    package_names = [
+        "Basic Essentials Package",
+        "Family Support Package",
+        "Protein & Meat Package",
+        "Fresh Veg & Staples Package",
+    ]
+    records: list[dict[str, object]] = []
+    sequence = 1
+
+    for week_offset in range(-15, 1):
+        for package_index, package_name in enumerate(package_names):
+            if week_offset >= -1:
+                status = "pending" if package_index % 2 == 0 else "collected"
+            elif sequence % 7 == 0:
+                status = "expired"
+            elif sequence % 5 == 0:
+                status = "pending"
+            else:
+                status = "collected"
+
+            records.append(
+                {
+                    "redemption_code": f"LFB1-{sequence:04d}",
+                    "package_name": package_name,
+                    "status": status,
+                    "week_offset": week_offset,
+                    "quantity": 1 + ((sequence + package_index) % 2),
+                    "created_day_offset": package_index,
+                    "created_hour": 9 + (sequence % 7),
+                }
+            )
+            sequence += 1
+
+    return records
+
+
+DEMO_LOCAL_SCOPE_APPLICATIONS = _build_demo_local_scope_applications()
+
+
+def _demo_application_created_at(week_start: date, day_offset: int = 0, hour: int = 10) -> datetime:
+    created_day = week_start + timedelta(days=max(0, min(day_offset, 6)))
+    created_hour = max(8, min(hour, 18))
+    return datetime(
+        created_day.year,
+        created_day.month,
+        created_day.day,
+        created_hour,
+        0,
+    )
+
+
+async def ensure_canonical_redemption_codes() -> None:
+    async with AsyncSessionLocal() as db:
+        applications = list((await db.execute(select(Application))).scalars().all())
+        owners_by_code = {application.redemption_code: application.id for application in applications}
+        pending_targets: dict[str, str] = {}
+        updates: list[tuple[Application, str]] = []
+
+        for application in applications:
+            current_code = application.redemption_code
+            if is_canonical_redemption_code(current_code):
+                continue
+
+            normalized_code = normalize_redemption_code(current_code)
+            if normalized_code == current_code:
+                continue
+
+            existing_owner = owners_by_code.get(normalized_code)
+            if existing_owner is not None and existing_owner != application.id:
+                raise RuntimeError(
+                    f"Cannot normalize redemption code {current_code} to {normalized_code}: target already exists"
+                )
+
+            pending_owner = pending_targets.get(normalized_code)
+            if pending_owner is not None and pending_owner != str(application.id):
+                raise RuntimeError(
+                    f"Cannot normalize redemption code {current_code} to {normalized_code}: target would collide"
+                )
+
+            pending_targets[normalized_code] = str(application.id)
+            updates.append((application, normalized_code))
+
+        if not updates:
+            return
+
+        for application, normalized_code in updates:
+            application.redemption_code = normalized_code
+
+        await db.commit()
 
 
 async def ensure_demo_users() -> None:
@@ -761,18 +836,18 @@ async def ensure_demo_admin_scope_records() -> None:
                 )
             )
             week_start = _demo_week_start(application_seed["week_offset"])
+            created_at = _demo_application_created_at(
+                week_start,
+                int(application_seed.get("created_day_offset", 0)),
+                int(application_seed.get("created_hour", 10)),
+            )
+            created_at_aware = created_at.replace(tzinfo=timezone.utc)
             redeemed_at = (
-                datetime(
-                    week_start.year,
-                    week_start.month,
-                    week_start.day,
-                    12,
-                    tzinfo=timezone.utc,
-                )
-                + timedelta(days=2)
+                created_at_aware + timedelta(days=2)
                 if application_seed["status"] == "collected"
                 else None
             )
+            updated_at = redeemed_at or (created_at_aware + timedelta(hours=6))
             if application is None:
                 application = Application(
                     user_id=public_user.id,
@@ -781,6 +856,8 @@ async def ensure_demo_admin_scope_records() -> None:
                     status=application_seed["status"],
                     week_start=week_start,
                     total_quantity=application_seed["quantity"],
+                    created_at=created_at,
+                    updated_at=updated_at,
                     redeemed_at=redeemed_at,
                 )
                 db.add(application)
@@ -793,6 +870,7 @@ async def ensure_demo_admin_scope_records() -> None:
                     or application.status != application_seed["status"]
                     or application.week_start != week_start
                     or application.total_quantity != application_seed["quantity"]
+                    or application.updated_at != updated_at
                     or application.redeemed_at != redeemed_at
                     or application.deleted_at is not None
                 ):
@@ -801,6 +879,7 @@ async def ensure_demo_admin_scope_records() -> None:
                     application.status = application_seed["status"]
                     application.week_start = week_start
                     application.total_quantity = application_seed["quantity"]
+                    application.updated_at = updated_at
                     application.redeemed_at = redeemed_at
                     application.deleted_at = None
                     changed = True

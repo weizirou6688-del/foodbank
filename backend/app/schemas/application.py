@@ -7,9 +7,8 @@ These schemas handle:
 - ApplicationUpdate: Admin updates status (pending->collected/expired) or regenerates code.
 - ApplicationOut: Response includes all application details with timestamps.
 
-Redemption code format primarily uses an eight-character collection code in 4-4
-format, while still accepting legacy demo codes that were seeded in older
-deployments.
+Redemption codes are normalized to the primary 4-4 format while still accepting
+older demo values during validation.
 Status lifecycle: pending -> collected (or expired).
 Week start enforces business rule: max 3 packages per user per week.
 """
@@ -18,11 +17,16 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.core.redemption_codes import (
+    SUPPORTED_REDEMPTION_CODE_PATTERN,
+    normalize_redemption_code,
+)
 
 
 ApplicationStatus = Literal["pending", "collected", "expired"]
-APPLICATION_REDEMPTION_CODE_PATTERN = r"^(?:[A-Z0-9]{4}-[A-Z0-9]{4}|[A-Z]{2}\d{8}|[A-Z]{2}-[A-Z0-9]{6})$"
+APPLICATION_REDEMPTION_CODE_PATTERN = SUPPORTED_REDEMPTION_CODE_PATTERN
 
 
 # ==================== INNER PAYLOADS ====================
@@ -57,12 +61,19 @@ class ApplicationBase(BaseModel):
 
     # From spec: redemption_code: VARCHAR(20), NOT NULL, UNIQUE
     # Local UX uses a 4-4 collection code such as ABCD-EFGH.
-    # Legacy demo data may also contain older codes such as FB-B97D51.
+    # Older demo values are normalized into that format when possible.
     # Usually generated server-side; included here for full repr.
     redemption_code: str = Field(
         pattern=APPLICATION_REDEMPTION_CODE_PATTERN,
         max_length=20,
     )
+
+    @field_validator("redemption_code", mode="before")
+    @classmethod
+    def normalize_redemption_code(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_redemption_code(value)
+        return value
 
     # From spec: status: VARCHAR(20), NOT NULL, DEFAULT 'pending'
     # Lifecycle: pending -> collected | expired.
@@ -118,13 +129,19 @@ class ApplicationUpdate(BaseModel):
 
     # From spec: redemption_code: VARCHAR(20), UNIQUE
     # Admin can regenerate code if original lost/damaged.
-    # Regex enforces the supported collection code formats, including legacy
-    # demo codes that still exist in some local databases.
+    # Input is normalized to the canonical 4-4 display format when possible.
     redemption_code: str | None = Field(
         default=None,
         pattern=APPLICATION_REDEMPTION_CODE_PATTERN,
         max_length=20,
     )
+
+    @field_validator("redemption_code", mode="before")
+    @classmethod
+    def normalize_redemption_code(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_redemption_code(value)
+        return value
 
     # Admin approval/rejection comment.
     admin_comment: str | None = None

@@ -5,6 +5,7 @@ import type {
   FoodBank,
   GoodsDonationResponse,
 } from '@/shared/types/common'
+import { useAuthStore } from '@/app/store/authStore'
 
 class APIClient {
   private baseURL: string
@@ -13,15 +14,38 @@ class APIClient {
     this.baseURL = baseURL
   }
 
+  private buildHeaders(headers?: HeadersInit): Headers {
+    return new Headers({
+      'Content-Type': 'application/json',
+      ...(headers instanceof Headers ? Object.fromEntries(headers.entries()) : headers),
+    })
+  }
+
+  private async performRequest(url: string, options: RequestInit, headers: Headers) {
+    return fetch(url, {
+      ...options,
+      headers,
+    })
+  }
+
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseURL}${endpoint}`
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    })
+    const initialHeaders = this.buildHeaders(options.headers)
+    let response = await this.performRequest(url, options, initialHeaders)
+
+    if (response.status === 401 && initialHeaders.has('Authorization')) {
+      const refreshed = await useAuthStore.getState().refreshAccessToken()
+      if (refreshed) {
+        const renewedToken = useAuthStore.getState().accessToken
+        if (renewedToken) {
+          const retryHeaders = this.buildHeaders(options.headers)
+          retryHeaders.set('Authorization', `Bearer ${renewedToken}`)
+          response = await this.performRequest(url, options, retryHeaders)
+        }
+      } else {
+        useAuthStore.getState().logout()
+      }
+    }
 
     if (!response.ok) {
       const error = await response
@@ -46,37 +70,55 @@ class APIClient {
   }
 
   async get(endpoint: string, token?: string) {
+    const currentToken = token ? (useAuthStore.getState().accessToken ?? token) : undefined
     return this.request(endpoint, {
       method: 'GET',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {},
     })
   }
 
   async post(endpoint: string, data?: Record<string, any>, token?: string) {
+    const currentToken = token ? (useAuthStore.getState().accessToken ?? token) : undefined
     return this.request(endpoint, {
       method: 'POST',
       body: JSON.stringify(data || {}),
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {},
     })
   }
 
   async patch(endpoint: string, data?: Record<string, any>, token?: string) {
+    const currentToken = token ? (useAuthStore.getState().accessToken ?? token) : undefined
     return this.request(endpoint, {
       method: 'PATCH',
       body: JSON.stringify(data || {}),
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {},
     })
   }
 
   async delete(endpoint: string, token?: string) {
+    const currentToken = token ? (useAuthStore.getState().accessToken ?? token) : undefined
     const url = `${this.baseURL}${endpoint}`
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
-    })
+    const initialHeaders = this.buildHeaders(
+      currentToken ? { 'Authorization': `Bearer ${currentToken}` } : undefined,
+    )
+    let response = await this.performRequest(
+      url,
+      { method: 'DELETE' },
+      initialHeaders,
+    )
+
+    if (response.status === 401 && initialHeaders.has('Authorization')) {
+      const refreshed = await useAuthStore.getState().refreshAccessToken()
+      if (refreshed) {
+        const renewedToken = useAuthStore.getState().accessToken
+        if (renewedToken) {
+          const retryHeaders = this.buildHeaders({ 'Authorization': `Bearer ${renewedToken}` })
+          response = await this.performRequest(url, { method: 'DELETE' }, retryHeaders)
+        }
+      } else {
+        useAuthStore.getState().logout()
+      }
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Request failed' }))

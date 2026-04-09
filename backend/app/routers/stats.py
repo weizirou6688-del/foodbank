@@ -250,6 +250,25 @@ def _filter_records_by_food_bank_id(records: list[object], food_bank_id: int) ->
     ]
 
 
+def _collect_scoped_inventory_item_ids(
+    packages: list[FoodPackage],
+    applications: list[Application],
+) -> set[int]:
+    inventory_item_ids: set[int] = set()
+
+    for package in packages:
+        for package_item in package.package_items:
+            if package_item.inventory_item_id is not None:
+                inventory_item_ids.add(int(package_item.inventory_item_id))
+
+    for application in applications:
+        for application_item in application.items:
+            if application_item.inventory_item_id is not None:
+                inventory_item_ids.add(int(application_item.inventory_item_id))
+
+    return inventory_item_ids
+
+
 @router.get("/donations", response_model=dict)
 async def get_donation_stats(
     admin_user: dict = Depends(require_admin),
@@ -807,9 +826,26 @@ async def get_dashboard_analytics(
             for snapshot in distribution_snapshots
             if snapshot.application_id in scoped_application_ids
         ]
-        inventory_items = []
-        inventory_lot_rows = []
-        waste_events = []
+        scoped_inventory_item_ids = _collect_scoped_inventory_item_ids(packages, applications)
+        inventory_items = [
+            inventory_item
+            for inventory_item in inventory_items
+            if inventory_item.id in scoped_inventory_item_ids
+        ]
+        inventory_lot_rows = [
+            (lot, inventory_item)
+            for lot, inventory_item in inventory_lot_rows
+            if lot.inventory_item_id in scoped_inventory_item_ids
+        ]
+        scoped_lot_ids = {lot.id for lot, _ in inventory_lot_rows}
+        waste_events = [
+            waste_event
+            for waste_event in waste_events
+            if (
+                waste_event.inventory_item_id in scoped_inventory_item_ids
+                or waste_event.inventory_lot_id in scoped_lot_ids
+            )
+        ]
 
     goods_impact_snapshot = calculate_shared_goods_impact_snapshot(
         cash_donations=cash_donations,
