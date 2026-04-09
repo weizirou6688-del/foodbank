@@ -1,10 +1,7 @@
-"""
-Authentication routes: user registration, login, logout, token refresh, profile.
+"""Authentication routes."""
 
-Spec § 2.1: All endpoints prefixed with /api/v1/auth
-"""
-
-from datetime import timedelta
+import secrets
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -13,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import (
     create_access_token,
-    create_password_reset_token,
     create_refresh_token,
     decode_token,
     get_current_user,
@@ -21,6 +17,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.food_bank import FoodBank
+from app.models.password_reset_token import PasswordResetToken
 from app.models.user import User
 from app.modules.auth.schema import (
     ForgotPasswordRequest,
@@ -35,6 +32,20 @@ from app.services.email_service import is_smtp_configured, send_password_reset_e
 
 
 router = APIRouter(tags=["Authentication"])
+router.is_smtp_configured = is_smtp_configured
+router.send_password_reset_email = send_password_reset_email
+
+PASSWORD_RESET_CODE_LENGTH = 6
+PASSWORD_RESET_CODE_EXPIRE_MINUTES = 10
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _generate_password_reset_code() -> str:
+    upper_bound = 10**PASSWORD_RESET_CODE_LENGTH
+    return f"{secrets.randbelow(upper_bound):0{PASSWORD_RESET_CODE_LENGTH}d}"
 
 
 async def _serialize_user(user: User, db: AsyncSession) -> UserOut:
@@ -63,14 +74,7 @@ async def register(
     user_in: UserCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Register a new public user account.
-    
-    Spec § 2.1: POST /auth/register (no auth required).
-    Role is always set to 'public' for new registrations.
-    
-    Returns UserOut (id, name, email, role, timestamps).
-    """
+    """Register a new public user account."""
     # Check if email already exists
     result = await db.execute(select(User).where(User.email == user_in.email))
     existing_user = result.scalar_one_or_none()
@@ -100,12 +104,7 @@ async def login(
     login_in: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Login with email and password.
-    
-    Spec § 2.1: POST /auth/login (no auth required).
-    Returns access_token, refresh_token, and user profile.
-    """
+    """Login with email and password."""
     # Look up user by email
     result = await db.execute(select(User).where(User.email == login_in.email))
     user = result.scalar_one_or_none()
@@ -140,32 +139,44 @@ async def forgot_password(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Start a password reset flow.
-
-    Returns a generic response even when the email does not exist, to avoid
-    leaking which accounts are registered. In local development, when SMTP is
-    not configured, a short-lived reset token is returned directly so the UI can
-    continue the reset flow.
+    Start a password reset flow by emailing a short-lived verification code.
     """
-    generic_message = "If this email exists, password reset instructions are now available."
+    if not router.is_smtp_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Password reset email service is unavailable.",
+        )
+
+    generic_message = "If this email exists, a verification code has been sent."
 
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if user is None:
         return ForgotPasswordResponse(message=generic_message)
 
-    reset_token = create_password_reset_token(
-        {"sub": str(user.id), "email": user.email},
-        expires_delta=timedelta(minutes=30),
+    verification_code = _generate_password_reset_code()
+    reset_record = PasswordResetToken(
+        user_id=user.id,
+        token_hash=get_password_hash(verification_code),
+        expires_at=_utcnow() + timedelta(minutes=PASSWORD_RESET_CODE_EXPIRE_MINUTES),
     )
+    db.add(reset_record)
+    await db.flush()
 
-    if is_smtp_configured():
-        await send_password_reset_email(to_email=user.email, reset_token=reset_token)
-        return ForgotPasswordResponse(message=generic_message)
+    try:
+        await router.send_password_reset_email(
+            to_email=user.email,
+            verification_code=verification_code,
+            expires_in_minutes=PASSWORD_RESET_CODE_EXPIRE_MINUTES,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Password reset email could not be sent. Please try again later.",
+        ) from exc
 
     return ForgotPasswordResponse(
-        message="Local reset token generated. Continue below to choose a new password.",
-        reset_token=reset_token,
+        message=generic_message,
     )
 
 
@@ -175,24 +186,35 @@ async def reset_password(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Complete a password reset using a short-lived reset token.
+    Complete a password reset using the latest email verification code.
     """
-    token_payload = decode_token(payload.reset_token)
-    if token_payload.get("type") != "password_reset":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password reset token",
-        )
-
-    user_id = token_payload.get("sub")
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired verification code",
         )
 
+    latest_code_result = await db.execute(
+        select(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > _utcnow(),
+        )
+        .order_by(PasswordResetToken.created_at.desc())
+        .limit(1)
+    )
+    reset_record = latest_code_result.scalar_one_or_none()
+
+    if reset_record is None or not verify_password(payload.verification_code, reset_record.token_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired verification code",
+        )
+
+    reset_record.used_at = _utcnow()
     user.password_hash = get_password_hash(payload.new_password)
     await db.flush()
     await db.refresh(user)
@@ -205,14 +227,7 @@ async def logout(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Invalidate refresh token (logout).
-    
-    Spec § 2.1: POST /auth/logout (requires auth).
-    In a production system, store blacklist of revoked tokens.
-    
-    Returns 204 No Content.
-    """
+    """Invalidate the current session."""
     _ = current_user
     _ = db
     # Note: In a simple implementation, we rely on token expiration.
@@ -225,11 +240,7 @@ async def refresh(
     refresh_token: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Exchange refresh token for new access token.
-    
-    Spec § 2.1: POST /auth/refresh (no auth required, bring refresh_token in body).
-    """
+    """Exchange a refresh token for a new access token."""
     # Decode and verify refresh token
     payload = decode_token(refresh_token)
     
@@ -271,11 +282,7 @@ async def get_profile(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Get current authenticated user's profile.
-    
-    Spec § 2.1: GET /auth/me (requires auth).
-    """
+    """Return the current authenticated user's profile."""
     user_id = current_user.get("sub")
     
     # Fetch full user record from DB by user_id in token

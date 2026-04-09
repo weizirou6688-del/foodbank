@@ -12,6 +12,7 @@ from .inventory_item import InventoryItem
 from .inventory_lot import InventoryLot
 from .inventory_waste_event import InventoryWasteEvent
 from .package_item import PackageItem
+from .password_reset_token import PasswordResetToken
 from .restock_request import RestockRequest
 from .user import User
 
@@ -30,6 +31,7 @@ __all__ = [
     "InventoryLot",
     "InventoryWasteEvent",
     "PackageItem",
+    "PasswordResetToken",
     "RestockRequest",
     "User",
 ]

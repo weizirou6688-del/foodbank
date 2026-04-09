@@ -1,6 +1,13 @@
 from .application import ApplicationCreate, ApplicationOut, ApplicationUpdate
 from .application_item import ApplicationItemCreate, ApplicationItemOut, ApplicationItemUpdate
-from .auth import LoginRequest, TokenResponse
+from .auth import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    LoginRequest,
+    MessageResponse,
+    ResetPasswordRequest,
+    TokenResponse,
+)
 from .donation_cash import DonationCashCreate, DonationCashOut, DonationCashUpdate
 from .donation_goods import DonationGoodsCreate, DonationGoodsOut, DonationGoodsUpdate
 from .donation_goods_item import DonationGoodsItemCreate, DonationGoodsItemOut, DonationGoodsItemUpdate
@@ -20,7 +27,11 @@ __all__ = [
     "ApplicationItemUpdate",
     "ApplicationOut",
     "ApplicationUpdate",
+    "ForgotPasswordRequest",
+    "ForgotPasswordResponse",
     "LoginRequest",
+    "MessageResponse",
+    "ResetPasswordRequest",
     "TokenResponse",
     "DonationCashCreate",
     "DonationCashOut",

@@ -57,3 +57,7 @@ class User(Base):
     assigned_restock_requests: Mapped[list["RestockRequest"]] = relationship(
         back_populates="assigned_to_user",
     )
+    password_reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
