@@ -64,7 +64,8 @@ def create_test_application(user_id: uuid.UUID, food_bank_id: int = 1) -> uuid.U
         app_id = uuid.uuid4()
         monday = datetime.now() - timedelta(days=datetime.now().weekday())
         week_start = monday.strftime("%Y-%m-%d")
-        redemption_code = f"FB-{uuid.uuid4().hex[:6].upper()}"
+        compact_code = uuid.uuid4().hex[:8].upper()
+        redemption_code = f"{compact_code[:4]}-{compact_code[4:]}"
         cur.execute(
             """
             INSERT INTO applications (

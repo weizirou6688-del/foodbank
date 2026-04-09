@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
-import { donationsAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
+import { donationsAPI, foodBanksAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
 import { isValidEmail } from '@/shared/lib/validation'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { getNearbyFoodbanks } from '@/utils/foodbankApi'
@@ -51,6 +51,12 @@ type DonationDetails = {
   condition: string
   quantity: string
   notes: string
+}
+
+type InternalFoodBankRecord = {
+  id: number
+  name: string
+  address: string
 }
 
 const STEP_FEATURES = [
@@ -188,6 +194,30 @@ function escapeRegExp(value: string) {
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, ' ').trim()
+}
+
+function normalizeMatchText(value: string) {
+  return normalizeWhitespace(value).toLowerCase()
+}
+
+function findInternalFoodBankMatch(
+  candidate: { name: string; address: string },
+  internalBanks: InternalFoodBankRecord[],
+) {
+  const normalizedName = normalizeMatchText(candidate.name)
+  const normalizedAddress = normalizeMatchText(candidate.address)
+
+  return internalBanks.find((bank) => {
+    const bankName = normalizeMatchText(bank.name)
+    const bankAddress = normalizeMatchText(bank.address)
+
+    return bankName === normalizedName
+      || bankAddress === normalizedAddress
+      || bankName.includes(normalizedName)
+      || normalizedName.includes(bankName)
+      || bankAddress.includes(normalizedAddress)
+      || normalizedAddress.includes(bankAddress)
+  }) ?? null
 }
 
 function buildFoodBankDisplayAddress(address: string, postcode: string) {
@@ -441,10 +471,32 @@ export default function DonateGoods() {
     setSearching(true)
 
     try {
-      const rankedResults = (await getNearbyFoodbanks(normalizedPostcode))
+      const [nearbyFoodBanks, internalFoodBanksResponse] = await Promise.all([
+        getNearbyFoodbanks(normalizedPostcode),
+        foodBanksAPI.getFoodBanks().catch(() => null),
+      ])
+      const internalFoodBanks = Array.isArray(internalFoodBanksResponse?.items)
+        ? internalFoodBanksResponse.items
+            .filter((bank) => typeof bank.id === 'number')
+            .map((bank) => ({
+              id: bank.id,
+              name: bank.name,
+              address: bank.address,
+            }))
+        : []
+
+      const rankedResults = nearbyFoodBanks
         .map((bank) => {
+          const matchedInternalBank = findInternalFoodBankMatch(
+            {
+              name: bank.name,
+              address: `${bank.address}, ${bank.postcode}`,
+            },
+            internalFoodBanks,
+          )
           return {
             id: `${bank.name}-${bank.postcode}-${bank.lat}-${bank.lng}`,
+            foodBankId: matchedInternalBank?.id,
             name: bank.name,
             address: buildFoodBankDisplayAddress(bank.address, bank.postcode),
             postcode: bank.postcode,

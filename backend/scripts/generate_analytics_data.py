@@ -28,6 +28,7 @@ from app.core.bootstrap import (  # noqa: E402
     ensure_demo_users,
 )
 from app.core.database import AsyncSessionLocal  # noqa: E402
+from app.core.redemption_codes import normalize_redemption_code  # noqa: E402
 from app.core.security import get_password_hash  # noqa: E402
 from app.models.application import Application  # noqa: E402
 from app.models.application_item import ApplicationItem  # noqa: E402
@@ -324,10 +325,13 @@ async def generate_applications(
             if total_quantity <= 0:
                 continue
 
+            compact_redemption_code = "".join(
+                rng.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(8)
+            )
             application = Application(
                 user_id=selected_user.id,
                 food_bank_id=bank.id,
-                redemption_code=f"AN{week_offset:02d}{app_index:02d}{rng.randint(1000, 9999)}",
+                redemption_code=normalize_redemption_code(compact_redemption_code),
                 status=rng.choices(
                     ["pending", "collected", "expired"],
                     weights=[55, 30, 15],

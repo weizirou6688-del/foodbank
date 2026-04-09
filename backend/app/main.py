@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
 from app.core.bootstrap import (
+    ensure_canonical_redemption_codes,
     ensure_demo_admin_scope_records,
     ensure_demo_food_banks,
     ensure_demo_inventory_and_packages,
@@ -48,6 +49,7 @@ async def lifespan(app: FastAPI):
             await ensure_demo_inventory_and_packages()
             await ensure_demo_admin_scope_records()
 
+        await ensure_canonical_redemption_codes()
         await ensure_dashboard_history()
         print("Database initialized and connected")
     except Exception as exc:

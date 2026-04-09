@@ -247,12 +247,12 @@ async def test_update_application_status_empty_payload_rejected():
 
 
 def test_normalize_redemption_code_preserves_legacy_dash_format():
-    assert _normalize_redemption_code("fb-b97d51") == "FB-B97D51"
+    assert _normalize_redemption_code("fb-b97d51") == "FBB9-7D51"
 
 
 def test_application_update_accepts_legacy_redemption_code_format():
     payload = ApplicationUpdate(redemption_code="FB-B97D51")
-    assert payload.redemption_code == "FB-B97D51"
+    assert payload.redemption_code == "FBB9-7D51"
 
 
 def test_serialize_admin_application_accepts_legacy_redemption_code():
@@ -271,7 +271,7 @@ def test_serialize_admin_application_accepts_legacy_redemption_code():
 
     result = _serialize_admin_application(application)
 
-    assert result.redemption_code == "FB-B97D51"
+    assert result.redemption_code == "FBB9-7D51"
 
 
 @pytest.mark.asyncio

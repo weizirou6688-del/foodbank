@@ -150,13 +150,13 @@ async def test_get_public_impact_metrics_aggregates_current_period():
 
     goods_current = SimpleNamespace(
         status='received',
-        pickup_date=date(current_year, 1, 10),
+        pickup_date=f"10/01/{current_year}",
         created_at=datetime(current_year, 1, 10),
         items=[SimpleNamespace(quantity=8), SimpleNamespace(quantity=4)],
     )
     goods_previous = SimpleNamespace(
         status='received',
-        pickup_date=date(current_year - 1, 2, 12),
+        pickup_date=f"12/02/{current_year - 1}",
         created_at=datetime(current_year - 1, 2, 12),
         items=[SimpleNamespace(quantity=5)],
     )
@@ -224,7 +224,7 @@ async def test_get_public_goods_impact_metrics_aligns_dashboard_counts():
         donor_type='supermarket',
         donor_email='market@example.org',
         donor_name='Neighbourhood Market',
-        pickup_date=date(current_year, 4, 1),
+        pickup_date=f"01/04/{current_year}",
         created_at=datetime(current_year, 4, 1),
         items=[
             SimpleNamespace(quantity=10, item_name='Rice'),
@@ -236,7 +236,7 @@ async def test_get_public_goods_impact_metrics_aligns_dashboard_counts():
         donor_type='individual',
         donor_email='donor@example.org',
         donor_name='Helpful Donor',
-        pickup_date=date(current_year, 3, 1),
+        pickup_date=f"01/03/{current_year}",
         created_at=datetime(current_year, 3, 1),
         items=[SimpleNamespace(quantity=5, item_name='Pasta')],
     )
@@ -288,7 +288,7 @@ async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
         donor_type='supermarket',
         donor_email='market@example.org',
         donor_name='Neighbourhood Market',
-        pickup_date=date(current_year, 4, 1),
+        pickup_date=f"01/04/{current_year}",
         created_at=datetime(current_year, 4, 1),
         items=[
             SimpleNamespace(quantity=10, item_name='Rice'),
@@ -300,7 +300,7 @@ async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
         donor_type='individual',
         donor_email='donor@example.org',
         donor_name='Helpful Donor',
-        pickup_date=date(current_year, 3, 1),
+        pickup_date=f"01/03/{current_year}",
         created_at=datetime(current_year, 3, 1),
         items=[SimpleNamespace(quantity=5, item_name='Pasta')],
     )
@@ -335,3 +335,72 @@ async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
     assert metrics['families_supported'].value == '1'
     assert metrics['partner_organizations'].value == '2'
     assert metrics['goods_units_year'].value == '20'
+
+
+@pytest.mark.asyncio
+async def test_get_dashboard_analytics_local_admin_scopes_inventory_to_related_package_items():
+    current_year = date.today().year
+
+    related_inventory_item = SimpleNamespace(
+        id=11,
+        name='Rice',
+        category='Grains & Pasta',
+        unit='bags',
+        threshold=10,
+    )
+    unrelated_inventory_item = SimpleNamespace(
+        id=22,
+        name='Beans',
+        category='Canned Goods',
+        unit='cans',
+        threshold=6,
+    )
+    related_lot = SimpleNamespace(
+        id=101,
+        inventory_item_id=11,
+        quantity=3,
+        deleted_at=None,
+        expiry_date=date(current_year, 12, 1),
+        batch_reference='LOT-101',
+    )
+    unrelated_lot = SimpleNamespace(
+        id=202,
+        inventory_item_id=22,
+        quantity=20,
+        deleted_at=None,
+        expiry_date=date(current_year, 12, 1),
+        batch_reference='LOT-202',
+    )
+    package = SimpleNamespace(
+        id=7,
+        name='Local Package',
+        category='Emergency Pack',
+        food_bank_id=1,
+        is_active=True,
+        applied_count=2,
+        package_items=[SimpleNamespace(inventory_item_id=11, quantity=2)],
+    )
+
+    db = FakeSession(
+        execute_rows_seq=[
+            [],
+            [],
+            [related_inventory_item, unrelated_inventory_item],
+            [(related_lot, related_inventory_item), (unrelated_lot, unrelated_inventory_item)],
+            [package],
+            [],
+            [],
+            [],
+        ]
+    )
+
+    result = await get_dashboard_analytics(
+        range_key='month',
+        admin_user={'role': 'admin', 'food_bank_id': 1},
+        db=db,
+    )
+
+    assert result.kpi.totalSku == 1
+    assert result.kpi.lowStockCount == 1
+    assert len(result.inventory.lowStockAlerts) == 1
+    assert result.inventory.lowStockAlerts[0].item_name == 'Rice'

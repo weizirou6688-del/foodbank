@@ -172,6 +172,7 @@ async def test_submit_cash_donation_success():
 
 @pytest.mark.asyncio
 async def test_submit_goods_donation_success_creates_items():
+    future_pickup_date = (date.today() + timedelta(days=7)).strftime("%d/%m/%Y")
     bank = FoodBank(
         id=7,
         name="Downtown Community Food Bank",
@@ -188,7 +189,7 @@ async def test_submit_goods_donation_success_creates_items():
         donor_email="alice@example.com",
         donor_phone="07123456789",
         postcode="SW1A 1AA",
-        pickup_date="03/04/2026",
+        pickup_date=future_pickup_date,
         item_condition="New or unopened",
         estimated_quantity="2 bags",
         notes="Leave with concierge",
@@ -206,7 +207,7 @@ async def test_submit_goods_donation_success_creates_items():
     assert result.food_bank_name == bank.name
     assert result.food_bank_address == bank.address
     assert result.postcode == "SW1A 1AA"
-    assert result.pickup_date == "03/04/2026"
+    assert result.pickup_date == future_pickup_date
     assert result.item_condition == "New or unopened"
     assert result.estimated_quantity == "2 bags"
     goods_rows = [x for x in db.added if isinstance(x, DonationGoods)]
@@ -218,6 +219,7 @@ async def test_submit_goods_donation_success_creates_items():
 
 @pytest.mark.asyncio
 async def test_submit_goods_donation_supports_external_food_bank_metadata():
+    future_pickup_date = (date.today() + timedelta(days=7)).strftime("%d/%m/%Y")
     db = FakeSession()
     payload = DonationGoodsCreate(
         food_bank_name="Give Food Directory Listing",
@@ -226,7 +228,7 @@ async def test_submit_goods_donation_supports_external_food_bank_metadata():
         donor_email="alice@example.com",
         donor_phone="07123456789",
         postcode="CF10 1AA",
-        pickup_date="03/04/2026",
+        pickup_date=future_pickup_date,
         item_condition="Good",
         estimated_quantity="1 box",
         notes="Ring the bell",

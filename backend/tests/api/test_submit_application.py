@@ -55,6 +55,8 @@ class FakeSession:
     async def scalar(self, _query):
         self._scalar_calls += 1
         if self._scalar_calls == 1:
+            return 10
+        if self._scalar_calls == 2:
             return self._existing_week_total
         if self._unique_code_exists:
             self._unique_code_exists = False
@@ -73,6 +75,10 @@ class FakeSession:
         self.added.append(obj)
         if isinstance(obj, Application) and getattr(obj, "id", None) is None:
             obj.id = uuid.uuid4()
+
+    def add_all(self, rows):
+        for row in rows:
+            self.add(row)
 
     async def flush(self):
         return None
@@ -122,7 +128,8 @@ async def test_submit_application_success_deducts_stock_and_creates_rows():
     assert result.status == "pending"
     assert result.week_start == _week_start_now()
     assert result.food_bank_id == 10
-    assert result.redemption_code.startswith("FB-")
+    assert len(result.redemption_code) == 9
+    assert result.redemption_code[4] == "-"
 
     # Duplicate package requests are aggregated; stock/apply_count should reflect total 2.
     assert package.stock == 3
