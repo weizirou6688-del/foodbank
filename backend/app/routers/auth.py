@@ -1,8 +1,4 @@
-"""
-Compatibility stub: auth router has been moved to app.modules.auth
-
-All functions and router are re-exported from the new location for backward compatibility.
-"""
+"""Backward-compatible re-exports for the auth router."""
 
 from app.modules.auth.router import (
     forgot_password,

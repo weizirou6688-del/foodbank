@@ -35,12 +35,19 @@ class ForgotPasswordRequest(BaseModel):
 
 class ForgotPasswordResponse(BaseModel):
     message: str
-    reset_token: str | None = None
 
 
 class ResetPasswordRequest(BaseModel):
-    reset_token: str = Field(min_length=1)
+    email: EmailStr
+    verification_code: str = Field(min_length=6, max_length=6)
     new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("verification_code")
+    @classmethod
+    def validate_verification_code(cls, value: str) -> str:
+        if not value.isdigit():
+            raise ValueError("Verification code must contain exactly 6 digits.")
+        return value
 
     @field_validator("new_password")
     @classmethod
