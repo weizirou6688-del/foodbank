@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { donationsAPI, foodBanksAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
+import { buildFoodBankDisplayAddress } from '@/shared/lib/foodBankAddress'
 import { isValidEmail } from '@/shared/lib/validation'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { getNearbyFoodbanks } from '@/utils/foodbankApi'
@@ -188,10 +189,6 @@ function normalizePostcodeInput(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').slice(0, 8)
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
@@ -218,35 +215,6 @@ function findInternalFoodBankMatch(
       || bankAddress.includes(normalizedAddress)
       || normalizedAddress.includes(bankAddress)
   }) ?? null
-}
-
-function buildFoodBankDisplayAddress(address: string, postcode: string) {
-  const normalizedAddress = normalizeWhitespace(address)
-  const normalizedPostcode = normalizeWhitespace(postcode).toUpperCase()
-
-  if (!normalizedAddress) {
-    return normalizedPostcode
-  }
-
-  if (!normalizedPostcode) {
-    return normalizedAddress
-  }
-
-  const postcodePattern = new RegExp(
-    escapeRegExp(normalizedPostcode).replace(/\s+/g, '\\s*'),
-    'gi',
-  )
-
-  const addressWithoutPostcode = normalizedAddress
-    .replace(postcodePattern, '')
-    .replace(/\s+,/g, ',')
-    .replace(/,\s*,+/g, ', ')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-    .replace(/^,\s*/, '')
-    .replace(/,\s*$/, '')
-
-  return addressWithoutPostcode ? `${addressWithoutPostcode}, ${normalizedPostcode}` : normalizedPostcode
 }
 
 function sanitizePickupDateInput(value: string) {
