@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { FoodBank, FoodPackage, InventoryItem } from '@/shared/types/common'
+import { buildFoodBankDisplayAddress } from '@/shared/lib/foodBankAddress'
 import { useAuthStore } from './authStore'
 import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
 import { getCoordinatesFromPostcode, getNearbyFoodbanks, getRankedFoodbanks } from '@/utils/foodbankApi'
@@ -677,8 +678,9 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       const externalResults: FoodBank[] = nearby.map((fb) => {
         // External discovery data is mapped onto internal package data where
         // possible so public search can still lead into the package flow.
+        const displayAddress = buildFoodBankDisplayAddress(fb.address, fb.postcode)
         const mapped = findInternalFoodBankMatch(
-          { name: fb.name, address: `${fb.address}, ${fb.postcode}` },
+          { name: fb.name, address: displayAddress },
           internalBanksWithPackages,
         )
         const packageSourceBank = mapped?.systemMatched
@@ -689,7 +691,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         return {
           id: packageSourceBank?.id ?? -1,
           name: fb.name,
-          address: `${fb.address}, ${fb.postcode}`,
+          address: displayAddress,
           distance: fb.distance,
           hours: fb.hours ?? [],
           lat: fb.lat,
