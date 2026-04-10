@@ -7,7 +7,8 @@ These schemas handle:
 - FoodPackageOut: Response with ID, creation timestamp, and status.
 - FoodPackageDetailOut: Detailed response including package composition items.
 
-Packages can be food-bank specific (food_bank_id set) or system-wide (NULL).
+Current API flows treat packages as food-bank scoped records. Legacy NULL-scope
+rows may still exist in historical databases but are not part of active flows.
 is_active flag enables soft deletion for historical tracking.
 applied_count tracks popularity/demand metrics.
 """
@@ -60,7 +61,7 @@ class FoodPackageBase(BaseModel):
     image_url: str | None = None
 
     # From spec: food_bank_id: INTEGER, FK -> food_banks.id (nullable)
-    # If set, package specific to that food bank; if NULL, system-wide.
+    # Active API flows assign every package to a food bank.
     # Validation: gt=0 (positive ID) when supplied.
     food_bank_id: int | None = Field(default=None, gt=0)
 

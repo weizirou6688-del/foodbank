@@ -1,135 +1,10 @@
-import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
 import type {
   ApplicationStatus,
   DonationListRow,
   FoodBank,
   GoodsDonationResponse,
 } from '@/shared/types/common'
-import { useAuthStore } from '@/app/store/authStore'
-
-class APIClient {
-  private baseURL: string
-
-  constructor(baseURL: string) {
-    this.baseURL = baseURL
-  }
-
-  private buildHeaders(headers?: HeadersInit): Headers {
-    return new Headers({
-      'Content-Type': 'application/json',
-      ...(headers instanceof Headers ? Object.fromEntries(headers.entries()) : headers),
-    })
-  }
-
-  private async performRequest(url: string, options: RequestInit, headers: Headers) {
-    return fetch(url, {
-      ...options,
-      headers,
-    })
-  }
-
-  private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${this.baseURL}${endpoint}`
-    const initialHeaders = this.buildHeaders(options.headers)
-    let response = await this.performRequest(url, options, initialHeaders)
-
-    if (response.status === 401 && initialHeaders.has('Authorization')) {
-      const refreshed = await useAuthStore.getState().refreshAccessToken()
-      if (refreshed) {
-        const renewedToken = useAuthStore.getState().accessToken
-        if (renewedToken) {
-          const retryHeaders = this.buildHeaders(options.headers)
-          retryHeaders.set('Authorization', `Bearer ${renewedToken}`)
-          response = await this.performRequest(url, options, retryHeaders)
-        }
-      } else {
-        useAuthStore.getState().logout()
-      }
-    }
-
-    if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(() => ({ detail: 'Request failed' })) as {
-        detail?: string
-        message?: string
-        errors?: Array<{ field?: string; message?: string }>
-      }
-
-      const validationMessage = Array.isArray(error.errors)
-        ? error.errors
-            .map((entry) => entry.message || entry.field)
-            .filter(Boolean)
-            .join(' ')
-        : ''
-
-      throw new Error(error.detail || validationMessage || error.message || `HTTP ${response.status}`)
-    }
-
-    return response.json()
-  }
-
-  async get(endpoint: string, token?: string) {
-    const currentToken = token ? (useAuthStore.getState().accessToken ?? token) : undefined
-    return this.request(endpoint, {
-      method: 'GET',
-      headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {},
-    })
-  }
-
-  async post(endpoint: string, data?: Record<string, any>, token?: string) {
-    const currentToken = token ? (useAuthStore.getState().accessToken ?? token) : undefined
-    return this.request(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(data || {}),
-      headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {},
-    })
-  }
-
-  async patch(endpoint: string, data?: Record<string, any>, token?: string) {
-    const currentToken = token ? (useAuthStore.getState().accessToken ?? token) : undefined
-    return this.request(endpoint, {
-      method: 'PATCH',
-      body: JSON.stringify(data || {}),
-      headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {},
-    })
-  }
-
-  async delete(endpoint: string, token?: string) {
-    const currentToken = token ? (useAuthStore.getState().accessToken ?? token) : undefined
-    const url = `${this.baseURL}${endpoint}`
-    const initialHeaders = this.buildHeaders(
-      currentToken ? { 'Authorization': `Bearer ${currentToken}` } : undefined,
-    )
-    let response = await this.performRequest(
-      url,
-      { method: 'DELETE' },
-      initialHeaders,
-    )
-
-    if (response.status === 401 && initialHeaders.has('Authorization')) {
-      const refreshed = await useAuthStore.getState().refreshAccessToken()
-      if (refreshed) {
-        const renewedToken = useAuthStore.getState().accessToken
-        if (renewedToken) {
-          const retryHeaders = this.buildHeaders({ 'Authorization': `Bearer ${renewedToken}` })
-          response = await this.performRequest(url, { method: 'DELETE' }, retryHeaders)
-        }
-      } else {
-        useAuthStore.getState().logout()
-      }
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }))
-      throw new Error(error.detail || `HTTP ${response.status}`)
-    }
-
-    return null
-  }
-}
-
-const apiClient = new APIClient(API_BASE_URL)
+import { apiClient } from './apiClient'
 
 export interface CashDonationResponse {
   id: string
@@ -403,7 +278,7 @@ export const donationsAPI = {
     food_bank_id?: number
     amount_pence: number
     payment_reference?: string
-  }) => apiClient.post('/api/v1/donations/cash', data) as Promise<CashDonationResponse>,
+  }) => apiClient.post<CashDonationResponse>('/api/v1/donations/cash', data),
 
   donateGoods: (data: {
     donor_name: string
@@ -420,7 +295,7 @@ export const donationsAPI = {
     notes?: string
     status?: 'pending' | 'received' | 'rejected'
     items: Array<{ item_name: string; quantity: number; expiry_date?: string }>
-  }) => apiClient.post('/api/v1/donations/goods', data) as Promise<GoodsDonationResponse>,
+  }) => apiClient.post<GoodsDonationResponse>('/api/v1/donations/goods', data),
 
   submitSupermarketDonation: (
     data: {
@@ -435,34 +310,34 @@ export const donationsAPI = {
       }>
     },
     token: string
-  ) => apiClient.post('/api/v1/donations/goods/supermarket', data, token) as Promise<GoodsDonationResponse>,
+  ) => apiClient.post<GoodsDonationResponse>('/api/v1/donations/goods/supermarket', data, token),
 }
 
 export const foodBanksAPI = {
   getFoodBanks: (postcode?: string) =>
-    apiClient.get(
+    apiClient.get<FoodBankListResponse>(
       `/api/v1/food-banks${postcode ? `?postcode=${encodeURIComponent(postcode)}` : ''}`,
-    ) as Promise<FoodBankListResponse>,
+    ),
 
   geocodePostcode: (postcode: string) =>
-    apiClient.get(
+    apiClient.get<GeocodeResponse>(
       `/api/v1/food-banks/geocode?postcode=${encodeURIComponent(postcode)}`,
-    ) as Promise<GeocodeResponse>,
+    ),
 
   getInventoryItems: (foodBankId: number | string) =>
-    apiClient.get(
+    apiClient.get<InventoryItemListResponse>(
       `/api/v1/food-banks/${foodBankId}/inventory-items`,
-    ) as Promise<InventoryItemListResponse>,
+    ),
 }
 
 export const statsAPI = {
   getOverview: () => apiClient.get('/api/v1/stats/donations'),
   getPublicImpact: (
     range: 'month' | 'quarter' | 'year' = 'month'
-  ) => apiClient.get(`/api/v1/stats/public-impact?range=${range}`) as Promise<PublicImpactMetricsResponse>,
+  ) => apiClient.get<PublicImpactMetricsResponse>(`/api/v1/stats/public-impact?range=${range}`),
   getPublicGoodsImpact: (
     range: 'month' | 'quarter' | 'year' = 'month'
-  ) => apiClient.get(`/api/v1/stats/public-goods-impact?range=${range}`) as Promise<PublicImpactMetricsResponse>,
+  ) => apiClient.get<PublicImpactMetricsResponse>(`/api/v1/stats/public-goods-impact?range=${range}`),
 }
 
 export const restockAPI = {
@@ -501,7 +376,7 @@ export const adminAPI = {
   getDashboardAnalytics: (
     token: string,
     range: 'month' | 'quarter' | 'year' = 'month'
-  ) => apiClient.get(`/api/v1/stats/dashboard?range=${range}`, token) as Promise<DashboardAnalyticsResponse>,
+  ) => apiClient.get<DashboardAnalyticsResponse>(`/api/v1/stats/dashboard?range=${range}`, token),
 
   getStockGap: (token: string) =>
     apiClient.get('/api/v1/stats/stock-gap', token),
@@ -512,17 +387,17 @@ export const adminAPI = {
   listFoodBankPackages: (
     foodBankId: number | string,
     token: string
-  ) => apiClient.get(`/api/v1/food-banks/${foodBankId}/packages`, token) as Promise<FoodPackageSummaryRecord[]>,
+  ) => apiClient.get<FoodPackageSummaryRecord[]>(`/api/v1/food-banks/${foodBankId}/packages`, token),
 
   getFoodPackageDetail: (
     id: number | string,
     token: string
-  ) => apiClient.get(`/api/v1/packages/${id}`, token) as Promise<FoodPackageDetailRecord>,
+  ) => apiClient.get<FoodPackageDetailRecord>(`/api/v1/packages/${id}`, token),
 
   createFoodPackage: (
     data: FoodPackageMutationPayload,
     token: string
-  ) => apiClient.post('/api/v1/packages', data, token) as Promise<FoodPackageDetailRecord>,
+  ) => apiClient.post<FoodPackageDetailRecord>('/api/v1/packages', data, token),
 
   updateFoodPackage: (
     id: number | string,
@@ -539,22 +414,22 @@ export const adminAPI = {
     id: number | string,
     quantity: number,
     token: string
-  ) => apiClient.post(`/api/v1/packages/${id}/pack`, { quantity }, token) as Promise<PackPackageResponse>,
+  ) => apiClient.post<PackPackageResponse>(`/api/v1/packages/${id}/pack`, { quantity }, token),
 
   getInventoryItems: (token: string) =>
-    apiClient.get('/api/v1/inventory', token) as Promise<InventoryItemListResponse>,
+    apiClient.get<InventoryItemListResponse>('/api/v1/inventory', token),
 
   createInventoryItem: (
     data: InventoryItemMutationPayload,
     token: string
-  ) => apiClient.post('/api/v1/inventory', data, token) as Promise<AdminInventoryItemRecord>,
+  ) => apiClient.post<AdminInventoryItemRecord>('/api/v1/inventory', data, token),
 
   getInventoryLots: (token: string, includeInactive = true) =>
     apiClient.get(`/api/v1/inventory/lots?include_inactive=${includeInactive}`, token),
 
   adjustInventoryLot: (
     lotId: number | string,
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     token: string
   ) => apiClient.patch(`/api/v1/inventory/lots/${lotId}`, data, token),
 
@@ -565,7 +440,7 @@ export const adminAPI = {
 
   updateInventoryItem: (
     id: number | string,
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     token: string
   ) => apiClient.patch(`/api/v1/inventory/${id}`, data, token),
 
@@ -573,13 +448,13 @@ export const adminAPI = {
     id: number | string,
     data: { quantity: number; reason: string; expiry_date?: string },
     token: string
-  ) => apiClient.post(`/api/v1/inventory/${id}/stock-in`, data, token) as Promise<AdminInventoryItemRecord>,
+  ) => apiClient.post<AdminInventoryItemRecord>(`/api/v1/inventory/${id}/stock-in`, data, token),
 
   stockOutInventoryItem: (
     id: number | string,
     data: { quantity: number; reason: string },
     token: string
-  ) => apiClient.post(`/api/v1/inventory/${id}/stock-out`, data, token) as Promise<AdminInventoryItemRecord>,
+  ) => apiClient.post<AdminInventoryItemRecord>(`/api/v1/inventory/${id}/stock-out`, data, token),
 
   deleteInventoryItem: (
     id: number | string,
@@ -587,15 +462,15 @@ export const adminAPI = {
   ) => apiClient.delete(`/api/v1/inventory/${id}`, token),
 
   getLowStockItems: (token: string, threshold?: number) => {
-    const url = threshold !== undefined 
-      ? `/api/v1/inventory/low-stock?threshold=${threshold}`
-      : '/api/v1/inventory/low-stock'
+    const url = threshold === undefined
+      ? '/api/v1/inventory/low-stock'
+      : `/api/v1/inventory/low-stock?threshold=${threshold}`
     return apiClient.get(url, token)
   },
 
   getDonations: (token: string, type?: 'cash' | 'goods') => {
     const query = type ? `?type=${type}` : ''
-    return apiClient.get(`/api/v1/donations${query}`, token) as Promise<DonationListRow[]>
+    return apiClient.get<DonationListRow[]>(`/api/v1/donations${query}`, token)
   },
 
   createGoodsDonation: (
@@ -609,13 +484,13 @@ export const adminAPI = {
       status?: 'pending' | 'received' | 'rejected'
     },
     token: string
-  ) => apiClient.post('/api/v1/donations/goods', data, token) as Promise<GoodsDonationResponse>,
+  ) => apiClient.post<GoodsDonationResponse>('/api/v1/donations/goods', data, token),
 
   updateGoodsDonation: (
     id: string,
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     token: string
-  ) => apiClient.patch(`/api/v1/donations/goods/${id}`, data, token) as Promise<GoodsDonationResponse>,
+  ) => apiClient.patch<GoodsDonationResponse>(`/api/v1/donations/goods/${id}`, data, token),
 
   deleteGoodsDonation: (
     id: string,
@@ -624,9 +499,9 @@ export const adminAPI = {
 
   updateCashDonation: (
     id: string,
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     token: string
-  ) => apiClient.patch(`/api/v1/donations/cash/${id}`, data, token) as Promise<CashDonationResponse>,
+  ) => apiClient.patch<CashDonationResponse>(`/api/v1/donations/cash/${id}`, data, token),
 
   deleteCashDonation: (
     id: string,
@@ -654,14 +529,14 @@ export const applicationsAPI = {
   ) => apiClient.patch(`/api/v1/applications/${id}`, data, token),
 
   getAdminApplications: (token: string) =>
-    apiClient.get('/api/v1/applications/admin/records', token) as Promise<AdminApplicationListResponse>,
+    apiClient.get<AdminApplicationListResponse>('/api/v1/applications/admin/records', token),
 
   getApplicationByCode: (code: string, token: string) =>
-    apiClient.get(`/api/v1/applications/admin/by-code/${encodeURIComponent(code)}`, token) as Promise<AdminApplicationRecord>,
+    apiClient.get<AdminApplicationRecord>(`/api/v1/applications/admin/by-code/${encodeURIComponent(code)}`, token),
 
   redeemApplication: (id: string, token: string) =>
-    apiClient.post(`/api/v1/applications/admin/${id}/redeem`, {}, token) as Promise<AdminApplicationRecord>,
+    apiClient.post<AdminApplicationRecord>(`/api/v1/applications/admin/${id}/redeem`, {}, token),
 
   voidApplication: (id: string, token: string) =>
-    apiClient.post(`/api/v1/applications/admin/${id}/void`, {}, token) as Promise<AdminApplicationRecord>,
+    apiClient.post<AdminApplicationRecord>(`/api/v1/applications/admin/${id}/void`, {}, token),
 }

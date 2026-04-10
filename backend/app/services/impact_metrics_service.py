@@ -8,7 +8,7 @@ from app.core.goods_donation_format import parse_goods_pickup_date
 
 
 @dataclass(frozen=True)
-class SharedGoodsImpactSnapshot:
+class GoodsImpactSnapshot:
     current_goods_units: int
     previous_goods_units: int
     current_year_goods_units: int
@@ -58,7 +58,13 @@ def _donor_identity(email: str | None, name: str | None) -> str | None:
     return None
 
 
-def calculate_shared_goods_impact_snapshot(
+def _is_bank_scoped(record: object) -> bool:
+    if not hasattr(record, 'food_bank_id'):
+        return True
+    return getattr(record, 'food_bank_id', None) is not None
+
+
+def calculate_goods_impact_snapshot(
     *,
     cash_donations: Sequence[object],
     goods_donations: Sequence[object],
@@ -67,9 +73,17 @@ def calculate_shared_goods_impact_snapshot(
     current_start: date,
     next_start: date,
     previous_start: date,
-) -> SharedGoodsImpactSnapshot:
-    valid_cash_donations = [row for row in cash_donations if getattr(row, 'status', None) == 'completed']
-    valid_goods_donations = [row for row in goods_donations if getattr(row, 'status', None) == 'received']
+) -> GoodsImpactSnapshot:
+    valid_cash_donations = [
+        row
+        for row in cash_donations
+        if getattr(row, 'status', None) == 'completed' and _is_bank_scoped(row)
+    ]
+    valid_goods_donations = [
+        row
+        for row in goods_donations
+        if getattr(row, 'status', None) == 'received' and _is_bank_scoped(row)
+    ]
 
     current_goods_units = 0
     previous_goods_units = 0
@@ -109,6 +123,8 @@ def calculate_shared_goods_impact_snapshot(
     current_families_supported: set[str] = set()
     previous_families_supported: set[str] = set()
     for application in applications:
+        if not _is_bank_scoped(application):
+            continue
         if getattr(application, 'deleted_at', None) is not None:
             continue
 
@@ -120,7 +136,7 @@ def calculate_shared_goods_impact_snapshot(
         if _in_period(application_created, previous_start, current_start):
             previous_families_supported.add(user_id)
 
-    return SharedGoodsImpactSnapshot(
+    return GoodsImpactSnapshot(
         current_goods_units=current_goods_units,
         previous_goods_units=previous_goods_units,
         current_year_goods_units=current_year_goods_units,

@@ -85,8 +85,9 @@ async def test_list_inventory_returns_rows():
 
 @pytest.mark.asyncio
 async def test_create_inventory_item_success():
-    db = FakeSession(scalar_values=[None, 4])
+    db = FakeSession(scalar_values=[4, None, 4])
     payload = InventoryItemCreateRequest(
+        food_bank_id=4,
         name="Beans",
         category="Proteins & Meat",
         initial_stock=4,
@@ -124,8 +125,9 @@ async def test_create_inventory_item_defaults_to_local_admin_food_bank():
 
 @pytest.mark.asyncio
 async def test_create_inventory_item_conflict_when_name_exists():
-    db = FakeSession(scalar_values=[1])
+    db = FakeSession(scalar_values=[4, 1])
     payload = InventoryItemCreateRequest(
+        food_bank_id=4,
         name="Beans",
         category="Proteins & Meat",
         initial_stock=4,
@@ -298,6 +300,37 @@ async def test_stock_out_insufficient_stock():
 
     assert exc.value.status_code == 400
     assert exc.value.detail == "Insufficient stock"
+
+
+@pytest.mark.asyncio
+async def test_stock_out_soft_deletes_empty_lot_without_zeroing_quantity():
+    item = InventoryItem(
+        id=1,
+        name="Oil",
+        category="Beverages",
+        unit="bottle",
+        threshold=1,
+    )
+    active_lot = InventoryLot(
+        id=10,
+        inventory_item_id=1,
+        quantity=2,
+        received_date=date.today(),
+        expiry_date=date.today(),
+        batch_reference="lot-1",
+    )
+    db = FakeSession(scalar_values=[item, 0], execute_rows_seq=[[active_lot]])
+
+    result = await stock_out(
+        item_id=1,
+        adjustment_in=StockAdjustment(quantity=2, reason="distribution"),
+        admin_user={"role": "admin"},
+        db=db,
+    )
+
+    assert result.total_stock == 0
+    assert active_lot.deleted_at is not None
+    assert active_lot.quantity == 2
 
 
 @pytest.mark.asyncio

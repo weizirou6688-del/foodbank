@@ -50,7 +50,7 @@ from app.schemas.stats import (
     PublicImpactMetricsOut,
     StockGapPackageOut,
 )
-from app.services.impact_metrics_service import calculate_shared_goods_impact_snapshot
+from app.services.impact_metrics_service import calculate_goods_impact_snapshot
 
 
 router = APIRouter(tags=["Statistics"])
@@ -223,6 +223,17 @@ def _donor_identity(email: str | None, name: str | None) -> str | None:
     return None
 
 
+def _admin_food_bank_scope_filter(model, admin_user: dict):
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is None:
+        return model.food_bank_id.is_not(None)
+    return model.food_bank_id == admin_food_bank_id
+
+
+def _apply_admin_food_bank_scope(query, model, admin_user: dict):
+    return query.where(_admin_food_bank_scope_filter(model, admin_user))
+
+
 def _chart(labels: list[str], data: list[float], empty_label: str = "No data") -> DashboardChartOut:
     if not labels:
         return DashboardChartOut(labels=[empty_label], data=[0.0])
@@ -246,7 +257,27 @@ def _filter_records_by_food_bank_id(records: list[object], food_bank_id: int) ->
     return [
         record
         for record in records
-        if getattr(record, "food_bank_id", None) == food_bank_id
+        if getattr(record, "food_bank_id", food_bank_id) == food_bank_id
+    ]
+
+
+def _is_bank_scoped_record(record: object) -> bool:
+    if not hasattr(record, "food_bank_id"):
+        return True
+    return getattr(record, "food_bank_id", None) is not None
+
+
+def _filter_bank_scoped_records(records: list[object]) -> list[object]:
+    return [record for record in records if _is_bank_scoped_record(record)]
+
+
+def _filter_bank_scoped_inventory_lot_rows(
+    rows: list[tuple[InventoryLot, InventoryItem]],
+) -> list[tuple[InventoryLot, InventoryItem]]:
+    return [
+        (lot, inventory_item)
+        for lot, inventory_item in rows
+        if _is_bank_scoped_record(inventory_item)
     ]
 
 
@@ -274,16 +305,15 @@ async def get_donation_stats(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    admin_food_bank_id = get_admin_food_bank_id(admin_user)
-
     cash_totals_query = select(
         func.coalesce(func.sum(DonationCash.amount_pence), 0).label("total_cash"),
         func.coalesce(func.avg(DonationCash.amount_pence), 0).label("avg_cash"),
     ).where(DonationCash.status == "completed")
-    if admin_food_bank_id is not None:
-        cash_totals_query = cash_totals_query.where(
-            DonationCash.food_bank_id == admin_food_bank_id
-        )
+    cash_totals_query = _apply_admin_food_bank_scope(
+        cash_totals_query,
+        DonationCash,
+        admin_user,
+    )
 
     cash_totals_rows = (
         await db.execute(cash_totals_query)
@@ -295,10 +325,11 @@ async def get_donation_stats(
     goods_total_query = select(func.count(DonationGoods.id).label("total_goods")).where(
         DonationGoods.status == "received"
     )
-    if admin_food_bank_id is not None:
-        goods_total_query = goods_total_query.where(
-            DonationGoods.food_bank_id == admin_food_bank_id
-        )
+    goods_total_query = _apply_admin_food_bank_scope(
+        goods_total_query,
+        DonationGoods,
+        admin_user,
+    )
 
     goods_total_rows = (await db.execute(goods_total_query)).all()
     total_goods = int(goods_total_rows[0][0] or 0) if goods_total_rows else 0
@@ -314,10 +345,11 @@ async def get_donation_stats(
         .where(DonationCash.status == "completed")
         .group_by("week")
     )
-    if admin_food_bank_id is not None:
-        weekly_cash_query = weekly_cash_query.where(
-            DonationCash.food_bank_id == admin_food_bank_id
-        )
+    weekly_cash_query = _apply_admin_food_bank_scope(
+        weekly_cash_query,
+        DonationCash,
+        admin_user,
+    )
 
     weekly_cash_rows = (await db.execute(weekly_cash_query)).all()
 
@@ -332,10 +364,11 @@ async def get_donation_stats(
         .where(DonationGoods.status == "received")
         .group_by("week")
     )
-    if admin_food_bank_id is not None:
-        weekly_goods_query = weekly_goods_query.where(
-            DonationGoods.food_bank_id == admin_food_bank_id
-        )
+    weekly_goods_query = _apply_admin_food_bank_scope(
+        weekly_goods_query,
+        DonationGoods,
+        admin_user,
+    )
 
     weekly_goods_rows = (await db.execute(weekly_goods_query)).all()
 
@@ -374,8 +407,6 @@ async def get_package_stats(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    admin_food_bank_id = get_admin_food_bank_id(admin_user)
-
     query = (
         select(
             ApplicationItem.package_id.label("package_id"),
@@ -390,8 +421,7 @@ async def get_package_stats(
             func.coalesce(func.sum(ApplicationItem.quantity), 0).desc(),
         )
     )
-    if admin_food_bank_id is not None:
-        query = query.where(FoodPackage.food_bank_id == admin_food_bank_id)
+    query = _apply_admin_food_bank_scope(query, FoodPackage, admin_user)
 
     rows = (await db.execute(query)).all()
 
@@ -411,8 +441,6 @@ async def get_stock_gap_analysis(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    admin_food_bank_id = get_admin_food_bank_id(admin_user)
-
     gap_expr = (FoodPackage.threshold - FoodPackage.stock).label("gap")
     query = (
         select(
@@ -425,8 +453,7 @@ async def get_stock_gap_analysis(
         .where(FoodPackage.stock < FoodPackage.threshold)
         .order_by(gap_expr.desc())
     )
-    if admin_food_bank_id is not None:
-        query = query.where(FoodPackage.food_bank_id == admin_food_bank_id)
+    query = _apply_admin_food_bank_scope(query, FoodPackage, admin_user)
 
     rows = (await db.execute(query)).all()
 
@@ -460,6 +487,7 @@ async def get_public_impact_metrics(
             )
         ).scalars().all()
     )
+    goods_donations = _filter_bank_scoped_records(goods_donations)
     packages = list(
         (
             await db.execute(
@@ -469,6 +497,7 @@ async def get_public_impact_metrics(
             )
         ).scalars().all()
     )
+    packages = _filter_bank_scoped_records(packages)
     applications = list(
         (
             await db.execute(
@@ -481,6 +510,7 @@ async def get_public_impact_metrics(
             )
         ).scalars().all()
     )
+    applications = _filter_bank_scoped_records(applications)
     distribution_snapshots = list(
         (
             await db.execute(
@@ -492,7 +522,7 @@ async def get_public_impact_metrics(
         ).scalars().all()
     )
 
-    goods_impact_snapshot = calculate_shared_goods_impact_snapshot(
+    goods_impact_snapshot = calculate_goods_impact_snapshot(
         cash_donations=[],
         goods_donations=goods_donations,
         applications=applications,
@@ -654,6 +684,7 @@ async def get_public_goods_impact_metrics(
             )
         ).scalars().all()
     )
+    cash_donations = _filter_bank_scoped_records(cash_donations)
     goods_donations = list(
         (
             await db.execute(
@@ -663,6 +694,7 @@ async def get_public_goods_impact_metrics(
             )
         ).scalars().all()
     )
+    goods_donations = _filter_bank_scoped_records(goods_donations)
     applications = list(
         (
             await db.execute(
@@ -670,8 +702,9 @@ async def get_public_goods_impact_metrics(
             )
         ).scalars().all()
     )
+    applications = _filter_bank_scoped_records(applications)
 
-    goods_impact_snapshot = calculate_shared_goods_impact_snapshot(
+    goods_impact_snapshot = calculate_goods_impact_snapshot(
         cash_donations=cash_donations,
         goods_donations=goods_donations,
         applications=applications,
@@ -811,6 +844,12 @@ async def get_dashboard_analytics(
         ).scalars().all()
     )
     admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    cash_donations = _filter_bank_scoped_records(cash_donations)
+    goods_donations = _filter_bank_scoped_records(goods_donations)
+    inventory_items = _filter_bank_scoped_records(inventory_items)
+    inventory_lot_rows = _filter_bank_scoped_inventory_lot_rows(inventory_lot_rows)
+    packages = _filter_bank_scoped_records(packages)
+    applications = _filter_bank_scoped_records(applications)
     if admin_food_bank_id is not None:
         cash_donations = [
             donation
@@ -818,6 +857,12 @@ async def get_dashboard_analytics(
             if donation.food_bank_id == admin_food_bank_id
         ]
         goods_donations = _filter_records_by_food_bank_id(goods_donations, admin_food_bank_id)
+        inventory_items = _filter_records_by_food_bank_id(inventory_items, admin_food_bank_id)
+        inventory_lot_rows = [
+            (lot, inventory_item)
+            for lot, inventory_item in inventory_lot_rows
+            if getattr(inventory_item, "food_bank_id", admin_food_bank_id) == admin_food_bank_id
+        ]
         packages = _filter_records_by_food_bank_id(packages, admin_food_bank_id)
         applications = _filter_records_by_food_bank_id(applications, admin_food_bank_id)
         scoped_application_ids = {application.id for application in applications}
@@ -826,7 +871,11 @@ async def get_dashboard_analytics(
             for snapshot in distribution_snapshots
             if snapshot.application_id in scoped_application_ids
         ]
-        scoped_inventory_item_ids = _collect_scoped_inventory_item_ids(packages, applications)
+        allowed_inventory_item_ids = {inventory_item.id for inventory_item in inventory_items}
+        scoped_inventory_item_ids = (
+            _collect_scoped_inventory_item_ids(packages, applications)
+            & allowed_inventory_item_ids
+        )
         inventory_items = [
             inventory_item
             for inventory_item in inventory_items
@@ -847,7 +896,7 @@ async def get_dashboard_analytics(
             )
         ]
 
-    goods_impact_snapshot = calculate_shared_goods_impact_snapshot(
+    goods_impact_snapshot = calculate_goods_impact_snapshot(
         cash_donations=cash_donations,
         goods_donations=goods_donations,
         applications=applications,

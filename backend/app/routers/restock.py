@@ -5,7 +5,7 @@ Restock request management routes.
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,11 +37,8 @@ router = APIRouter(tags=["Restock Requests"])
 def _restock_scope_filter(admin_user: dict):
     admin_food_bank_id = get_admin_food_bank_id(admin_user)
     if admin_food_bank_id is None:
-        return None
-    return or_(
-        InventoryItem.food_bank_id == admin_food_bank_id,
-        InventoryItem.food_bank_id.is_(None),
-    )
+        return InventoryItem.food_bank_id.is_not(None)
+    return InventoryItem.food_bank_id == admin_food_bank_id
 
 
 def _enforce_restock_item_access(
@@ -53,7 +50,6 @@ def _enforce_restock_item_access(
     enforce_admin_food_bank_scope(
         admin_user,
         item.food_bank_id,
-        allow_platform_records=True,
         detail=detail,
     )
 

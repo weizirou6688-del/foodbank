@@ -189,7 +189,7 @@ async def test_create_package_defaults_to_local_admin_food_bank():
                 category="Grains & Pasta",
                 unit="kg",
                 threshold=5,
-                food_bank_id=None,
+                food_bank_id=3,
             )
         ]],
         scalar_values=[3],
@@ -239,6 +239,38 @@ async def test_create_package_rejects_foreign_inventory_for_local_admin():
 
     assert exc.value.status_code == 403
     assert exc.value.detail == "One or more inventory items are outside your food bank scope"
+
+
+@pytest.mark.asyncio
+async def test_create_package_rejects_inventory_from_other_food_bank_for_platform_admin():
+    db = FakeSession(
+        execute_rows_seq=[[
+            InventoryItem(
+                id=1,
+                name="Rice",
+                category="Grains & Pasta",
+                unit="kg",
+                threshold=5,
+                food_bank_id=2,
+            )
+        ]],
+        scalar_values=[1],
+    )
+    admin = {"role": "admin"}
+
+    payload = FoodPackageCreateRequest(
+        name="Scoped Pack",
+        category="Breakfast",
+        threshold=4,
+        contents=[{"item_id": 1, "quantity": 1}],
+        food_bank_id=1,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await create_package(package_in=payload, admin_user=admin, db=db)
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "One or more inventory items are outside the selected food bank scope"
 
 
 @pytest.mark.asyncio
@@ -311,6 +343,59 @@ async def test_update_package_replaces_package_contents():
     assert len(new_package_items) == 2
     assert [item.inventory_item_id for item in new_package_items] == [1, 2]
     assert [item.quantity for item in new_package_items] == [2, 3]
+
+
+@pytest.mark.asyncio
+async def test_update_package_rejects_reassigning_package_when_contents_belong_to_other_food_bank():
+    pkg = FoodPackage(
+        id=1,
+        name="Old Pack",
+        category="Breakfast",
+        stock=5,
+        threshold=3,
+        applied_count=1,
+        food_bank_id=1,
+        is_active=True,
+        created_at=utcnow(),
+    )
+    pkg.package_items = [
+        PackageItem(
+            id=10,
+            package_id=1,
+            inventory_item_id=99,
+            quantity=2,
+        )
+    ]
+    db = FakeSession(
+        execute_rows_seq=[
+            [pkg],
+            [
+                InventoryItem(
+                    id=99,
+                    name="Rice",
+                    category="Grains & Pasta",
+                    unit="kg",
+                    threshold=5,
+                    food_bank_id=1,
+                )
+            ],
+        ],
+        scalar_values=[2],
+    )
+    admin = {"role": "admin"}
+
+    payload = FoodPackageUpdate(food_bank_id=2)
+
+    with pytest.raises(HTTPException) as exc:
+        await update_package(
+            package_id=1,
+            package_in=payload,
+            admin_user=admin,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "One or more inventory items are outside the selected food bank scope"
 
 
 @pytest.mark.asyncio

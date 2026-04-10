@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,19 +54,10 @@ def _future_expiry_date() -> date:
 
 def _inventory_scope_filter(
     admin_user: dict,
-    *,
-    include_shared_for_local_admin: bool = True,
 ):
     admin_food_bank_id = get_admin_food_bank_id(admin_user)
     if admin_food_bank_id is None:
-        return None
-
-    if include_shared_for_local_admin:
-        return or_(
-            InventoryItem.food_bank_id == admin_food_bank_id,
-            InventoryItem.food_bank_id.is_(None),
-        )
-
+        return InventoryItem.food_bank_id.is_not(None)
     return InventoryItem.food_bank_id == admin_food_bank_id
 
 
@@ -86,7 +77,6 @@ def _enforce_inventory_item_access(
     enforce_admin_food_bank_scope(
         admin_user,
         inventory_item.food_bank_id,
-        allow_platform_records=True,
         detail=detail,
     )
 
@@ -152,7 +142,10 @@ async def _resolve_inventory_item_food_bank_id(
         return admin_food_bank_id
 
     if requested_food_bank_id is None:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="food_bank_id is required for inventory item creation",
+        )
 
     food_bank_exists = await db.scalar(
         select(FoodBank.id).where(FoodBank.id == requested_food_bank_id)
@@ -244,15 +237,9 @@ async def create_inventory_item(
         duplicate_query = select(InventoryItem.id).where(
             func.lower(InventoryItem.name) == normalized_name.lower()
         )
-        if target_food_bank_id is None:
-            duplicate_query = duplicate_query.where(InventoryItem.food_bank_id.is_(None))
-        else:
-            duplicate_query = duplicate_query.where(
-                or_(
-                    InventoryItem.food_bank_id == target_food_bank_id,
-                    InventoryItem.food_bank_id.is_(None),
-                )
-            )
+        duplicate_query = duplicate_query.where(
+            InventoryItem.food_bank_id == target_food_bank_id
+        )
 
         existing_item_id = await db.scalar(
             duplicate_query

@@ -1,9 +1,5 @@
 import uuid
 from datetime import date, datetime, timedelta
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from fastapi import HTTPException
@@ -30,38 +26,7 @@ from app.schemas.donation_goods import (
     SupermarketDonationCreate,
     SupermarketDonationItemPayload,
 )
-
-
-class _Begin:
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def scalar_one(self):
-        if len(self._rows) != 1:
-            raise AssertionError(f"Expected exactly one row, got {len(self._rows)}")
-        return self._rows[0]
-
-    def all(self):
-        return self._rows
+from tests.support import AsyncBegin, ExecuteResult, utcnow
 
 
 class FakeSession:
@@ -86,7 +51,7 @@ class FakeSession:
         self._stock_rows = stock_rows or []
 
     def begin(self):
-        return _Begin()
+        return AsyncBegin()
 
     def add(self, obj):
         self.added.append(obj)
@@ -135,7 +100,7 @@ class FakeSession:
                     for row in rows
                     if getattr(row, "food_bank_id", None) == food_bank_filter
                 ]
-            return _ExecuteResult(rows)
+            return ExecuteResult(rows)
         if "donations_goods" in q:
             rows = self._goods_rows or [x for x in self.added if isinstance(x, DonationGoods)]
             if food_bank_filter is not None:
@@ -144,12 +109,12 @@ class FakeSession:
                     for row in rows
                     if getattr(row, "food_bank_id", None) == food_bank_filter
                 ]
-            return _ExecuteResult(rows)
+            return ExecuteResult(rows)
         if "restock_requests" in q:
-            return _ExecuteResult(self._restock_rows)
+            return ExecuteResult(self._restock_rows)
         if "sum(inventory_lots.quantity)" in q:
-            return _ExecuteResult(self._stock_rows)
-        return _ExecuteResult([])
+            return ExecuteResult(self._stock_rows)
+        return ExecuteResult([])
 @pytest.mark.asyncio
 async def test_submit_cash_donation_success():
     db = FakeSession()
@@ -287,6 +252,27 @@ async def test_submit_goods_donation_received_uses_created_items_for_inventory_s
 
 
 @pytest.mark.asyncio
+async def test_submit_goods_donation_received_without_food_bank_does_not_create_inventory_lot():
+    db = FakeSession()
+    payload = DonationGoodsCreate(
+        donor_name="Alice",
+        donor_email="alice@example.com",
+        donor_phone="07123456789",
+        pickup_date="03/04/2026",
+        items=[
+            DonationGoodsItemCreatePayload(item_name="Rice", quantity=2),
+        ],
+        status="received",
+    )
+
+    result = await submit_goods_donation(donation_in=payload, db=db)
+
+    assert isinstance(result, DonationGoods)
+    assert result.food_bank_id is None
+    assert not [row for row in db.added if isinstance(row, InventoryLot)]
+
+
+@pytest.mark.asyncio
 async def test_submit_supermarket_goods_donation_syncs_inventory_and_restock_state():
     supermarket_user = User(
         id=uuid.uuid4(),
@@ -294,8 +280,15 @@ async def test_submit_supermarket_goods_donation_syncs_inventory_and_restock_sta
         email="supermarket@foodbank.com",
         password_hash="hashed",
         role="supermarket",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=utcnow(),
+        updated_at=utcnow(),
+    )
+    bank = FoodBank(
+        id=7,
+        name="Downtown Community Food Bank",
+        address="123 Main Street, London, SW1A 1AA",
+        lat=51.501,
+        lng=-0.141,
     )
     inventory_item = InventoryItem(
         id=12,
@@ -303,6 +296,7 @@ async def test_submit_supermarket_goods_donation_syncs_inventory_and_restock_sta
         category="Grains & Pasta",
         unit="bags",
         threshold=10,
+        food_bank_id=bank.id,
     )
     open_request = RestockRequest(
         id=5,
@@ -313,6 +307,7 @@ async def test_submit_supermarket_goods_donation_syncs_inventory_and_restock_sta
         status="open",
     )
     db = FakeSession(
+        food_bank_rows=[bank],
         user_rows=[supermarket_user],
         inventory_rows=[inventory_item],
         restock_rows=[open_request],
@@ -336,6 +331,9 @@ async def test_submit_supermarket_goods_donation_syncs_inventory_and_restock_sta
     assert result.donor_user_id == supermarket_user.id
     assert result.donor_name == "Partner Supermarket"
     assert result.donor_email == "supermarket@foodbank.com"
+    assert result.food_bank_id == bank.id
+    assert result.food_bank_name == bank.name
+    assert result.food_bank_address == bank.address
 
     item_rows = [row for row in db.added if isinstance(row, DonationGoodsItem)]
     lots = [row for row in db.added if isinstance(row, InventoryLot)]
@@ -351,6 +349,46 @@ async def test_submit_supermarket_goods_donation_syncs_inventory_and_restock_sta
 
 
 @pytest.mark.asyncio
+async def test_submit_supermarket_goods_donation_rejects_unscoped_inventory_item():
+    supermarket_user = User(
+        id=uuid.uuid4(),
+        name="Partner Supermarket",
+        email="supermarket@foodbank.com",
+        password_hash="hashed",
+        role="supermarket",
+        created_at=utcnow(),
+        updated_at=utcnow(),
+    )
+    inventory_item = InventoryItem(
+        id=12,
+        name="Rice",
+        category="Grains & Pasta",
+        unit="bags",
+        threshold=10,
+        food_bank_id=None,
+    )
+    db = FakeSession(
+        user_rows=[supermarket_user],
+        inventory_rows=[inventory_item],
+    )
+    payload = SupermarketDonationCreate(
+        items=[
+            SupermarketDonationItemPayload(inventory_item_id=12, quantity=2),
+        ],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await submit_supermarket_goods_donation(
+            donation_in=payload,
+            current_user={"sub": str(supermarket_user.id), "role": "supermarket"},
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert "must belong to a specific food bank" in exc.value.detail
+
+
+@pytest.mark.asyncio
 async def test_submit_supermarket_goods_donation_rejects_unknown_inventory_name():
     supermarket_user = User(
         id=uuid.uuid4(),
@@ -358,8 +396,8 @@ async def test_submit_supermarket_goods_donation_rejects_unknown_inventory_name(
         email="supermarket@foodbank.com",
         password_hash="hashed",
         role="supermarket",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=utcnow(),
+        updated_at=utcnow(),
     )
     db = FakeSession(user_rows=[supermarket_user])
     payload = SupermarketDonationCreate(
@@ -389,7 +427,7 @@ async def test_list_donations_with_invalid_filter():
 
 @pytest.mark.asyncio
 async def test_list_donations_cash_only():
-    now = datetime.utcnow()
+    now = utcnow()
     cash = DonationCash(
         id=uuid.uuid4(),
         donor_name="Casey",
@@ -397,6 +435,7 @@ async def test_list_donations_cash_only():
         amount_pence=100,
         payment_reference="P1",
         status="completed",
+        food_bank_id=7,
     )
     cash.created_at = now
     db = FakeSession(cash_rows=[cash])
@@ -410,7 +449,7 @@ async def test_list_donations_cash_only():
 
 @pytest.mark.asyncio
 async def test_list_donations_merge_and_sort_desc():
-    now = datetime.utcnow()
+    now = utcnow()
     old = now - timedelta(days=1)
 
     cash = DonationCash(
@@ -420,6 +459,7 @@ async def test_list_donations_merge_and_sort_desc():
         amount_pence=300,
         payment_reference="P2",
         status="completed",
+        food_bank_id=7,
     )
     cash.created_at = old
 
@@ -431,6 +471,7 @@ async def test_list_donations_merge_and_sort_desc():
         donor_phone="07123456789",
         notes=None,
         status="pending",
+        food_bank_id=7,
     )
     goods.created_at = now
     goods.items = [
@@ -453,7 +494,7 @@ async def test_list_donations_merge_and_sort_desc():
 
 @pytest.mark.asyncio
 async def test_list_donations_local_admin_scopes_to_assigned_food_bank():
-    now = datetime.utcnow()
+    now = utcnow()
     cash = DonationCash(
         id=uuid.uuid4(),
         donor_name="Platform Cash",
@@ -517,3 +558,83 @@ async def test_list_donations_local_admin_scopes_to_assigned_food_bank():
     assert result[0]["donation_type"] == "goods"
     assert result[0]["donor_name"] == "Own Bank Donor"
     assert result[0]["items"][0]["item_name"] == "Rice"
+
+
+@pytest.mark.asyncio
+async def test_list_donations_platform_admin_excludes_unscoped_records():
+    now = utcnow()
+    scoped_cash = DonationCash(
+        id=uuid.uuid4(),
+        donor_name="Scoped Cash",
+        donor_email="scoped-cash@example.com",
+        amount_pence=300,
+        payment_reference="P4",
+        status="completed",
+        food_bank_id=7,
+    )
+    scoped_cash.created_at = now - timedelta(hours=2)
+
+    shared_cash = DonationCash(
+        id=uuid.uuid4(),
+        donor_name="Legacy Shared Cash",
+        donor_email="shared-cash@example.com",
+        amount_pence=500,
+        payment_reference="P5",
+        status="completed",
+        food_bank_id=None,
+    )
+    shared_cash.created_at = now - timedelta(hours=1)
+
+    scoped_goods = DonationGoods(
+        id=uuid.uuid4(),
+        donor_user_id=None,
+        donor_name="Scoped Goods",
+        donor_email="scoped-goods@example.com",
+        donor_phone="07123456789",
+        notes=None,
+        status="pending",
+        food_bank_id=7,
+    )
+    scoped_goods.created_at = now
+    scoped_goods.items = [
+        DonationGoodsItem(
+            id=1,
+            donation_id=scoped_goods.id,
+            item_name="Rice",
+            quantity=2,
+        )
+    ]
+
+    shared_goods = DonationGoods(
+        id=uuid.uuid4(),
+        donor_user_id=None,
+        donor_name="Legacy Shared Goods",
+        donor_email="shared-goods@example.com",
+        donor_phone="07987654321",
+        notes=None,
+        status="pending",
+        food_bank_id=None,
+    )
+    shared_goods.created_at = now - timedelta(minutes=30)
+    shared_goods.items = [
+        DonationGoodsItem(
+            id=2,
+            donation_id=shared_goods.id,
+            item_name="Beans",
+            quantity=4,
+        )
+    ]
+
+    db = FakeSession(
+        cash_rows=[scoped_cash, shared_cash],
+        goods_rows=[scoped_goods, shared_goods],
+    )
+
+    result = await list_donations(
+        type=None,
+        admin_user={"role": "admin"},
+        db=db,
+    )
+
+    assert len(result) == 2
+    assert {row["donor_name"] for row in result} == {"Scoped Cash", "Scoped Goods"}

@@ -1,14 +1,13 @@
 from decimal import Decimal
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from datetime import timedelta
 
 import pytest
 from fastapi import HTTPException
 
 from app.models.food_bank import FoodBank
+from app.models.inventory_item import InventoryItem
 from app.routers.food_banks import (
+    list_food_bank_inventory_items,
     list_food_banks,
     get_food_bank,
     create_food_bank,
@@ -16,25 +15,7 @@ from app.routers.food_banks import (
     delete_food_bank,
 )
 from app.schemas.food_bank import FoodBankCreate, FoodBankUpdate
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def scalar_one_or_none(self):
-        return self._rows[0] if self._rows else None
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
+from tests.support import ExecuteResult, utcnow
 
 
 class FakeSession:
@@ -45,7 +26,7 @@ class FakeSession:
 
     async def execute(self, query):
         # Simplified: return all banks
-        return _ExecuteResult(list(self.banks.values()))
+        return ExecuteResult(list(self.banks.values()))
 
     async def delete(self, obj):
         self.deleted.append(obj)
@@ -60,6 +41,18 @@ class FakeSession:
 
     async def refresh(self, _obj):
         return None
+
+
+class FakeFoodBankInventorySession:
+    def __init__(self, *, bank=None, rows=None):
+        self.bank = bank
+        self.rows = rows or []
+
+    async def scalar(self, _query):
+        return self.bank
+
+    async def execute(self, _query):
+        return ExecuteResult(self.rows)
 
 
 @pytest.mark.asyncio
@@ -193,5 +186,56 @@ async def test_delete_food_bank_not_found():
 
     with pytest.raises(HTTPException) as exc:
         await delete_food_bank(food_bank_id=999, admin_user=admin, db=db)
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_food_bank_inventory_items_returns_only_requested_bank_rows():
+    bank = FoodBank(
+        id=7,
+        name="Downtown Community Food Bank",
+        address="123 Main Street",
+        lat=Decimal("51.500000"),
+        lng=Decimal("-0.120000"),
+    )
+    own_item = InventoryItem(
+        id=11,
+        name="Rice",
+        category="Grains & Pasta",
+        unit="bags",
+        threshold=10,
+        food_bank_id=7,
+    )
+    own_item.updated_at = utcnow()
+    other_item = InventoryItem(
+        id=22,
+        name="Beans",
+        category="Canned Goods",
+        unit="cans",
+        threshold=6,
+        food_bank_id=9,
+    )
+    other_item.updated_at = utcnow() - timedelta(hours=1)
+    db = FakeFoodBankInventorySession(
+        bank=bank,
+        rows=[(own_item, 12)],
+    )
+
+    result = await list_food_bank_inventory_items(food_bank_id=7, db=db)
+
+    assert result["total"] == 1
+    assert result["items"][0].id == 11
+    assert result["items"][0].name == "Rice"
+    assert result["items"][0].food_bank_id == 7
+    assert all(item.id != other_item.id for item in result["items"])
+
+
+@pytest.mark.asyncio
+async def test_list_food_bank_inventory_items_not_found():
+    db = FakeFoodBankInventorySession(bank=None)
+
+    with pytest.raises(HTTPException) as exc:
+        await list_food_bank_inventory_items(food_bank_id=999, db=db)
 
     assert exc.value.status_code == 404

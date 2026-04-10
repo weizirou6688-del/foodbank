@@ -106,6 +106,7 @@ async def _get_package_for_admin(
 
 async def _validate_package_contents(
     item_ids: list[int],
+    target_food_bank_id: int,
     admin_user: dict,
     db: AsyncSession,
 ) -> None:
@@ -126,19 +127,29 @@ async def _validate_package_contents(
         )
 
     admin_food_bank_id = get_admin_food_bank_id(admin_user)
-    if admin_food_bank_id is None:
-        return
+    if admin_food_bank_id is not None:
+        inaccessible_items = [
+            row.id
+            for row in inventory_rows
+            if isinstance(row, InventoryItem)
+            and row.food_bank_id != admin_food_bank_id
+        ]
+        if inaccessible_items:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="One or more inventory items are outside your food bank scope",
+            )
 
-    inaccessible_items = [
+    mismatched_items = [
         row.id
         for row in inventory_rows
         if isinstance(row, InventoryItem)
-        and row.food_bank_id not in (None, admin_food_bank_id)
+        and row.food_bank_id != target_food_bank_id
     ]
-    if inaccessible_items:
+    if mismatched_items:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="One or more inventory items are outside your food bank scope",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more inventory items are outside the selected food bank scope",
         )
 
 
@@ -207,7 +218,12 @@ async def create_package(
             admin_user,
             db,
         )
-        await _validate_package_contents(item_ids, admin_user, db)
+        await _validate_package_contents(
+            item_ids,
+            target_food_bank_id,
+            admin_user,
+            db,
+        )
 
         package = FoodPackage(
             name=package_in.name.strip(),
@@ -300,6 +316,7 @@ async def update_package(
             admin_user,
             db,
         )
+    target_food_bank_id = int(update_data.get("food_bank_id", package.food_bank_id))
 
     for key, value in update_data.items():
         if value is not None:
@@ -313,7 +330,12 @@ async def update_package(
                 detail="Duplicate item_id in package contents",
             )
 
-        await _validate_package_contents(item_ids, admin_user, db)
+        await _validate_package_contents(
+            item_ids,
+            target_food_bank_id,
+            admin_user,
+            db,
+        )
 
         existing_items = (
             await db.execute(
@@ -333,6 +355,13 @@ async def update_package(
                     quantity=content.quantity,
                 )
             )
+    elif "food_bank_id" in package_in.model_fields_set and package.package_items:
+        await _validate_package_contents(
+            [item.inventory_item_id for item in package.package_items],
+            target_food_bank_id,
+            admin_user,
+            db,
+        )
 
     await db.flush()
     await db.refresh(package)
@@ -424,7 +453,7 @@ async def pack_package(
             inaccessible_items = [
                 item.id
                 for item in inventory_items
-                if item.food_bank_id not in (None, admin_food_bank_id)
+                if item.food_bank_id != admin_food_bank_id
             ]
             if inaccessible_items:
                 raise HTTPException(
