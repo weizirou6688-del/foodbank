@@ -1,9 +1,5 @@
 import uuid
 from datetime import date, datetime, timezone
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from fastapi import HTTPException
@@ -17,30 +13,7 @@ from app.routers.applications import (
     update_application_status,
 )
 from app.schemas.application import ApplicationUpdate
-
-
-class _Begin:
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
+from tests.support import AsyncBegin, ExecuteResult
 
 
 class FakeReadSession:
@@ -62,9 +35,9 @@ class FakeReadSession:
             None,
         )
         if food_bank_filter is None:
-            return _ExecuteResult(self._rows)
+            return ExecuteResult(self._rows)
 
-        return _ExecuteResult(
+        return ExecuteResult(
             [row for row in self._rows if getattr(row, "food_bank_id", None) == food_bank_filter]
         )
 
@@ -76,7 +49,7 @@ class FakeUpdateSession:
         self._scalar_calls = 0
 
     def begin(self):
-        return _Begin()
+        return AsyncBegin()
 
     async def scalar(self, _query):
         self._scalar_calls += 1

@@ -16,8 +16,6 @@ const RESULTS_PER_PAGE = 3
 export default function FindFoodBank() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuthStore()
-  // This page keeps only visual state locally. Search data itself lives in the
-  // store so it can be reused by the map and the package page.
   const {
     searchPostcode,
     searchResults,
@@ -36,8 +34,6 @@ export default function FindFoodBank() {
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
-    // Keep one selected result in sync with the current search results so card
-    // highlighting and map marker emphasis always refer to the same location.
     if (searchResults.length === 0) {
       setSelectedFoodBankKey(null)
       return
@@ -52,29 +48,20 @@ export default function FindFoodBank() {
   }, [searchResults])
 
   useEffect(() => {
-    // New searches always start from page 1 to avoid pagination carrying over
-    // from a previous result set.
     setCurrentPage(1)
   }, [searchResults])
 
   const handleSearch = async () => {
     const trimmed = localPostcode.trim()
     if (!trimmed) return
-    // We store the cleaned postcode centrally before firing the async search so
-    // the UI and the store agree on which query is active.
     setSearchPostcode(trimmed)
     await searchFoodBanks(trimmed)
   }
 
   const handleViewPackages = (foodBank: FoodBank) => {
-    // External search results do not always correspond to an internal
-    // package-enabled bank, so invalid ids are blocked here.
     if (foodBank.id <= 0) {
       return
     }
-
-    // The original package flow is login-protected, so the redesigned page
-    // preserves that behaviour instead of routing anonymously.
     if (!isAuthenticated) {
       setShowLogin(true)
       return
@@ -174,14 +161,10 @@ export default function FindFoodBank() {
                   {displayedResults.map((foodBank) => {
                     const key = getFoodBankKey(foodBank)
                     const isSelected = selectedFoodBankKey === key
-                    // Cards stay compact by showing only the first parsed
-                    // opening-hours line even though the source can hold more.
                     const openingLine =
                       (foodBank.hours ?? []).length > 0
                         ? foodBank.hours?.[0] ?? 'Opening hours unavailable'
                         : 'Please contact this food bank directly'
-                    // This secondary line guarantees that each card still shows
-                    // one useful operational detail when some fields are missing.
                     const secondaryLine =
                       foodBank.phone
                         ? `Phone: ${foodBank.phone}`

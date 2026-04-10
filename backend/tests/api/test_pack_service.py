@@ -1,10 +1,6 @@
 """Tests for pack_service functionality."""
 
 from datetime import date, datetime
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 
@@ -13,69 +9,7 @@ from app.models.package_item import PackageItem
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.services.pack_service import pack_package_transaction
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def scalar_one_or_none(self):
-        return self._rows[0] if self._rows else None
-
-    def where(self, *args, **kwargs):
-        return self
-
-    def order_by(self, *args, **kwargs):
-        return self
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-
-class MockAsyncSession:
-    """Mock database session for testing pack_service."""
-
-    def __init__(self):
-        self.packages = {}
-        self.package_items = {}
-        self.inventory_lots = {}
-        self.committed = False
-        self.rolled_back = False
-        self.execute_queue = []
-
-    def add_execute_result(self, result_rows):
-        """Queue results for execute() calls."""
-        self.execute_queue.append(result_rows)
-
-    async def execute(self, query):
-        """Simulate db.execute() - returns queued results."""
-        if self.execute_queue:
-            return _ExecuteResult(self.execute_queue.pop(0))
-        return _ExecuteResult([])
-
-    async def flush(self):
-        """Simulate db.flush()."""
-        pass
-
-    async def refresh(self, obj):
-        """Simulate db.refresh()."""
-        pass
-
-    async def commit(self):
-        """Simulate db.commit()."""
-        self.committed = True
-
-    async def rollback(self):
-        """Simulate db.rollback()."""
-        self.rolled_back = True
+from tests.support import QueuedAsyncSession, utcnow
 
 
 @pytest.mark.asyncio
@@ -91,7 +25,7 @@ async def test_pack_package_success_single_ingredient():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
     recipe_item = PackageItem(
@@ -113,7 +47,7 @@ async def test_pack_package_success_single_ingredient():
         deleted_at=None,
     )
 
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
     # Queue results for execute() calls:
     # 1. fetch package
     # 2. fetch recipe items
@@ -149,7 +83,7 @@ async def test_pack_package_uses_multiple_lots_fefo():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
     recipe_item = PackageItem(
@@ -184,7 +118,7 @@ async def test_pack_package_uses_multiple_lots_fefo():
         deleted_at=None,
     )
 
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
     db.add_execute_result([package])
     db.add_execute_result([recipe_item])
     db.add_execute_result([lot1, lot2])  # Sorted by expiry_date
@@ -194,12 +128,13 @@ async def test_pack_package_uses_multiple_lots_fefo():
     result = await pack_package_transaction(1, 1, db)
 
     assert result["new_stock"] == 1
-    assert lot1.quantity == 0
+    assert lot1.quantity == 5
     assert lot1.deleted_at is not None  # Soft-deleted (empty)
     assert lot2.quantity == 5  # 10 - 5 = 5
     assert len(result["consumed_lots"]) == 2
     assert result["consumed_lots"][0]["lot_id"] == 201
     assert result["consumed_lots"][0]["quantity_used"] == 5
+    assert result["consumed_lots"][0]["remaining_in_lot"] == 0
     assert result["consumed_lots"][1]["lot_id"] == 202
     assert result["consumed_lots"][1]["quantity_used"] == 5
 
@@ -216,7 +151,7 @@ async def test_pack_package_insufficient_inventory():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
     recipe_item = PackageItem(
@@ -238,7 +173,7 @@ async def test_pack_package_insufficient_inventory():
         deleted_at=None,
     )
 
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
     db.add_execute_result([package])
     db.add_execute_result([recipe_item])
     db.add_execute_result([lot1])
@@ -254,7 +189,7 @@ async def test_pack_package_insufficient_inventory():
 @pytest.mark.asyncio
 async def test_pack_package_not_found():
     """Test error when package doesn't exist."""
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
     db.add_execute_result([])  # No package found
 
     with pytest.raises(ValueError) as exc:
@@ -276,10 +211,10 @@ async def test_pack_package_no_recipe():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
     db.add_execute_result([package])
     db.add_execute_result([])  # No recipe items
 
@@ -302,7 +237,7 @@ async def test_pack_package_multiple_ingredients():
         applied_count=0,
         food_bank_id=1,
         is_active=True,
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
 
     recipe_item1 = PackageItem(
@@ -343,7 +278,7 @@ async def test_pack_package_multiple_ingredients():
         deleted_at=None,
     )
 
-    db = MockAsyncSession()
+    db = QueuedAsyncSession()
     db.add_execute_result([package])
     db.add_execute_result([recipe_item1, recipe_item2])
     db.add_execute_result([lot1])  # Lots for item 40
@@ -355,7 +290,8 @@ async def test_pack_package_multiple_ingredients():
     result = await pack_package_transaction(1, 4, db)
 
     assert result["new_stock"] == 4
-    assert lot1.quantity == 0  # All consumed
+    assert lot1.quantity == 12  # Fully consumed lots stay positive when soft-deleted
     assert lot1.deleted_at is not None
     assert lot2.quantity == 2  # 10 - 8 = 2
     assert len(result["consumed_lots"]) == 2
+    assert result["consumed_lots"][0]["remaining_in_lot"] == 0

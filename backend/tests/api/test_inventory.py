@@ -124,6 +124,24 @@ async def test_create_inventory_item_defaults_to_local_admin_food_bank():
 
 
 @pytest.mark.asyncio
+async def test_create_inventory_item_requires_food_bank_for_platform_admin():
+    db = FakeSession()
+    payload = InventoryItemCreateRequest(
+        name="Beans",
+        category="Proteins & Meat",
+        initial_stock=4,
+        unit="can",
+        threshold=1,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await create_inventory_item(item_in=payload, admin_user={"role": "admin"}, db=db)
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "food_bank_id is required for inventory item creation"
+
+
+@pytest.mark.asyncio
 async def test_create_inventory_item_conflict_when_name_exists():
     db = FakeSession(scalar_values=[4, 1])
     payload = InventoryItemCreateRequest(

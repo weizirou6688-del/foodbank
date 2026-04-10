@@ -14,13 +14,25 @@ This migration handles a complex data transformation:
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import text
 
 
 revision = '20260326_0006'
 down_revision = '20260326_0005'
 branch_labels = None
 depends_on = None
+
+BEST_EFFORT_REASON = (
+    "Downgrade tolerates partially applied historical states because the weekly "
+    "tracking refactor was repaired iteratively in some local databases."
+)
+
+
+def _best_effort_drop_index(name: str, *, table_name: str) -> None:
+    """Attempt to drop an index while preserving historical downgrade compatibility."""
+    try:
+        op.drop_index(name, table_name=table_name)
+    except Exception:
+        _ = BEST_EFFORT_REASON
 
 
 def upgrade() -> None:
@@ -83,11 +95,9 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Revert applications table changes."""
     
-    # Drop index
-    try:
-        op.drop_index('idx_applications_user_week', table_name='applications')
-    except:
-        pass
+    # Downgrade uses a best-effort index drop because some repaired local
+    # databases may not have recreated this index consistently.
+    _best_effort_drop_index('idx_applications_user_week', table_name='applications')
     
     # Re-add weekly_period column
     op.add_column('applications', sa.Column('weekly_period', sa.String(10), nullable=True))

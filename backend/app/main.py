@@ -194,14 +194,19 @@ from app.modules import (  # noqa: E402
     stats,
 )
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
-app.include_router(food_banks.router, prefix="/api/v1/food-banks", tags=["Food Banks"])
-app.include_router(food_packages.router, prefix="/api/v1", tags=["Food Packages"])
-app.include_router(applications.router, prefix="/api/v1/applications", tags=["Applications"])
-app.include_router(donations.router, prefix="/api/v1/donations", tags=["Donations"])
-app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["Inventory"])
-app.include_router(restock.router, prefix="/api/v1/restock-requests", tags=["Restock Requests"])
-app.include_router(stats.router, prefix="/api/v1/stats", tags=["Statistics"])
+API_ROUTERS = (
+    (auth.router, "/api/v1/auth", ["Auth"]),
+    (food_banks.router, "/api/v1/food-banks", ["Food Banks"]),
+    (food_packages.router, "/api/v1", ["Food Packages"]),
+    (applications.router, "/api/v1/applications", ["Applications"]),
+    (donations.router, "/api/v1/donations", ["Donations"]),
+    (inventory.router, "/api/v1/inventory", ["Inventory"]),
+    (restock.router, "/api/v1/restock-requests", ["Restock Requests"]),
+    (stats.router, "/api/v1/stats", ["Statistics"]),
+)
+
+for router, prefix, tags in API_ROUTERS:
+    app.include_router(router, prefix=prefix, tags=tags)
 
 
 if __name__ == "__main__":

@@ -332,6 +332,12 @@ export default function AddPackageModal({ isOpen, onClose }: AddPackageModalProp
       return
     }
 
+    const allowedInventoryItemIds = new Set(inventoryItems.map((item) => item.id))
+    if (parsedContents.some((row) => !allowedInventoryItemIds.has(row.item_id))) {
+      setError('Selected inventory items must belong to the chosen food bank.')
+      return
+    }
+
     try {
       setSubmitting(true)
       await addPackage({

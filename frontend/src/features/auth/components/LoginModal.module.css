@@ -293,6 +293,8 @@
   margin-bottom: 0.35rem;
   color: #78350F;
   font-size: 0.95rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .demoItem:last-child {

@@ -4,8 +4,11 @@ import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 
 const AdminDataDashboardPreview = lazy(() => import('./AdminDataDashboardPreview'))
 const AdminFoodManagementPreview = lazy(() => import('./AdminFoodManagementPreview'))
+const AdminStatistics = lazy(() => import('./AdminStatistics'))
+const AdminFoodManagement = lazy(() => import('./AdminFoodManagement'))
 
 type Section = 'statistics' | 'food'
+type RenderMode = 'preview' | 'react'
 
 type IdleWindow = Window &
   typeof globalThis & {
@@ -28,9 +31,18 @@ export default function Admin() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [section, setSection] = useState<Section>('food')
+  const [renderMode, setRenderMode] = useState<RenderMode>('preview')
 
   useEffect(() => {
     const s = searchParams.get('section')
+    const render = searchParams.get('render')
+
+    if (render === 'react') {
+      setRenderMode('react')
+    } else {
+      setRenderMode('preview')
+    }
+
     if (s === 'food') {
       setSection('food')
       return
@@ -42,12 +54,29 @@ export default function Admin() {
     }
 
     setSection('food')
-    navigate('/admin?section=food', { replace: true })
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('section', 'food')
+    if (render === 'react') {
+      nextParams.set('render', 'react')
+    } else {
+      nextParams.delete('render')
+    }
+    navigate(`/admin?${nextParams.toString()}`, { replace: true })
   }, [navigate, searchParams])
 
   useEffect(() => {
     const idleWindow = window as IdleWindow
     const preload = () => {
+      if (renderMode === 'react') {
+        if (section === 'food') {
+          void import('./AdminStatistics')
+          return
+        }
+
+        void import('./AdminFoodManagement')
+        return
+      }
+
       if (section === 'food') {
         void import('./AdminDataDashboardPreview')
         return
@@ -67,15 +96,17 @@ export default function Admin() {
 
     const timeoutHandle = window.setTimeout(preload, 300)
     return () => window.clearTimeout(timeoutHandle)
-  }, [section])
+  }, [renderMode, section])
 
   return (
     <Suspense fallback={<AdminSectionFallback />}>
-      {section === 'food' ? (
-        <AdminFoodManagementPreview onSwitch={setSection} />
-      ) : (
-        <AdminDataDashboardPreview />
-      )}
+      {renderMode === 'react'
+        ? section === 'food'
+          ? <AdminFoodManagement onSwitch={setSection} />
+          : <AdminStatistics onSwitch={setSection} />
+        : section === 'food'
+          ? <AdminFoodManagementPreview onSwitch={setSection} />
+          : <AdminDataDashboardPreview />}
     </Suspense>
   )
 }

@@ -9,11 +9,15 @@ from logging.config import fileConfig
 from pathlib import Path
 import sys
 
-from sqlalchemy import engine_from_config, pool, create_engine
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
-# Add parent directory to path so we can import app modules
-sys.path.insert(0, str(Path(__file__).parent.parent))
+
+ALEMBIC_ROOT = Path(__file__).resolve().parent
+BACKEND_ROOT = ALEMBIC_ROOT.parent
+
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.core.config import settings
 from app.models import Base
@@ -27,11 +31,39 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Convert async database URL to sync URL for Alembic (Alembic is synchronous)
-def get_sync_database_url(async_url: str) -> str:
+
+def get_sync_database_url(database_url: str) -> str:
     """Convert async PostgreSQL URL to sync URL for Alembic."""
-    # Replace asyncpg with psycopg2 (synchronous driver, already in requirements.txt)
-    return async_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+    return database_url.replace(
+        "postgresql+asyncpg://",
+        "postgresql+psycopg2://",
+    )
+
+
+def get_online_migration_config() -> dict[str, str]:
+    """Return a mutable config mapping for online migrations."""
+    configuration = dict(config.get_section(config.config_ini_section) or {})
+    configuration["sqlalchemy.url"] = sync_database_url
+    return configuration
+
+
+def configure_offline_context(url: str) -> None:
+    """Apply the shared Alembic context settings for offline migrations."""
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+
+
+def configure_online_context(connection) -> None:
+    """Apply the shared Alembic context settings for online migrations."""
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+    )
+
 
 # Set the SQLAlchemy URL from settings (converted to sync)
 sync_database_url = get_sync_database_url(settings.database_url)
@@ -52,13 +84,7 @@ def run_migrations_offline() -> None:
     Calls to context.execute() here emit the given string to the
     script output.
     """
-    url = config.get_main_option("sqlalchemy.url")
-    context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
-    )
+    configure_offline_context(config.get_main_option("sqlalchemy.url"))
 
     with context.begin_transaction():
         context.run_migrations()
@@ -71,22 +97,15 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine and associate
     a connection with the context.
     """
-    # Get configuration and set the sync URL
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = sync_database_url
-    
     # Create engine for synchronous migrations
     connectable = engine_from_config(
-        configuration,
+        get_online_migration_config(),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
     with connectable.begin() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-        )
+        configure_online_context(connection)
         
         with context.begin_transaction():
             context.run_migrations()

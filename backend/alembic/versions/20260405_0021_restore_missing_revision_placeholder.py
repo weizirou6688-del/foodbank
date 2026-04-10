@@ -5,6 +5,10 @@ Revises: 20260405_0020
 Create Date: 2026-04-05 23:59:00.000000
 """
 
+PLACEHOLDER_REASON = (
+    "This revision was stamped in local databases before the file was restored. "
+    "Keep it as a no-op so Alembic can traverse history safely."
+)
 
 revision = "20260405_0021"
 down_revision = "20260405_0020"
@@ -13,11 +17,11 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # This revision was missing from the repository while already stamped in the
-    # local database. Keep it as a no-op placeholder so Alembic can continue
-    # from the recorded state safely.
-    return None
+    """Preserve the recorded revision without altering schema state."""
+    # This migration intentionally performs no schema changes.
+    _ = PLACEHOLDER_REASON
 
 
 def downgrade() -> None:
-    return None
+    """Preserve downgrade traversal for the restored placeholder."""
+    _ = PLACEHOLDER_REASON

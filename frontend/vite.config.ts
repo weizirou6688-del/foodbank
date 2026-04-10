@@ -169,6 +169,35 @@ const htmlReferencePlugin = () => ({
 
     return null
   },
+  handleHotUpdate(ctx: {
+    file: string
+    server: {
+      moduleGraph: {
+        getModuleById: (id: string) => unknown
+        invalidateModule: (module: unknown) => void
+      }
+      ws: {
+        send: (payload: { type: string }) => void
+      }
+    }
+  }) {
+    const resolvedFile = path.resolve(ctx.file)
+    if (resolvedFile !== foodManagementReferencePath && resolvedFile !== dataDashboardReferencePath) {
+      return
+    }
+
+    const moduleId =
+      resolvedFile === foodManagementReferencePath
+        ? FOOD_MANAGEMENT_VIRTUAL_MODULE_ID
+        : DATA_DASHBOARD_VIRTUAL_MODULE_ID
+    const moduleNode = ctx.server.moduleGraph.getModuleById(moduleId)
+    if (moduleNode) {
+      ctx.server.moduleGraph.invalidateModule(moduleNode)
+    }
+
+    ctx.server.ws.send({ type: 'full-reload' })
+    return []
+  },
 })
 export default defineConfig({
   plugins: [react(), htmlReferencePlugin()],
