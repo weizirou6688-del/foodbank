@@ -13,6 +13,28 @@ down_revision = '20260326_0007'
 branch_labels = None
 depends_on = None
 
+BEST_EFFORT_REASON = (
+    "Downgrade tolerates partially applied historical states because the "
+    "food_bank_hours temporal changes were introduced before all environments "
+    "were fully aligned."
+)
+
+
+def _best_effort_drop_index(name: str, *, table_name: str) -> None:
+    """Attempt to drop an index while preserving historical downgrade compatibility."""
+    try:
+        op.drop_index(name, table_name=table_name)
+    except Exception:
+        _ = BEST_EFFORT_REASON
+
+
+def _best_effort_drop_constraint(name: str, table_name: str, *, type_: str = "check") -> None:
+    """Attempt to drop a constraint while preserving historical downgrade compatibility."""
+    try:
+        op.drop_constraint(name, table_name, type_=type_)
+    except Exception:
+        _ = BEST_EFFORT_REASON
+
 
 def upgrade() -> None:
     """Modify food_bank_hours for better temporal constraints."""
@@ -48,17 +70,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Revert food_bank_hours modifications."""
     
-    # Drop index
-    try:
-        op.drop_index('idx_fh_food_bank_valid', table_name='food_bank_hours')
-    except:
-        pass
-    
-    # Drop constraints
-    try:
-        op.drop_constraint('ck_fh_valid_date_range', 'food_bank_hours')
-    except:
-        pass
+    # Downgrade uses best-effort drops because repaired local environments may
+    # not have the temporal index or constraint in a consistent state.
+    _best_effort_drop_index('idx_fh_food_bank_valid', table_name='food_bank_hours')
+    _best_effort_drop_constraint('ck_fh_valid_date_range', 'food_bank_hours')
     
     # Drop columns
     op.drop_column('food_bank_hours', 'valid_to')

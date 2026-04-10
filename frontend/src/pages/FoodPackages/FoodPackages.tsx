@@ -4,8 +4,6 @@ import { useAuthStore } from '@/app/store/authStore'
 import { WEEKLY_COLLECTION_LIMIT } from '@/shared/config/businessRules'
 import { ImageWithFallback } from '@/shared/ui/ImageWithFallback'
 import styles from './FoodPackages.module.css'
-
-/* ── Default package images from design folder (Unsplash) ── */
 const DEFAULT_PKG_IMAGES = [
   'https://images.unsplash.com/photo-1559837957-bab8edc53c85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80',
   'https://images.unsplash.com/photo-1714224247661-ee250f55a842?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80',
@@ -159,8 +157,6 @@ export default function FoodPackages() {
   const foodBank = selectedFoodBank
   const displayPackages = packages
   const categories = ['All', ...Array.from(new Set(availableItems.map((item) => item.category)))]
-
-  /* ── derived ── */
   const totalPkgs = Object.values(pkgQty).reduce((s, q) => s + q, 0)
   const remaining = remainingPackageSlots
   const totalFoods = Object.keys(foodSel).length
@@ -207,8 +203,6 @@ export default function FoodPackages() {
       </div>
     )
   }
-
-  /* ── handlers ── */
   const changePkgQty = (id: number, delta: number, maxStock: number) => {
     if (interactionsDisabled) {
       return
@@ -282,8 +276,6 @@ export default function FoodPackages() {
     setShowSuccess(false); setRedemptionCode(''); setPkgQty({}); setFoodSel({}); setErrorMsg('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-
-  /* ── action bar summary text ── */
   let summaryTxt = ''
   if (totalPkgs > 0) summaryTxt += `${totalPkgs} package${totalPkgs > 1 ? 's' : ''}`
   if (totalPkgs > 0 && totalFoods > 0) summaryTxt += ' + '
@@ -298,8 +290,6 @@ export default function FoodPackages() {
     <div className={styles.pageWrap}>
       <main className="flex-1 px-6 py-12 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
-
-          {/* ══ Hero ══ */}
           <div className="text-center mb-12">
             <h2 className="text-5xl font-bold mb-4" style={{ color: '#1A1A1A', fontFamily: FONT }}>{`Your Gift Feeds Families`}</h2>
             <p className="text-lg mb-8 max-w-3xl mx-auto" style={{ color: '#6B7280' }}>
@@ -328,8 +318,6 @@ export default function FoodPackages() {
               >Individual Food Items</button>
             </div>
           </div>
-
-          {/* ══ Food Bank Info Card ══ */}
           <div className="rounded-xl p-5 mb-6 flex items-center justify-between" style={{ backgroundColor: '#F2F4F3' }}>
             <div>
               <h3 className="text-lg font-bold mb-1" style={{ color: '#1A1A1A', fontFamily: FONT }}>{foodBank.name}</h3>
@@ -340,8 +328,6 @@ export default function FoodPackages() {
               <div className="text-xs uppercase tracking-wide mt-0.5" style={{ color: '#1A1A1A' }}>Remaining</div>
             </div>
           </div>
-
-          {/* ══ Info Banner ══ */}
           <div className="rounded-lg p-3 mb-8 text-sm border" style={{ backgroundColor: '#F2F4F3', color: '#1A1A1A', borderColor: '#E5E7EB' }}>
             Maximum <strong>{WEEKLY_COLLECTION_LIMIT} packages</strong> per week. This week: <strong style={{ color: '#F5A623' }}>{weeklyCollected}/{WEEKLY_COLLECTION_LIMIT}</strong> used, with <strong>{remainingPackageSlots}</strong> package slot{remainingPackageSlots === 1 ? '' : 's'} left.
           </div>
@@ -349,8 +335,6 @@ export default function FoodPackages() {
           {errorMsg && (
             <div className="rounded-lg p-3 mb-4 text-sm border" style={{ backgroundColor: '#FEF2F2', color: '#DC2626', borderColor: '#FECACA' }}>{errorMsg}</div>
           )}
-
-          {/* ══════════ FOOD PACKAGES SECTION ══════════ */}
           <div id="section-packages" className="mb-12" style={{ scrollMarginTop: '1.5rem' }}>
             <div className="mb-5">
               <h3 className="text-2xl font-bold mb-1" style={{ color: '#1A1A1A', fontFamily: FONT }}>Food Packages</h3>
@@ -378,7 +362,6 @@ export default function FoodPackages() {
                       opacity: atLimit ? 0.5 : 1,
                     }}
                   >
-                    {/* Image */}
                     <div style={{ position: 'relative', height: '8rem', overflow: 'hidden' }}>
                       <ImageWithFallback
                         src={pkg.image || DEFAULT_PKG_IMAGES[displayPackages.indexOf(pkg) % DEFAULT_PKG_IMAGES.length]}
@@ -394,8 +377,6 @@ export default function FoodPackages() {
                         </div>
                       )}
                     </div>
-
-                    {/* Content */}
                     <div style={{ padding: '1rem' }}>
                       <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1A1A1A', marginBottom: '0.25rem', fontFamily: FONT }}>{pkg.name}</h4>
                       <p style={{ fontSize: '0.75rem', color: '#6B7280', marginBottom: '0.75rem' }}>{pkg.description}</p>
@@ -403,7 +384,7 @@ export default function FoodPackages() {
                         {pkg.items.map(item => (
                           <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.2rem' }}>
                             <span style={{ color: '#1A1A1A' }}>{item.name}</span>
-                            <span style={{ color: '#6B7280' }}>×{item.qty}</span>
+                            <span style={{ color: '#6B7280' }}>脳{item.qty}</span>
                           </div>
                         ))}
                       </div>
@@ -411,7 +392,6 @@ export default function FoodPackages() {
                         <span style={{ color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available</span>
                         <span style={{ fontWeight: 700, color: pkg.stock < 5 ? '#DC2626' : '#1A1A1A' }}>{pkg.stock}</span>
                       </div>
-                      {/* Quantity Control */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
                         <button
                           onClick={() => changePkgQty(pkg.id, -1, pkg.stock)}
@@ -459,16 +439,12 @@ export default function FoodPackages() {
               </div>
             )}
           </div>
-
-          {/* ══════════ INDIVIDUAL FOOD ITEMS SECTION ══════════ */}
           <div id="section-items" className="mb-8" style={{ scrollMarginTop: '1.5rem' }}>
             <div className="mb-5">
               <h3 className="text-2xl font-bold mb-1" style={{ color: '#1A1A1A', fontFamily: FONT }}>Individual Food Items</h3>
               <p className="text-sm mb-4" style={{ color: '#6B7280' }}>
                 Select specific items based on your needs. Maximum {MAX_INDIVIDUAL} different items per week.
               </p>
-
-              {/* Selection Status Bar */}
               <div className="rounded-lg p-3 mb-4 flex items-center justify-between border text-sm"
                 style={{
                   backgroundColor: atFoodLimit ? '#FEF3C7' : '#F2F4F3',
@@ -489,8 +465,6 @@ export default function FoodPackages() {
                 )}
               </div>
             </div>
-
-            {/* Category Filter */}
             <div className="flex flex-wrap gap-2 mb-4">
               {categories.map(cat => {
                 const active = category === cat
@@ -511,8 +485,6 @@ export default function FoodPackages() {
                 )
               })}
             </div>
-
-            {/* Food Items List */}
             <div className="space-y-2 mb-4">
               {pagedFoods.map(food => {
                 const itemKey = String(food.id)
@@ -531,7 +503,6 @@ export default function FoodPackages() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-                        {/* Checkbox */}
                         <button
                           onClick={() => { if (canSelect) toggleFood(itemKey) }}
                           disabled={interactionsDisabled || !canSelect}
@@ -547,7 +518,6 @@ export default function FoodPackages() {
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                           )}
                         </button>
-                        {/* Info */}
                         <div style={{ flex: 1 }}>
                           <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1A1A1A', marginBottom: '0.15rem', fontFamily: FONT }}>{food.name}</h4>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
@@ -555,13 +525,10 @@ export default function FoodPackages() {
                             <span style={{ padding: '0.1rem 0.375rem', borderRadius: '0.25rem', backgroundColor: '#F2F4F3', color: '#F5A623', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{food.category}</span>
                           </div>
                         </div>
-                        {/* Stock */}
                         <div style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap' }}>
                           Stock: <strong style={{ color: '#1A1A1A' }}>{food.stock}</strong>
                         </div>
                       </div>
-
-                      {/* Qty controls */}
                       {selected && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <button
@@ -608,11 +575,8 @@ export default function FoodPackages() {
                 No individual food items are available from the backend right now.
               </div>
             )}
-
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2">
-                {/* Prev */}
                 <button
                   onClick={() => { if (page > 1) setPage(page - 1) }}
                   style={{
@@ -628,7 +592,6 @@ export default function FoodPackages() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                   Previous
                 </button>
-                {/* Page numbers */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
                     <button key={n} onClick={() => setPage(n)}
@@ -643,7 +606,6 @@ export default function FoodPackages() {
                     >{n}</button>
                   ))}
                 </div>
-                {/* Next */}
                 <button
                   onClick={() => { if (page < totalPages) setPage(page + 1) }}
                   style={{
@@ -662,8 +624,6 @@ export default function FoodPackages() {
               </div>
             )}
           </div>
-
-          {/* ══════════ SUCCESS SECTION ══════════ */}
           {showSuccess && (
             <div ref={successRef} className="mb-8">
               <div className="rounded-xl p-6 border" style={{ backgroundColor: '#F2F4F3', borderColor: '#E5E7EB' }}>
@@ -705,8 +665,6 @@ export default function FoodPackages() {
               </div>
             </div>
           )}
-
-          {/* ══════════ ACTION BAR ══════════ */}
           {showSuccess ? (
             <div className="flex items-center justify-center py-2">
               <button className="px-8 py-3 rounded-lg font-medium transition-all"

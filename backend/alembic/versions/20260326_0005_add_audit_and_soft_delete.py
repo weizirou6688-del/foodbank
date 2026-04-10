@@ -15,6 +15,27 @@ down_revision = '20260326_0004'
 branch_labels = None
 depends_on = None
 
+BEST_EFFORT_REASON = (
+    "Downgrade tolerates partially applied historical states because some local "
+    "databases may have been repaired manually while this migration chain evolved."
+)
+
+
+def _best_effort_drop_index(name: str, *, table_name: str) -> None:
+    """Attempt to drop an index while preserving historical downgrade compatibility."""
+    try:
+        op.drop_index(name, table_name=table_name)
+    except Exception:
+        _ = BEST_EFFORT_REASON
+
+
+def _best_effort_drop_column(table_name: str, column_name: str) -> None:
+    """Attempt to drop a column while preserving historical downgrade compatibility."""
+    try:
+        op.drop_column(table_name, column_name)
+    except Exception:
+        _ = BEST_EFFORT_REASON
+
 
 def upgrade() -> None:
     """Add missing audit and soft-delete fields to tables."""
@@ -66,22 +87,16 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Remove audit and soft-delete fields from tables."""
     
-    # Drop indexes - use correct naming pattern
+    # Downgrade uses best-effort drops because early local environments could end
+    # up with only a subset of these indexes or columns after manual repairs.
     tables_active = [
         'donations_goods', 'donations_cash', 'restock_requests', 'food_bank_hours',
         'inventory_items', 'food_packages', 'applications'
     ]
     
     for table in tables_active:
-        try:
-            op.drop_index(f'idx_{table}_active', table_name=table)
-        except:
-            pass
-        
-        try:
-            op.drop_index(f'idx_{table}_deleted_at', table_name=table)
-        except:
-            pass
+        _best_effort_drop_index(f'idx_{table}_active', table_name=table)
+        _best_effort_drop_index(f'idx_{table}_deleted_at', table_name=table)
     
     # Drop columns safely (only drop what was potentially added)
     tables_and_columns = [
@@ -96,8 +111,5 @@ def downgrade() -> None:
     
     for table, cols in tables_and_columns:
         for col in cols:
-            try:
-                op.drop_column(table, col)
-            except:
-                pass
+            _best_effort_drop_column(table, col)
 

@@ -400,10 +400,15 @@ export default function LoginModal({
               <div className={styles.demoAccounts}>
                 <h4 className={styles.demoTitle}>Demo accounts:</h4>
                 <ul className={styles.demoList}>
-                  <li className={styles.demoItem}>admin@foodbank.com / admin123</li>
-                  <li className={styles.demoItem}>localadmin@foodbank.com / localadmin123</li>
-                  <li className={styles.demoItem}>supermarket@foodbank.com / supermarket123</li>
-                  <li className={styles.demoItem}>user@example.com / user12345</li>
+                  <li className={styles.demoItem}>Platform Admin: admin@foodbank.com / admin123</li>
+                  <li className={styles.demoItem}>
+                    Local Admin (Downtown Community Food Bank): localadmin@foodbank.com / localadmin123
+                  </li>
+                  <li className={styles.demoItem}>
+                    Local Admin (Westside Food Support Centre): local1admin@foodbank.com / local1admin123
+                  </li>
+                  <li className={styles.demoItem}>Supermarket: supermarket@foodbank.com / supermarket123</li>
+                  <li className={styles.demoItem}>Public User: user@example.com / user12345</li>
                 </ul>
               </div>
             </form>

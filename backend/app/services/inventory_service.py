@@ -39,18 +39,21 @@ async def consume_inventory_lots(
         if remaining <= 0:
             break
 
-        deducted = min(lot.quantity, remaining)
-        lot.quantity -= deducted
+        available = lot.quantity
+        deducted = min(available, remaining)
+        remaining_in_lot = available - deducted
         remaining -= deducted
 
-        if lot.quantity == 0:
+        if remaining_in_lot == 0:
             lot.deleted_at = datetime.now(timezone.utc)
+        else:
+            lot.quantity = remaining_in_lot
 
         consumed_lots.append({
             "item_id": item_id,
             "lot_id": lot.id,
             "quantity_used": deducted,
-            "remaining_in_lot": lot.quantity,
+            "remaining_in_lot": remaining_in_lot,
             "expiry_date": str(lot.expiry_date),
             "batch_reference": lot.batch_reference,
         })

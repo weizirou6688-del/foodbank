@@ -232,6 +232,7 @@ async def test_pack_package_endpoint_fefo_ordering():
     
     # Verify soft-delete of empty lot
     assert lot1.deleted_at is not None
+    assert lot1.quantity == 3
     assert lot2.deleted_at is None
 
 

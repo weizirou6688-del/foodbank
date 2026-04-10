@@ -1162,7 +1162,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Received Date <span style="color:var(--color-error)">*</span></label>
-                            <input type="text" class="form-input" placeholder="YYYY-MM-DD" inputmode="numeric" required>
+                            <input type="text" class="form-input" placeholder="DD/MM/YYYY" inputmode="numeric" required>
                         </div>
                     </div>
 
@@ -1177,7 +1177,7 @@
                                 <option value="uht_milk">UHT Milk</option>
                             </select>
                             <input type="number" class="form-input" min="1" value="1" required>
-                            <input type="text" class="form-input" placeholder="YYYY-MM-DD" inputmode="numeric">
+                            <input type="text" class="form-input" placeholder="DD/MM/YYYY" inputmode="numeric">
                             <button class="btn btn-secondary btn-sm remove-item-btn">Remove</button>
                         </div>
                         <button class="btn btn-secondary btn-sm add-item-btn" style="margin-top: 8px;">+ Add Row</button>
@@ -1232,7 +1232,7 @@
                                 <td>D-20260401-001</td>
                                 <td>Supermarket</td>
                                 <td>Tesco Westminster</td>
-                                <td>2026-04-01</td>
+                                <td>01/04/2026</td>
                                 <td>240</td>
                                 <td>Received</td>
                                 <td>
@@ -1247,7 +1247,7 @@
                                 <td>D-20260401-002</td>
                                 <td>Individual</td>
                                 <td>Alex Scott</td>
-                                <td>2026-04-01</td>
+                                <td>01/04/2026</td>
                                 <td>30</td>
                                 <td>Pending</td>
                                 <td>
@@ -1262,7 +1262,7 @@
                                 <td>D-20260401-003</td>
                                 <td>Organization</td>
                                 <td>Local Community</td>
-                                <td>2026-03-31</td>
+                                <td>31/03/2026</td>
                                 <td>120</td>
                                 <td>Received</td>
                                 <td>
@@ -1277,7 +1277,7 @@
                                 <td>D-20260401-004</td>
                                 <td>Supermarket</td>
                                 <td>Waitrose</td>
-                                <td>2026-03-30</td>
+                                <td>30/03/2026</td>
                                 <td>85</td>
                                 <td>Pending</td>
                                 <td>
@@ -1292,7 +1292,7 @@
                                 <td>D-20260401-005</td>
                                 <td>Individual</td>
                                 <td>Emma Wilson</td>
-                                <td>2026-03-29</td>
+                                <td>29/03/2026</td>
                                 <td>45</td>
                                 <td>Received</td>
                                 <td>
@@ -1370,7 +1370,7 @@
                                     <tr>
                                         <td>Rice</td>
                                         <td>240 bags</td>
-                                        <td>2026-10-01</td>
+                                        <td>01/10/2026</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1453,8 +1453,8 @@
                         <p><strong>Deficit:</strong> 0</p>
                         <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
                             <button class="btn btn-secondary btn-sm edit-item-btn">Edit</button>
-                            <button class="btn btn-secondary btn-sm stock-in-btn">+ Stock</button>
-                            <button class="btn btn-secondary btn-sm delete-item-btn">Delete</button>
+                            <button class="btn btn-primary btn-sm stock-in-btn">+ Stock</button>
+                            <button class="btn btn-danger btn-sm delete-item-btn">Delete</button>
                         </div>
                     </div>
                     <div class="card card-error">
@@ -1465,8 +1465,8 @@
                         <span class="low-stock-notice">Stock is below the safety threshold 鈥?the supermarket has been notified.</span>
                         <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
                             <button class="btn btn-secondary btn-sm edit-item-btn">Edit</button>
-                            <button class="btn btn-secondary btn-sm stock-in-btn">+ Stock</button>
-                            <button class="btn btn-secondary btn-sm delete-item-btn">Delete</button>
+                            <button class="btn btn-primary btn-sm stock-in-btn">+ Stock</button>
+                            <button class="btn btn-danger btn-sm delete-item-btn">Delete</button>
                         </div>
                     </div>
                     <div class="card card-error">
@@ -1477,8 +1477,8 @@
                         <span class="low-stock-notice">Stock is below the safety threshold 鈥?the supermarket has been notified.</span>
                         <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
                             <button class="btn btn-secondary btn-sm edit-item-btn">Edit</button>
-                            <button class="btn btn-secondary btn-sm stock-in-btn">+ Stock</button>
-                            <button class="btn btn-secondary btn-sm delete-item-btn">Delete</button>
+                            <button class="btn btn-primary btn-sm stock-in-btn">+ Stock</button>
+                            <button class="btn btn-danger btn-sm delete-item-btn">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -1540,7 +1540,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Expiry Date</label>
-                            <input type="text" class="form-input" placeholder="YYYY-MM-DD" inputmode="numeric">
+                            <input type="text" class="form-input" placeholder="DD/MM/YYYY" inputmode="numeric">
                         </div>
                     </div>
                     
@@ -1572,7 +1572,7 @@
                     <button class="btn btn-primary" id="new-package-btn">+ New Food Package</button>
                 </div>
 
-                <div class="record-title">Food Package Templates</div>
+                <div class="record-title">Food Package</div>
                 <div class="table-search-wrapper">
                     <svg class="table-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     <input type="text" class="table-search-input" data-card-search-target="package-card-grid" placeholder="Search food packages">
@@ -1839,8 +1839,8 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>UHT Milk</td>
                                 <td>L-20260301</td>
-                                <td>2026-03-01</td>
-                                <td>2026-04-30</td>
+                                <td>01/03/2026</td>
+                                <td>30/04/2026</td>
                                 <td>180</td>
                                 <td>Active</td>
                                 <td>
@@ -1853,8 +1853,8 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>Canned Tomatoes</td>
                                 <td>L-20260201</td>
-                                <td>2026-02-01</td>
-                                <td>2026-04-15</td>
+                                <td>01/02/2026</td>
+                                <td>15/04/2026</td>
                                 <td>220</td>
                                 <td style="color: var(--color-warning); font-weight: 600;">Expiring Soon</td>
                                 <td>
@@ -1868,8 +1868,8 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>Rice</td>
                                 <td>L-20260101</td>
-                                <td>2026-01-01</td>
-                                <td>2026-03-30</td>
+                                <td>01/01/2026</td>
+                                <td>30/03/2026</td>
                                 <td>0</td>
                                 <td style="color: var(--color-error); font-weight: 600;">Expired</td>
                                 <td>
@@ -1882,8 +1882,8 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>Pasta</td>
                                 <td>L-20260215</td>
-                                <td>2026-02-15</td>
-                                <td>2026-08-15</td>
+                                <td>15/02/2026</td>
+                                <td>15/08/2026</td>
                                 <td>150</td>
                                 <td>Active</td>
                                 <td>
@@ -1896,8 +1896,8 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>Canned Beans</td>
                                 <td>L-20260110</td>
-                                <td>2026-01-10</td>
-                                <td>2027-01-10</td>
+                                <td>10/01/2026</td>
+                                <td>10/01/2027</td>
                                 <td>360</td>
                                 <td>Active</td>
                                 <td>
@@ -1945,7 +1945,7 @@
 
                     <div class="form-group">
                         <label class="form-label">Expiry Date</label>
-                        <input type="text" class="form-input" value="2027-03-31" inputmode="numeric">
+                        <input type="text" class="form-input" value="31/03/2027" inputmode="numeric">
                     </div>
                     
                     <div class="editor-actions">
@@ -2003,7 +2003,7 @@
                     <div id="code-verify-result" style="display: none; margin-top: var(--spacing-md); padding: var(--spacing-sm); background-color: #E8F5E9; border-radius: var(--radius-sm);">
                         <p style="font-weight: 600; color: var(--color-success);">Code Valid</p>
                         <p><strong>Package:</strong> Emergency Pantry Pack</p>
-                        <p><strong>Generated At:</strong> 2026-04-01</p>
+                        <p><strong>Generated At:</strong> 01/04/2026</p>
                         <p><strong>Status:</strong> Pending</p>
                     </div>
                     
@@ -2054,7 +2054,7 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>ABC-1234-XYZ</td>
                                 <td>Emergency Pantry Pack</td>
-                                <td>2026-04-01</td>
+                                <td>01/04/2026</td>
                                 <td style="color: var(--color-text-medium); font-weight: 600;">Pending</td>
                                 <td>-</td>
                                 <td>
@@ -2067,9 +2067,9 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>ABC-5678-ABC</td>
                                 <td>Family Dinner Bundle</td>
-                                <td>2026-03-31</td>
+                                <td>31/03/2026</td>
                                 <td style="color: var(--color-success); font-weight: 600;">Redeemed</td>
-                                <td>2026-04-01</td>
+                                <td>01/04/2026</td>
                                 <td>
                                     <div class="table-actions">
                                         <button class="btn btn-sm btn-secondary view-code-btn">View</button>
@@ -2080,7 +2080,7 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>ABC-9012-DEF</td>
                                 <td>Breakfast Starter Pack</td>
-                                <td>2026-03-30</td>
+                                <td>30/03/2026</td>
                                 <td style="color: var(--color-text-medium); font-weight: 600;">Pending</td>
                                 <td>-</td>
                                 <td>
@@ -2093,7 +2093,7 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>ABC-3456-GHI</td>
                                 <td>Emergency Pantry Pack</td>
-                                <td>2026-03-29</td>
+                                <td>29/03/2026</td>
                                 <td style="color: var(--color-error); font-weight: 600;">Void</td>
                                 <td>-</td>
                                 <td>
@@ -2106,9 +2106,9 @@
                                 <td><input type="checkbox" class="row-checkbox"></td>
                                 <td>ABC-7890-JKL</td>
                                 <td>Family Dinner Bundle</td>
-                                <td>2026-03-28</td>
+                                <td>28/03/2026</td>
                                 <td style="color: var(--color-success); font-weight: 600;">Redeemed</td>
-                                <td>2026-03-29</td>
+                                <td>29/03/2026</td>
                                 <td>
                                     <div class="table-actions">
                                         <button class="btn btn-sm btn-secondary view-code-btn">View</button>
@@ -2155,7 +2155,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Redeemed At</label>
-                            <input type="text" class="form-input" value="2026-04-01" disabled>
+                            <input type="text" class="form-input" value="01/04/2026" disabled>
                         </div>
                     </div>
                     

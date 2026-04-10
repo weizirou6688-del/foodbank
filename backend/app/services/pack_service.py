@@ -10,7 +10,7 @@ they call pack_package_transaction to atomically:
 - Log operation (optional)
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,9 +108,9 @@ async def pack_package_transaction(
 
                 available = lot.quantity
                 to_deduct = min(available, remaining_needed)
+                remaining_in_lot = available - to_deduct
 
                 # Deduct from this lot
-                lot.quantity -= to_deduct
                 remaining_needed -= to_deduct
 
                 # Track consumption for response
@@ -118,14 +118,17 @@ async def pack_package_transaction(
                     "item_id": item_id,
                     "lot_id": lot.id,
                     "quantity_used": to_deduct,
-                    "remaining_in_lot": lot.quantity,
+                    "remaining_in_lot": remaining_in_lot,
                     "expiry_date": str(lot.expiry_date),
                     "batch_reference": lot.batch_reference,
                 })
 
-                # Mark empty lots as deleted (soft-delete)
-                if lot.quantity == 0:
-                    lot.deleted_at = datetime.utcnow()
+                # Keep the persisted quantity positive for soft-deleted lots to
+                # satisfy ck_inventory_lots_quantity_positive.
+                if remaining_in_lot == 0:
+                    lot.deleted_at = datetime.now(timezone.utc)
+                else:
+                    lot.quantity = remaining_in_lot
 
             # Verify we had enough stock
             if remaining_needed > 0:
@@ -148,7 +151,7 @@ async def pack_package_transaction(
             "quantity": quantity,
             "new_stock": package.stock,
             "consumed_lots": consumed_lots,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     except ValueError as exc:

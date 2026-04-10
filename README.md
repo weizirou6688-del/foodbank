@@ -129,4 +129,5 @@ In restricted or sandboxed Windows environments, Vite/esbuild can still fail wit
 - Inventory is tracked with lot-based stock internally, while some frontend screens still use compatibility `stock` fields from the API.
 - Some admin reporting widgets are still limited and do not yet cover the full analytics workflow.
 - If local PostgreSQL has been used before, prefer running Alembic against a clean project database rather than reusing a half-initialized schema.
+- For the current live-schema snapshot and drift notes, see [docs/DATABASE_SCHEMA_CURRENT.md](docs/DATABASE_SCHEMA_CURRENT.md).
 - For the full Windows database setup and analytics-data workflow, see [docs/Windows本地数据库与分析数据生成指南_20260329.md](docs/Windows本地数据库与分析数据生成指南_20260329.md).

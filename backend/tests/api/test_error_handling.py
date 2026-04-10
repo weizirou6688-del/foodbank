@@ -10,26 +10,11 @@ Verifies:
 - 500 Internal Server Error: Unhandled exceptions
 """
 
-import json
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-
-client = TestClient(app)
-
-
 # ==================== 400 BAD REQUEST TESTS ====================
 
-def test_validation_error_400_missing_required_field():
+def test_validation_error_400_missing_required_field(api_client):
     """Test 400 error for missing required field in POST request."""
-    response = client.post(
+    response = api_client.post(
         "/api/v1/auth/register",
         json={"email": "test@example.com"}  # Missing 'name' and 'password'
     )
@@ -43,9 +28,9 @@ def test_validation_error_400_missing_required_field():
     assert "name" in str(data["errors"]) or "password" in str(data["errors"])
 
 
-def test_validation_error_400_invalid_email_format():
+def test_validation_error_400_invalid_email_format(api_client):
     """Test 400 error for invalid email format."""
-    response = client.post(
+    response = api_client.post(
         "/api/v1/auth/register",
         json={
             "name": "Test User",
@@ -60,9 +45,9 @@ def test_validation_error_400_invalid_email_format():
     assert "errors" in data
 
 
-def test_validation_error_400_password_too_short():
+def test_validation_error_400_password_too_short(api_client):
     """Test 400 error for password below minimum length."""
-    response = client.post(
+    response = api_client.post(
         "/api/v1/auth/register",
         json={
             "name": "Test User",
@@ -78,18 +63,18 @@ def test_validation_error_400_password_too_short():
 
 # ==================== 401 UNAUTHORIZED TESTS ====================
 
-def test_unauthorized_401_missing_auth_header():
+def test_unauthorized_401_missing_auth_header(api_client):
     """Test 401 error when Authorization header is missing."""
-    response = client.get("/api/v1/auth/me")
+    response = api_client.get("/api/v1/auth/me")
     
     # HTTPBearer dependency returns 403 if header is missing (not 401)
     # Let's verify the response indicates authentication is required
     assert response.status_code in [401, 403]
 
 
-def test_unauthorized_401_invalid_token():
+def test_unauthorized_401_invalid_token(api_client):
     """Test 401 error with invalid token format."""
-    response = client.get(
+    response = api_client.get(
         "/api/v1/auth/me",
         headers={"Authorization": "Bearer invalid.token.here"}
     )
@@ -101,29 +86,29 @@ def test_unauthorized_401_invalid_token():
 
 # ==================== 404 NOT FOUND TESTS ====================
 
-def test_not_found_404_food_bank():
+def test_not_found_404_food_bank(api_client):
     """Test food bank detail failure mode when DB is available or unavailable."""
-    response = client.get("/api/v1/food-banks/99999")
+    response = api_client.get("/api/v1/food-banks/99999")
 
     assert response.status_code in {404, 503}
     data = response.json()
     assert "detail" in data
 
 
-def test_not_found_404_package():
+def test_not_found_404_package(api_client):
     """Test 404 error when accessing resources via REST API."""
     # We skip database tests in this integration test suite
     # They are covered by the unit tests in test_food_packages.py
     # Here we just verify the health endpoint is responsive
-    response = client.get("/health")
+    response = api_client.get("/health")
     assert response.status_code in {200, 503}
 
 
 # ==================== HEALTH CHECK TESTS ====================
 
-def test_health_check_endpoint():
+def test_health_check_endpoint(api_client):
     """Test that health check endpoint reflects database readiness."""
-    response = client.get("/health")
+    response = api_client.get("/health")
 
     assert response.status_code in {200, 503}
     data = response.json()
@@ -136,9 +121,9 @@ def test_health_check_endpoint():
         assert "detail" in data
 
 
-def test_root_endpoint():
+def test_root_endpoint(api_client):
     """Test that root endpoint returns 200 OK."""
-    response = client.get("/")
+    response = api_client.get("/")
     
     assert response.status_code == 200
     data = response.json()
@@ -146,19 +131,19 @@ def test_root_endpoint():
     assert data["message"] == "ABC Community Food Bank API"
 
 
-def test_404_nonexistent_path():
+def test_404_nonexistent_path(api_client):
     """Test that non-existent path returns 404."""
-    response = client.get("/api/v1/nonexistent-endpoint")
+    response = api_client.get("/api/v1/nonexistent-endpoint")
     
     assert response.status_code == 404
 
 
 # ==================== RESPONSE FORMAT TESTS ====================
 
-def test_error_response_format_consistency():
+def test_error_response_format_consistency(api_client):
     """Test that error responses follow consistent JSON format."""
     # Trigger a validation error
-    response = client.post(
+    response = api_client.post(
         "/api/v1/auth/register",
         json={}  # Empty body
     )
@@ -174,9 +159,9 @@ def test_error_response_format_consistency():
         assert isinstance(data["errors"], list)
 
 
-def test_cors_headers_present():
+def test_cors_headers_present(api_client):
     """Test that CORS headers are included in responses."""
-    response = client.get("/health")
+    response = api_client.get("/health")
     
     # Check for CORS headers
     assert "access-control-allow-origin" in response.headers or "content-type" in response.headers

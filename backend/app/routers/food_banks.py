@@ -6,6 +6,7 @@ All functions and router are re-exported from the new location for backward comp
 
 from app.modules.food_banks.router import (
     router,
+    list_food_bank_inventory_items,
     list_food_banks,
     get_food_bank,
     create_food_bank,
@@ -15,6 +16,7 @@ from app.modules.food_banks.router import (
 
 __all__ = [
     "router",
+    "list_food_bank_inventory_items",
     "list_food_banks",
     "get_food_bank",
     "create_food_bank",

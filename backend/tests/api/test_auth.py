@@ -1,9 +1,6 @@
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from fastapi import HTTPException
@@ -15,40 +12,11 @@ from app.models.user import User
 from app.routers.auth import forgot_password, get_profile, login, logout, refresh, register, reset_password
 from app.schemas.auth import ForgotPasswordRequest, LoginRequest, ResetPasswordRequest
 from app.schemas.user import UserCreate
+from tests.support import AsyncBegin, ExecuteResult
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-class _Begin:
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
-class MockScalarResult:
-    def __init__(self, rows):
-        self._rows = [row for row in rows if row is not None]
-
-    def first(self):
-        return self._rows[0] if self._rows else None
-
-    def all(self):
-        return self._rows
-
-
-class MockExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalar_one_or_none(self):
-        return self._rows[0] if self._rows else None
-
-    def scalars(self):
-        return MockScalarResult(self._rows)
 
 
 class FakeSession:
@@ -60,7 +28,7 @@ class FakeSession:
         self.added = []
 
     def begin(self):
-        return _Begin()
+        return AsyncBegin()
 
     async def execute(self, query):
         entity = None
@@ -71,17 +39,17 @@ class FakeSession:
         if entity in self._search_results:
             result = self._search_results[entity]
             if result is None:
-                return MockExecuteResult([])
+                return ExecuteResult([])
             if isinstance(result, list):
-                return MockExecuteResult(result)
-            return MockExecuteResult([result])
+                return ExecuteResult(result)
+            return ExecuteResult([result])
 
         if self._search_result is not None:
-            return MockExecuteResult([self._search_result])
+            return ExecuteResult([self._search_result])
 
         for user in self.users.values():
-            return MockExecuteResult([user])
-        return MockExecuteResult([])
+            return ExecuteResult([user])
+        return ExecuteResult([])
 
     async def scalar(self, query):
         q = str(query)

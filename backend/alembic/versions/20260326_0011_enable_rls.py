@@ -4,11 +4,10 @@ Revision ID: 20260326_0011
 Revises: 20260326_0010
 Create Date: 2026-03-26 00:00:00.000000
 
-OPTIONAL: RLS is optional and requires application layer support.
-This migration is a placeholder for future RLS implementation.
+This revision is intentionally a placeholder. Enabling RLS safely requires
+coordinated application-layer session context and deployment controls that
+were deferred when this migration chain was captured.
 """
-from alembic import op
-import sqlalchemy as sa
 
 
 revision = '20260326_0011'
@@ -16,16 +15,17 @@ down_revision = '20260326_0010'
 branch_labels = None
 depends_on = None
 
+PLACEHOLDER_REASON = (
+    "RLS enablement is deferred until the application sets the required "
+    "database session context consistently in production."
+)
+
 
 def upgrade() -> None:
-    """RLS configuration placeholder (no-op)."""
-    # RLS requires application layer session variable configuration
-    # This is deferred until explicitly enabled in production
-    # To enable RLS in future:
-    # op.execute("ALTER TABLE applications ENABLE ROW LEVEL SECURITY;")
-    pass
-    
+    """Preserve the deferred RLS checkpoint without schema changes."""
+    _ = PLACEHOLDER_REASON
+
 
 def downgrade() -> None:
-    """RLS deactivation (no-op)."""
-    pass
+    """Preserve downgrade traversal for the deferred RLS checkpoint."""
+    _ = PLACEHOLDER_REASON
