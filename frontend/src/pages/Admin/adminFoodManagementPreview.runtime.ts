@@ -258,26 +258,6 @@ export function syncAdminFoodManagementPreviewIframe({
             margin: 0 !important;
           }
 
-          .admin-search-filter-row {
-            max-width: 1000px;
-            margin: 0 auto var(--spacing-sm) auto;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-          }
-
-          .admin-search-filter-row .filter-select {
-            min-width: 220px;
-            flex: 0 0 220px;
-          }
-
-          .admin-search-filter-row .table-search-wrapper {
-            margin: 0;
-            flex: 1 1 320px;
-            min-width: 260px;
-          }
-
           #low-stock .edit-item-btn,
           #low-stock .stock-in-btn,
           #low-stock .delete-item-btn {
@@ -354,35 +334,15 @@ export function syncAdminFoodManagementPreviewIframe({
           }
 
           .admin-scope-empty-card {
-            border: 1px solid #E5E7EB !important;
-            background-color: #FFFFFF !important;
+            border: 1px solid #F5A623 !important;
+            background-color: #F2F4F3 !important;
             color: #1A1A1A !important;
           }
 
           .admin-scope-empty-card h3,
           .admin-scope-empty-card h4 {
             margin: 0;
-            color: #6B7280 !important;
-          }
-
-          .admin-scope-empty-bank-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
-          }
-
-          .admin-scope-empty-bank-chip {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 10px;
-            border-radius: 999px;
-            border: 1px solid #E5E7EB;
-            background-color: #F2F4F3;
-            color: #1A1A1A;
-            font-size: 12px;
-            font-weight: 600;
-            line-height: 1.2;
+            color: #D4870A !important;
           }
 
           .table-search-input:disabled,
@@ -789,32 +749,15 @@ export function syncAdminFoodManagementPreviewIframe({
         return select
       }
 
-      const ensureScopeGuide = (
-        actions: Element | null,
-        guideId: string,
-      ): HTMLElement | null => {
-        if (!isFrameHTMLElement(actions)) {
-          return null
-        }
-
-        let guide = doc.getElementById(guideId) as HTMLElement | null
-        if (!guide) {
-          guide = doc.createElement('div')
-          guide.id = guideId
-          guide.className = 'admin-scope-guide'
-          actions.insertAdjacentElement('afterend', guide)
-        }
-        return guide
-      }
-
       const inventoryActions = doc.querySelector('#low-stock .section-actions')
+      const packageActions = doc.querySelector('#package-management .section-actions')
       const existingInventoryCategoryFilter = inventoryActions?.querySelector('.filter-select') as HTMLSelectElement | null
       if (existingInventoryCategoryFilter) {
         existingInventoryCategoryFilter.id = 'inventory-category-filter'
       }
 
       let inventoryFoodBankFilter: HTMLSelectElement | null = null
-      let inventoryScopeGuide: HTMLElement | null = null
+      let packageFoodBankFilter: HTMLSelectElement | null = null
 
       if (!isLocalFoodBankAdmin) {
         const inventoryCluster = ensureFilterCluster(inventoryActions, 'inventory-scope-filter-cluster')
@@ -826,7 +769,11 @@ export function syncAdminFoodManagementPreviewIframe({
           ensureScopedFilterSelect(inventoryCluster, 'inventory-category-filter')
         }
 
-        inventoryScopeGuide = ensureScopeGuide(inventoryActions, 'inventory-scope-guide')
+        const packageCluster = ensureFilterCluster(packageActions, 'package-scope-filter-cluster')
+        packageFoodBankFilter = ensureScopedFilterSelect(
+          packageCluster,
+          'package-food-bank-filter',
+        )
       }
 
       if (isAuthenticated && accessToken) {
@@ -898,40 +845,9 @@ export function syncAdminFoodManagementPreviewIframe({
         const markWastedConfirmButton = markWastedConfirm?.querySelector('.btn.btn-danger') as HTMLButtonElement | null
         const deleteLotConfirmButton = deleteLotConfirm?.querySelector('.btn.btn-danger') as HTMLButtonElement | null
         const packageGrid = doc.getElementById('package-card-grid')
-        const packageSearchWrapper = doc.querySelector(
-          '#package-management .table-search-wrapper',
-        ) as HTMLElement | null
         const packageSearchInput = doc.querySelector(
           '#package-management .table-search-input',
         ) as HTMLInputElement | null
-        let packageCategoryFilter: HTMLSelectElement | null = null
-        if (
-          isFrameHTMLElement(packageSearchWrapper)
-          && isFrameHTMLElement(packageSearchWrapper.parentElement)
-        ) {
-          let packageSearchRow = doc.getElementById('package-search-filter-row') as HTMLElement | null
-          if (!packageSearchRow) {
-            packageSearchRow = doc.createElement('div')
-            packageSearchRow.id = 'package-search-filter-row'
-            packageSearchRow.className = 'admin-search-filter-row'
-            packageSearchWrapper.parentElement.insertBefore(packageSearchRow, packageSearchWrapper)
-          }
-
-          if (!packageSearchRow.contains(packageSearchWrapper)) {
-            packageSearchRow.appendChild(packageSearchWrapper)
-          }
-
-          packageCategoryFilter = doc.getElementById('package-category-filter') as HTMLSelectElement | null
-          if (!packageCategoryFilter) {
-            packageCategoryFilter = doc.createElement('select')
-            packageCategoryFilter.id = 'package-category-filter'
-            packageCategoryFilter.className = 'filter-select'
-          }
-
-          if (!packageSearchRow.contains(packageCategoryFilter)) {
-            packageSearchRow.insertBefore(packageCategoryFilter, packageSearchWrapper)
-          }
-        }
         const newPackageEditor = doc.getElementById('new-package-editor')
         const editPackageEditor = doc.getElementById('edit-package-editor')
         const packingEditor = doc.getElementById('packing-editor')
@@ -1032,19 +948,6 @@ export function syncAdminFoodManagementPreviewIframe({
             .sort((left, right) => left.localeCompare(right))
         }
 
-        const getPackageFilterCategories = (): string[] => {
-          const targetFoodBankId = getTargetCreationFoodBankId()
-          const sourcePackages = isLocalFoodBankAdmin || !targetFoodBankId
-            ? packageTemplates
-            : packageTemplates.filter((pkg) => pkg.food_bank_id === targetFoodBankId)
-
-          return Array.from(new Set(sourcePackages.map((pkg) => pkg.category)))
-            .filter((category) =>
-              packageCategoryOptions.includes(category as (typeof packageCategoryOptions)[number]),
-            )
-            .sort((left, right) => left.localeCompare(right))
-        }
-
         const syncScopedFilterSelections = () => {
           const selectedFoodBankId = getTargetCreationFoodBankId()
           const selectedFoodBankValue = selectedFoodBankId ? String(selectedFoodBankId) : ''
@@ -1068,6 +971,7 @@ export function syncAdminFoodManagementPreviewIframe({
 
           if (!isLocalFoodBankAdmin) {
             setFoodBankOptions(inventoryFoodBankFilter)
+            setFoodBankOptions(packageFoodBankFilter)
           }
 
           if (inventoryCategoryFilter) {
@@ -1088,22 +992,6 @@ export function syncAdminFoodManagementPreviewIframe({
             inventoryCategoryFilter.value = categories.includes(previousValue) ? previousValue : ''
           }
 
-          if (packageCategoryFilter) {
-            const categories = getPackageFilterCategories()
-            const previousValue = packageCategoryFilter.value
-            packageCategoryFilter.innerHTML = `
-              <option value="">All Categories</option>
-              ${categories
-                .map(
-                  (category) =>
-                    `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`,
-                )
-                .join('')}
-            `
-            packageCategoryFilter.disabled = false
-            packageCategoryFilter.value = categories.includes(previousValue) ? previousValue : ''
-          }
-
           if (inventorySearchInput) {
             inventorySearchInput.disabled = !selectedFoodBankId && !isLocalFoodBankAdmin
             inventorySearchInput.placeholder = selectedFoodBankId || isLocalFoodBankAdmin
@@ -1116,15 +1004,6 @@ export function syncAdminFoodManagementPreviewIframe({
             packageSearchInput.placeholder = selectedFoodBankId || isLocalFoodBankAdmin
               ? 'Search food packages'
               : 'Choose a food bank to browse food packages'
-          }
-
-          if (inventoryScopeGuide) {
-            inventoryScopeGuide.classList.toggle('is-selected', Boolean(selectedFoodBankId))
-            inventoryScopeGuide.hidden = !selectedFoodBankId
-            inventoryScopeGuide.style.display = selectedFoodBankId ? 'block' : 'none'
-            inventoryScopeGuide.textContent = selectedFoodBankId
-              ? `Viewing stock for ${getFoodBankLabel(selectedFoodBankId)}`
-              : ''
           }
         }
 
@@ -1553,21 +1432,9 @@ export function syncAdminFoodManagementPreviewIframe({
 
           const selectedFoodBankId = getTargetCreationFoodBankId()
           if (!isLocalFoodBankAdmin && !selectedFoodBankId) {
-            const visibleFoodBankHints = availableFoodBanks
-              .slice(0, 4)
-              .map(
-                (bank) => `<span class="admin-scope-empty-bank-chip">${escapeHtml(bank.name)}</span>`,
-              )
-              .join('')
-            const moreFoodBanksMarkup = availableFoodBanks.length > 4
-              ? `<span class="admin-scope-empty-bank-chip">+${availableFoodBanks.length - 4} more</span>`
-              : ''
             packageGrid.innerHTML = `
               <div class="card admin-scope-empty-card">
                 <h3 style="font-size: 18px; font-weight: 700;">Choose a food bank to view food packages</h3>
-                ${visibleFoodBankHints || moreFoodBanksMarkup
-                  ? `<div class="admin-scope-empty-bank-list">${visibleFoodBankHints}${moreFoodBanksMarkup}</div>`
-                  : ''}
               </div>
             `
             return
@@ -1722,7 +1589,6 @@ export function syncAdminFoodManagementPreviewIframe({
 
         const getFilteredPackages = (): FoodPackageDetailRecord[] => {
           const selectedFoodBankId = getTargetCreationFoodBankId()
-          const categoryFilter = packageCategoryFilter?.value?.trim() || ''
           const keyword = packageSearchInput?.value ?? ''
           return packageTemplates.filter((pkg) => {
             if (!isLocalFoodBankAdmin) {
@@ -1732,9 +1598,6 @@ export function syncAdminFoodManagementPreviewIframe({
               if (pkg.food_bank_id !== selectedFoodBankId) {
                 return false
               }
-            }
-            if (categoryFilter && pkg.category !== categoryFilter) {
-              return false
             }
             const contents = pkg.package_items
               .map((item) => `${item.inventory_item_name} x${item.quantity}`)
@@ -1789,85 +1652,23 @@ export function syncAdminFoodManagementPreviewIframe({
           XLSX.writeFile(workbook, filename)
         }
 
-        const reloadPackageData = async () => {
+        const loadPackageTemplatesWithFallback = async (
+          candidateBankIds: number[],
+        ): Promise<FoodPackageDetailRecord[]> => {
           try {
-            let bankIds: number[] = []
-            let nextInventoryItems: AdminInventoryItemRecord[] = []
-            let nextLotRecords: InventoryLotRecord[] = []
+            const packageResponse = await adminAPI.listFoodPackages(accessToken)
+            return Array.isArray(packageResponse)
+              ? packageResponse as FoodPackageDetailRecord[]
+              : []
+          } catch {
+            const bankIds = Array.from(
+              new Set(
+                candidateBankIds.filter((bankId) => Number.isFinite(bankId) && bankId > 0),
+              ),
+            )
 
-            if (isLocalFoodBankAdmin) {
-              const [inventoryResponse, lotResponse] = await Promise.all([
-                adminAPI.getInventoryItems(accessToken),
-                adminAPI.getInventoryLots(accessToken, true),
-              ])
-
-              availableFoodBanks =
-                adminScope.foodBankId != null && Number.isFinite(adminScope.foodBankId) && adminScope.foodBankId > 0
-                  ? [{
-                      id: adminScope.foodBankId,
-                      name: adminScope.foodBankName ?? `Food Bank #${adminScope.foodBankId}`,
-                    }]
-                  : []
-              bankIds =
-                adminScope.foodBankId != null && Number.isFinite(adminScope.foodBankId) && adminScope.foodBankId > 0
-                  ? [adminScope.foodBankId]
-                  : []
-
-              nextInventoryItems = Array.isArray(inventoryResponse.items)
-                ? inventoryResponse.items.map((item) => ({
-                    ...item,
-                    id: Number(item.id),
-                    stock: Number(item.stock ?? 0),
-                    total_stock: Number(item.total_stock ?? item.stock ?? 0),
-                    threshold: Number(item.threshold ?? 0),
-                  }))
-                : []
-              nextLotRecords = Array.isArray(lotResponse)
-                ? lotResponse.map((lot) => ({
-                    ...lot,
-                    id: Number(lot.id),
-                    inventory_item_id: Number(lot.inventory_item_id),
-                    quantity: Number(lot.quantity ?? 0),
-                    expiry_date: extractIsoDate(String(lot.expiry_date)),
-                    received_date: extractIsoDate(String(lot.received_date)),
-                  }))
-                : []
-            } else {
-              const [foodBankResponse, inventoryResponse, lotResponse] = await Promise.all([
-                foodBanksAPI.getFoodBanks(),
-                adminAPI.getInventoryItems(accessToken),
-                adminAPI.getInventoryLots(accessToken, true),
-              ])
-
-              availableFoodBanks = (Array.isArray(foodBankResponse.items) ? foodBankResponse.items : [])
-                .map((bank) => ({
-                  id: Number(bank.id),
-                  name: bank.name,
-                  address: bank.address,
-                }))
-                .filter((bank) => Number.isFinite(bank.id) && bank.id > 0)
-
-              bankIds = availableFoodBanks.map((bank) => bank.id)
-
-              nextInventoryItems = Array.isArray(inventoryResponse.items)
-                ? inventoryResponse.items.map((item) => ({
-                    ...item,
-                    id: Number(item.id),
-                    stock: Number(item.stock ?? 0),
-                    total_stock: Number(item.total_stock ?? item.stock ?? 0),
-                    threshold: Number(item.threshold ?? 0),
-                  }))
-                : []
-              nextLotRecords = Array.isArray(lotResponse)
-                ? lotResponse.map((lot) => ({
-                    ...lot,
-                    id: Number(lot.id),
-                    inventory_item_id: Number(lot.inventory_item_id),
-                    quantity: Number(lot.quantity ?? 0),
-                    expiry_date: extractIsoDate(String(lot.expiry_date)),
-                    received_date: extractIsoDate(String(lot.received_date)),
-                  }))
-                : []
+            if (bankIds.length === 0) {
+              return []
             }
 
             const packageLists = await Promise.all(
@@ -1901,13 +1702,116 @@ export function syncAdminFoodManagementPreviewIframe({
               }),
             )
 
+            return packageDetails
+          }
+        }
+
+        const reloadPackageData = async () => {
+          try {
+            let nextInventoryItems: AdminInventoryItemRecord[] = []
+            let nextLotRecords: InventoryLotRecord[] = []
+            let nextPackageTemplates: FoodPackageDetailRecord[] = []
+
+            if (isLocalFoodBankAdmin) {
+              const [inventoryResponse, lotResponse] = await Promise.all([
+                adminAPI.getInventoryItems(accessToken),
+                adminAPI.getInventoryLots(accessToken, true),
+              ])
+
+              availableFoodBanks =
+                adminScope.foodBankId != null && Number.isFinite(adminScope.foodBankId) && adminScope.foodBankId > 0
+                  ? [{
+                      id: adminScope.foodBankId,
+                      name: adminScope.foodBankName ?? `Food Bank #${adminScope.foodBankId}`,
+                    }]
+                  : []
+
+              nextInventoryItems = Array.isArray(inventoryResponse.items)
+                ? inventoryResponse.items.map((item) => ({
+                    ...item,
+                    id: Number(item.id),
+                    stock: Number(item.stock ?? 0),
+                    total_stock: Number(item.total_stock ?? item.stock ?? 0),
+                    threshold: Number(item.threshold ?? 0),
+                  }))
+                : []
+              nextLotRecords = Array.isArray(lotResponse)
+                ? lotResponse.map((lot) => ({
+                    ...lot,
+                    id: Number(lot.id),
+                    inventory_item_id: Number(lot.inventory_item_id),
+                    quantity: Number(lot.quantity ?? 0),
+                    expiry_date: extractIsoDate(String(lot.expiry_date)),
+                    received_date: extractIsoDate(String(lot.received_date)),
+                  }))
+                : []
+              nextPackageTemplates = await loadPackageTemplatesWithFallback(
+                adminScope.foodBankId != null && Number.isFinite(adminScope.foodBankId) && adminScope.foodBankId > 0
+                  ? [adminScope.foodBankId]
+                  : [],
+              )
+            } else {
+              const [foodBankResponse, inventoryResponse, lotResponse] = await Promise.all([
+                foodBanksAPI.getFoodBanks(),
+                adminAPI.getInventoryItems(accessToken),
+                adminAPI.getInventoryLots(accessToken, true),
+              ])
+
+              nextInventoryItems = Array.isArray(inventoryResponse.items)
+                ? inventoryResponse.items.map((item) => ({
+                    ...item,
+                    id: Number(item.id),
+                    stock: Number(item.stock ?? 0),
+                    total_stock: Number(item.total_stock ?? item.stock ?? 0),
+                    threshold: Number(item.threshold ?? 0),
+                  }))
+                : []
+              nextLotRecords = Array.isArray(lotResponse)
+                ? lotResponse.map((lot) => ({
+                    ...lot,
+                    id: Number(lot.id),
+                    inventory_item_id: Number(lot.inventory_item_id),
+                    quantity: Number(lot.quantity ?? 0),
+                    expiry_date: extractIsoDate(String(lot.expiry_date)),
+                    received_date: extractIsoDate(String(lot.received_date)),
+                  }))
+                : []
+              nextPackageTemplates = await loadPackageTemplatesWithFallback(
+                (Array.isArray(foodBankResponse.items) ? foodBankResponse.items : [])
+                  .map((bank) => Number(bank.id))
+                  .filter((bankId) => Number.isFinite(bankId) && bankId > 0),
+              )
+
+              const bankIdsInScopedData = new Set<number>()
+              for (const item of nextInventoryItems) {
+                const bankId = Number(item.food_bank_id)
+                if (Number.isFinite(bankId) && bankId > 0) {
+                  bankIdsInScopedData.add(bankId)
+                }
+              }
+              for (const pkg of nextPackageTemplates) {
+                const bankId = Number(pkg.food_bank_id)
+                if (Number.isFinite(bankId) && bankId > 0) {
+                  bankIdsInScopedData.add(bankId)
+                }
+              }
+
+              availableFoodBanks = (Array.isArray(foodBankResponse.items) ? foodBankResponse.items : [])
+                .map((bank) => ({
+                  id: Number(bank.id),
+                  name: bank.name,
+                  address: bank.address,
+                }))
+                .filter((bank) => Number.isFinite(bank.id) && bank.id > 0 && bankIdsInScopedData.has(bank.id))
+            }
+
             if (isCancelled) {
               return
             }
 
             inventoryItems = nextInventoryItems
             lotRecords = nextLotRecords
-            packageTemplates = packageDetails
+            packageTemplates = nextPackageTemplates
               .map((pkg) => ({
                 ...pkg,
                 id: Number(pkg.id),
@@ -2879,11 +2783,6 @@ export function syncAdminFoodManagementPreviewIframe({
           packageSearchInput.addEventListener('input', handlePackageSearch)
           cleanupFns.push(() => packageSearchInput.removeEventListener('input', handlePackageSearch))
         }
-        if (packageCategoryFilter) {
-          const handlePackageCategoryChange = () => renderPackageGrid()
-          packageCategoryFilter.addEventListener('change', handlePackageCategoryChange)
-          cleanupFns.push(() => packageCategoryFilter.removeEventListener('change', handlePackageCategoryChange))
-        }
         const bindScopedFoodBankFilter = (select: HTMLSelectElement | null) => {
           if (!select) {
             return
@@ -2900,6 +2799,7 @@ export function syncAdminFoodManagementPreviewIframe({
           cleanupFns.push(() => select.removeEventListener('change', handleScopedFoodBankChange))
         }
         bindScopedFoodBankFilter(inventoryFoodBankFilter)
+        bindScopedFoodBankFilter(packageFoodBankFilter)
         if (inventoryCategoryFilter) {
           const handleInventoryCategoryChange = () => renderInventoryGrid()
           inventoryCategoryFilter.addEventListener('change', handleInventoryCategoryChange)

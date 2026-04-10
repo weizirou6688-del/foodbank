@@ -17,6 +17,9 @@ class ScalarResult:
     def __init__(self, rows):
         self._rows = [row for row in rows if row is not None]
 
+    def unique(self):
+        return self
+
     def all(self):
         return self._rows
 
@@ -30,6 +33,9 @@ class ScalarResult:
 class ExecuteResult:
     def __init__(self, rows):
         self._rows = rows
+
+    def unique(self):
+        return self
 
     def scalars(self):
         return ScalarResult(self._rows)

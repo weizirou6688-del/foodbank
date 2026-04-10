@@ -6,6 +6,7 @@ from app.models.inventory_item import InventoryItem
 from app.models.package_item import PackageItem
 from app.routers.food_packages import (
     list_packages_for_bank,
+    list_admin_packages,
     get_package_details,
     create_package,
     update_package,
@@ -85,6 +86,42 @@ async def test_list_packages_for_bank_returns_rows():
 
     assert len(result) == 1
     assert result[0].name == "Family Pack"
+
+
+@pytest.mark.asyncio
+async def test_list_admin_packages_returns_scoped_rows():
+    pkg = FoodPackage(
+        id=1,
+        name="Family Pack",
+        category="Family Bundle",
+        stock=10,
+        threshold=5,
+        applied_count=0,
+        food_bank_id=1,
+        is_active=True,
+        created_at=utcnow(),
+    )
+    db = FakeSession(execute_rows_seq=[[pkg]])
+
+    result = await list_admin_packages(admin_user={"role": "admin"}, db=db)
+
+    assert len(result) == 1
+    assert result[0].name == "Family Pack"
+
+
+@pytest.mark.asyncio
+async def test_list_admin_packages_rejects_foreign_food_bank_for_local_admin():
+    db = FakeSession()
+
+    with pytest.raises(HTTPException) as exc:
+        await list_admin_packages(
+            food_bank_id=2,
+            admin_user={"role": "admin", "food_bank_id": 1},
+            db=db,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "You can only view packages for your assigned food bank"
 
 
 @pytest.mark.asyncio

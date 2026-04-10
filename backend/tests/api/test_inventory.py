@@ -76,7 +76,13 @@ async def test_list_inventory_returns_rows():
     )
     db = FakeSession(execute_rows_seq=[[item]], scalar_values=[10])
 
-    result = await list_inventory(food_bank_id=1, admin_user={"role": "admin"}, db=db)
+    result = await list_inventory(
+        food_bank_id=1,
+        category=None,
+        search=None,
+        admin_user={"role": "admin"},
+        db=db,
+    )
 
     assert len(result["items"]) == 1
     assert result["items"][0].name == "Rice"

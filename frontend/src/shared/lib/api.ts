@@ -6,6 +6,20 @@ import type {
 } from '@/shared/types/common'
 import { apiClient } from './apiClient'
 
+const buildQueryString = (params: Record<string, string | number | boolean | null | undefined>) => {
+  const searchParams = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') {
+      continue
+    }
+    searchParams.set(key, String(value))
+  }
+
+  const query = searchParams.toString()
+  return query ? `?${query}` : ''
+}
+
 export interface CashDonationResponse {
   id: string
   donor_name?: string | null
@@ -381,6 +395,24 @@ export const adminAPI = {
   getStockGap: (token: string) =>
     apiClient.get('/api/v1/stats/stock-gap', token),
 
+  listFoodPackages: (
+    token: string,
+    filters?: {
+      foodBankId?: number | string
+      category?: string
+      search?: string
+      includeInactive?: boolean
+    }
+  ) => apiClient.get<FoodPackageDetailRecord[]>(
+    `/api/v1/packages${buildQueryString({
+      food_bank_id: filters?.foodBankId,
+      category: filters?.category,
+      search: filters?.search,
+      include_inactive: filters?.includeInactive,
+    })}`,
+    token,
+  ),
+
   getFoodPackages: (token: string) =>
     apiClient.get('/api/v1/stats/packages', token),
 
@@ -416,8 +448,21 @@ export const adminAPI = {
     token: string
   ) => apiClient.post<PackPackageResponse>(`/api/v1/packages/${id}/pack`, { quantity }, token),
 
-  getInventoryItems: (token: string) =>
-    apiClient.get<InventoryItemListResponse>('/api/v1/inventory', token),
+  getInventoryItems: (
+    token: string,
+    filters?: {
+      foodBankId?: number | string
+      category?: string
+      search?: string
+    }
+  ) => apiClient.get<InventoryItemListResponse>(
+    `/api/v1/inventory${buildQueryString({
+      food_bank_id: filters?.foodBankId,
+      category: filters?.category,
+      search: filters?.search,
+    })}`,
+    token,
+  ),
 
   createInventoryItem: (
     data: InventoryItemMutationPayload,
