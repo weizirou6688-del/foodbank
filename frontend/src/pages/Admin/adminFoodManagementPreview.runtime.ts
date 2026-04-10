@@ -258,6 +258,26 @@ export function syncAdminFoodManagementPreviewIframe({
             margin: 0 !important;
           }
 
+          .admin-search-filter-row {
+            max-width: 1000px;
+            margin: 0 auto var(--spacing-sm) auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+          }
+
+          .admin-search-filter-row .filter-select {
+            min-width: 220px;
+            flex: 0 0 220px;
+          }
+
+          .admin-search-filter-row .table-search-wrapper {
+            margin: 0;
+            flex: 1 1 320px;
+            min-width: 260px;
+          }
+
           #low-stock .edit-item-btn,
           #low-stock .stock-in-btn,
           #low-stock .delete-item-btn {
@@ -334,15 +354,35 @@ export function syncAdminFoodManagementPreviewIframe({
           }
 
           .admin-scope-empty-card {
-            border: 1px solid #F5A623 !important;
-            background-color: #F2F4F3 !important;
+            border: 1px solid #E5E7EB !important;
+            background-color: #FFFFFF !important;
             color: #1A1A1A !important;
           }
 
           .admin-scope-empty-card h3,
           .admin-scope-empty-card h4 {
             margin: 0;
-            color: #D4870A !important;
+            color: #6B7280 !important;
+          }
+
+          .admin-scope-empty-bank-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+          }
+
+          .admin-scope-empty-bank-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid #E5E7EB;
+            background-color: #F2F4F3;
+            color: #1A1A1A;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.2;
           }
 
           .table-search-input:disabled,
@@ -532,7 +572,54 @@ export function syncAdminFoodManagementPreviewIframe({
         Array.from(doc.querySelectorAll(`#${tbodyId} .row-checkbox:checked`))
           .map((checkbox) => checkbox.closest('tr')?.getAttribute('data-id') || '')
           .filter(Boolean)
-      const safeSearch = (value: string): string => value.trim().toLowerCase()
+      const isSubsequenceMatch = (needle: string, haystack: string): boolean => {
+        if (!needle) {
+          return true
+        }
+
+        let cursor = 0
+        for (const char of haystack) {
+          if (char === needle[cursor]) {
+            cursor += 1
+            if (cursor === needle.length) {
+              return true
+            }
+          }
+        }
+
+        return false
+      }
+      const matchesLooseSearch = (
+        keyword: string,
+        values: Array<string | number | null | undefined>,
+      ): boolean => {
+        const normalizedKeyword = normalizeLooseText(keyword)
+        if (!normalizedKeyword) {
+          return true
+        }
+
+        const normalizedHaystack = values
+          .map((value) => normalizeLooseText(String(value ?? '')))
+          .filter(Boolean)
+          .join(' ')
+
+        if (!normalizedHaystack) {
+          return false
+        }
+
+        if (normalizedHaystack.includes(normalizedKeyword)) {
+          return true
+        }
+
+        const tokens = normalizedKeyword.split(/\s+/).filter(Boolean)
+        if (tokens.length > 1 && tokens.every((token) => normalizedHaystack.includes(token))) {
+          return true
+        }
+
+        const compactKeyword = normalizedKeyword.replace(/\s+/g, '')
+        const compactHaystack = normalizedHaystack.replace(/\s+/g, '')
+        return compactKeyword.length >= 3 && isSubsequenceMatch(compactKeyword, compactHaystack)
+      }
 
       const adminTag = doc.querySelector('.admin-tag')
       if (isFrameHTMLElement(adminTag)) {
@@ -811,9 +898,40 @@ export function syncAdminFoodManagementPreviewIframe({
         const markWastedConfirmButton = markWastedConfirm?.querySelector('.btn.btn-danger') as HTMLButtonElement | null
         const deleteLotConfirmButton = deleteLotConfirm?.querySelector('.btn.btn-danger') as HTMLButtonElement | null
         const packageGrid = doc.getElementById('package-card-grid')
+        const packageSearchWrapper = doc.querySelector(
+          '#package-management .table-search-wrapper',
+        ) as HTMLElement | null
         const packageSearchInput = doc.querySelector(
           '#package-management .table-search-input',
         ) as HTMLInputElement | null
+        let packageCategoryFilter: HTMLSelectElement | null = null
+        if (
+          isFrameHTMLElement(packageSearchWrapper)
+          && isFrameHTMLElement(packageSearchWrapper.parentElement)
+        ) {
+          let packageSearchRow = doc.getElementById('package-search-filter-row') as HTMLElement | null
+          if (!packageSearchRow) {
+            packageSearchRow = doc.createElement('div')
+            packageSearchRow.id = 'package-search-filter-row'
+            packageSearchRow.className = 'admin-search-filter-row'
+            packageSearchWrapper.parentElement.insertBefore(packageSearchRow, packageSearchWrapper)
+          }
+
+          if (!packageSearchRow.contains(packageSearchWrapper)) {
+            packageSearchRow.appendChild(packageSearchWrapper)
+          }
+
+          packageCategoryFilter = doc.getElementById('package-category-filter') as HTMLSelectElement | null
+          if (!packageCategoryFilter) {
+            packageCategoryFilter = doc.createElement('select')
+            packageCategoryFilter.id = 'package-category-filter'
+            packageCategoryFilter.className = 'filter-select'
+          }
+
+          if (!packageSearchRow.contains(packageCategoryFilter)) {
+            packageSearchRow.insertBefore(packageCategoryFilter, packageSearchWrapper)
+          }
+        }
         const newPackageEditor = doc.getElementById('new-package-editor')
         const editPackageEditor = doc.getElementById('edit-package-editor')
         const packingEditor = doc.getElementById('packing-editor')
@@ -914,6 +1032,19 @@ export function syncAdminFoodManagementPreviewIframe({
             .sort((left, right) => left.localeCompare(right))
         }
 
+        const getPackageFilterCategories = (): string[] => {
+          const targetFoodBankId = getTargetCreationFoodBankId()
+          const sourcePackages = isLocalFoodBankAdmin || !targetFoodBankId
+            ? packageTemplates
+            : packageTemplates.filter((pkg) => pkg.food_bank_id === targetFoodBankId)
+
+          return Array.from(new Set(sourcePackages.map((pkg) => pkg.category)))
+            .filter((category) =>
+              packageCategoryOptions.includes(category as (typeof packageCategoryOptions)[number]),
+            )
+            .sort((left, right) => left.localeCompare(right))
+        }
+
         const syncScopedFilterSelections = () => {
           const selectedFoodBankId = getTargetCreationFoodBankId()
           const selectedFoodBankValue = selectedFoodBankId ? String(selectedFoodBankId) : ''
@@ -957,6 +1088,22 @@ export function syncAdminFoodManagementPreviewIframe({
             inventoryCategoryFilter.value = categories.includes(previousValue) ? previousValue : ''
           }
 
+          if (packageCategoryFilter) {
+            const categories = getPackageFilterCategories()
+            const previousValue = packageCategoryFilter.value
+            packageCategoryFilter.innerHTML = `
+              <option value="">All Categories</option>
+              ${categories
+                .map(
+                  (category) =>
+                    `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`,
+                )
+                .join('')}
+            `
+            packageCategoryFilter.disabled = false
+            packageCategoryFilter.value = categories.includes(previousValue) ? previousValue : ''
+          }
+
           if (inventorySearchInput) {
             inventorySearchInput.disabled = !selectedFoodBankId && !isLocalFoodBankAdmin
             inventorySearchInput.placeholder = selectedFoodBankId || isLocalFoodBankAdmin
@@ -973,9 +1120,11 @@ export function syncAdminFoodManagementPreviewIframe({
 
           if (inventoryScopeGuide) {
             inventoryScopeGuide.classList.toggle('is-selected', Boolean(selectedFoodBankId))
+            inventoryScopeGuide.hidden = !selectedFoodBankId
+            inventoryScopeGuide.style.display = selectedFoodBankId ? 'block' : 'none'
             inventoryScopeGuide.textContent = selectedFoodBankId
               ? `Viewing stock for ${getFoodBankLabel(selectedFoodBankId)}`
-              : 'Choose a food bank before reviewing item stock'
+              : ''
           }
         }
 
@@ -1404,9 +1553,21 @@ export function syncAdminFoodManagementPreviewIframe({
 
           const selectedFoodBankId = getTargetCreationFoodBankId()
           if (!isLocalFoodBankAdmin && !selectedFoodBankId) {
+            const visibleFoodBankHints = availableFoodBanks
+              .slice(0, 4)
+              .map(
+                (bank) => `<span class="admin-scope-empty-bank-chip">${escapeHtml(bank.name)}</span>`,
+              )
+              .join('')
+            const moreFoodBanksMarkup = availableFoodBanks.length > 4
+              ? `<span class="admin-scope-empty-bank-chip">+${availableFoodBanks.length - 4} more</span>`
+              : ''
             packageGrid.innerHTML = `
               <div class="card admin-scope-empty-card">
                 <h3 style="font-size: 18px; font-weight: 700;">Choose a food bank to view food packages</h3>
+                ${visibleFoodBankHints || moreFoodBanksMarkup
+                  ? `<div class="admin-scope-empty-bank-list">${visibleFoodBankHints}${moreFoodBanksMarkup}</div>`
+                  : ''}
               </div>
             `
             return
@@ -1475,7 +1636,7 @@ export function syncAdminFoodManagementPreviewIframe({
         const getFilteredDonations = (): DonationListRow[] => {
           const donorTypeFilter = donationFilterSelects[0]?.value ?? ''
           const statusFilter = donationFilterSelects[1]?.value ?? ''
-          const keyword = safeSearch(donationSearchInput?.value ?? '')
+          const keyword = donationSearchInput?.value ?? ''
 
           return donations.filter((row) => {
             const donorType = inferDonationDonorType(row)
@@ -1485,25 +1646,21 @@ export function syncAdminFoodManagementPreviewIframe({
             if (statusFilter && (row.status ?? 'pending') !== statusFilter) {
               return false
             }
-            if (!keyword) {
-              return true
-            }
-            const haystack = [
+            return matchesLooseSearch(keyword, [
               buildDonationDisplayId(row),
               row.donor_name ?? '',
               row.donor_email ?? '',
               row.notes ?? '',
               donorTypeLabelMap[donorType],
               donationStatusLabel(row.status),
-            ]
-              .join(' ')
-              .toLowerCase()
-            return haystack.includes(keyword)
+              buildDonationTotalLabel(row),
+              formatUkDate(row.pickup_date || row.created_at),
+            ])
           })
         }
 
         const getFilteredLots = (): InventoryLotRecord[] => {
-          const keyword = safeSearch(lotSearchInput?.value ?? '')
+          const keyword = lotSearchInput?.value ?? ''
           const categoryFilter = lotFilterSelects[0]?.value?.trim() || ''
           const statusFilter = lotFilterSelects[1]?.value?.trim() || ''
 
@@ -1524,27 +1681,22 @@ export function syncAdminFoodManagementPreviewIframe({
               }
             }
 
-            if (!keyword) {
-              return true
-            }
-
-            return [
+            return matchesLooseSearch(keyword, [
               lot.item_name,
               getLotReference(lot),
               formatUkDate(lot.received_date),
               formatUkDate(lot.expiry_date),
               displayStatus,
-            ]
-              .join(' ')
-              .toLowerCase()
-              .includes(keyword)
+              item?.category ?? '',
+              lot.quantity,
+            ])
           })
         }
 
         const getFilteredInventoryItems = (): AdminInventoryItemRecord[] => {
           const selectedFoodBankId = getTargetCreationFoodBankId()
           const categoryFilter = inventoryCategoryFilter?.value?.trim() || ''
-          const keyword = safeSearch(inventorySearchInput?.value ?? '')
+          const keyword = inventorySearchInput?.value ?? ''
           return inventoryItems.filter((item) => {
             if (!isLocalFoodBankAdmin) {
               if (!selectedFoodBankId) {
@@ -1557,19 +1709,21 @@ export function syncAdminFoodManagementPreviewIframe({
             if (categoryFilter && item.category !== categoryFilter) {
               return false
             }
-            if (!keyword) {
-              return true
-            }
-            return [item.name, item.category, item.unit, getFoodBankLabel(item.food_bank_id)]
-              .join(' ')
-              .toLowerCase()
-              .includes(keyword)
+            return matchesLooseSearch(keyword, [
+              item.name,
+              item.category,
+              item.unit,
+              getFoodBankLabel(item.food_bank_id),
+              item.total_stock,
+              item.threshold,
+            ])
           })
         }
 
         const getFilteredPackages = (): FoodPackageDetailRecord[] => {
           const selectedFoodBankId = getTargetCreationFoodBankId()
-          const keyword = safeSearch(packageSearchInput?.value ?? '')
+          const categoryFilter = packageCategoryFilter?.value?.trim() || ''
+          const keyword = packageSearchInput?.value ?? ''
           return packageTemplates.filter((pkg) => {
             if (!isLocalFoodBankAdmin) {
               if (!selectedFoodBankId) {
@@ -1579,42 +1733,34 @@ export function syncAdminFoodManagementPreviewIframe({
                 return false
               }
             }
-            if (!keyword) {
-              return true
+            if (categoryFilter && pkg.category !== categoryFilter) {
+              return false
             }
             const contents = pkg.package_items
               .map((item) => `${item.inventory_item_name} x${item.quantity}`)
               .join(' ')
-            return [
+            return matchesLooseSearch(keyword, [
               pkg.name,
               pkg.category,
               buildPackageDescription(pkg),
               contents,
               getFoodBankLabel(pkg.food_bank_id),
-            ]
-              .join(' ')
-              .toLowerCase()
-              .includes(keyword)
+            ])
           })
         }
 
         const getFilteredCodes = (): AdminApplicationRecord[] => {
-          const keyword = safeSearch(codeSearchInput?.value ?? '')
+          const keyword = codeSearchInput?.value ?? ''
           return applications.filter((record) => {
-            if (!keyword) {
-              return true
-            }
             const statusMeta = getCodeStatusMeta(record)
-            const haystack = [
+            return matchesLooseSearch(keyword, [
               record.redemption_code,
               record.package_name ?? '',
               statusMeta.label,
               formatUkDate(record.created_at),
               formatUkDate(record.redeemed_at),
-            ]
-              .join(' ')
-              .toLowerCase()
-            return haystack.includes(keyword)
+              record.status ?? '',
+            ])
           })
         }
 
@@ -2087,11 +2233,7 @@ export function syncAdminFoodManagementPreviewIframe({
 
           const selectedFoodBankId = getTargetCreationFoodBankId()
           if (!isLocalFoodBankAdmin && !selectedFoodBankId) {
-            inventoryCardGrid.innerHTML = `
-              <div class="card admin-scope-empty-card">
-                <h4>Choose a food bank to review item stock</h4>
-              </div>
-            `
+            inventoryCardGrid.innerHTML = ''
             return
           }
 
@@ -2736,6 +2878,11 @@ export function syncAdminFoodManagementPreviewIframe({
           const handlePackageSearch = () => renderPackageGrid()
           packageSearchInput.addEventListener('input', handlePackageSearch)
           cleanupFns.push(() => packageSearchInput.removeEventListener('input', handlePackageSearch))
+        }
+        if (packageCategoryFilter) {
+          const handlePackageCategoryChange = () => renderPackageGrid()
+          packageCategoryFilter.addEventListener('change', handlePackageCategoryChange)
+          cleanupFns.push(() => packageCategoryFilter.removeEventListener('change', handlePackageCategoryChange))
         }
         const bindScopedFoodBankFilter = (select: HTMLSelectElement | null) => {
           if (!select) {
