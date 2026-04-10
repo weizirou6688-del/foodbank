@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -191,22 +191,41 @@ async def _serialize_inventory_item(db: AsyncSession, item: InventoryItem) -> In
 @router.get("", response_model=InventoryItemListResponse)
 async def list_inventory(
     food_bank_id: int | None = None,
+    category: str | None = Query(None, min_length=1, max_length=100),
+    search: str | None = Query(None, min_length=1, max_length=200),
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    normalized_food_bank_id = food_bank_id if isinstance(food_bank_id, int) else None
+    normalized_category = category.strip() if isinstance(category, str) and category.strip() else None
+    normalized_search = search.strip() if isinstance(search, str) and search.strip() else ""
+
     query = select(InventoryItem).order_by(InventoryItem.updated_at.desc())
 
     admin_food_bank_id = get_admin_food_bank_id(admin_user)
-    if food_bank_id is not None:
+    if normalized_food_bank_id is not None:
         if admin_food_bank_id is not None:
             enforce_admin_food_bank_scope(
                 admin_user,
-                food_bank_id,
+                normalized_food_bank_id,
                 detail="You can only view inventory for your assigned food bank",
             )
-        query = query.where(InventoryItem.food_bank_id == food_bank_id)
+        query = query.where(InventoryItem.food_bank_id == normalized_food_bank_id)
     else:
         query = _apply_inventory_scope(query, admin_user)
+
+    if normalized_category is not None:
+        query = query.where(InventoryItem.category == normalized_category)
+
+    if normalized_search:
+        search_pattern = f"%{normalized_search}%"
+        query = query.where(
+            or_(
+                InventoryItem.name.ilike(search_pattern),
+                InventoryItem.category.ilike(search_pattern),
+                InventoryItem.unit.ilike(search_pattern),
+            )
+        )
 
     result = await db.execute(query)
     items = list(result.scalars().all())
