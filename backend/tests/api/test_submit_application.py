@@ -1,9 +1,5 @@
 import uuid
 from datetime import date
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from fastapi import HTTPException
@@ -11,46 +7,34 @@ from fastapi import HTTPException
 from app.models.application import Application
 from app.models.application_item import ApplicationItem
 from app.models.food_package import FoodPackage
+from app.models.inventory_item import InventoryItem
 from app.routers.applications import submit_application
 from app.schemas.application import ApplicationCreate, ApplicationItemCreatePayload
-
-
-class _Begin:
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
+from tests.support import AsyncBegin, ExecuteResult
 
 
 class FakeSession:
-    def __init__(self, *, existing_week_total, packages, recipe_package_ids=None, unique_code_exists=False):
+    def __init__(
+        self,
+        *,
+        existing_week_total,
+        packages,
+        inventory_items=None,
+        existing_inventory_item_ids=None,
+        recipe_package_ids=None,
+        unique_code_exists=False,
+    ):
         self._existing_week_total = existing_week_total
         self._packages = packages
+        self._inventory_items = inventory_items or {}
+        self._existing_inventory_item_ids = list(existing_inventory_item_ids or [])
         self._recipe_package_ids = list(recipe_package_ids or [])
         self._unique_code_exists = unique_code_exists
         self.added = []
         self._scalar_calls = 0
-        self._execute_calls = 0
 
     def begin(self):
-        return _Begin()
+        return AsyncBegin()
 
     async def scalar(self, _query):
         self._scalar_calls += 1
@@ -64,12 +48,16 @@ class FakeSession:
         return None
 
     async def execute(self, _query):
-        self._execute_calls += 1
-        if self._execute_calls == 1:
-            return _ExecuteResult(list(self._packages.values()))
-        if self._execute_calls == 2:
-            return _ExecuteResult(self._recipe_package_ids)
-        return _ExecuteResult([])
+        query_text = str(_query)
+        if "FROM application_items" in query_text or "from application_items" in query_text:
+            return ExecuteResult(self._existing_inventory_item_ids)
+        if "FROM food_packages" in query_text or "from food_packages" in query_text:
+            return ExecuteResult(list(self._packages.values()))
+        if "SELECT package_items.package_id" in query_text or "select package_items.package_id" in query_text:
+            return ExecuteResult(self._recipe_package_ids)
+        if "FROM inventory_items" in query_text or "from inventory_items" in query_text:
+            return ExecuteResult(list(self._inventory_items.values()))
+        return ExecuteResult([])
 
     def add(self, obj):
         self.added.append(obj)
@@ -298,3 +286,37 @@ async def test_submit_application_rejects_package_without_recipe():
 
     assert exc.value.status_code == 400
     assert exc.value.detail == "Package 1 cannot be applied for because it has no configured contents"
+
+
+@pytest.mark.asyncio
+async def test_submit_application_rejects_inventory_items_from_other_food_bank():
+    inventory_item = InventoryItem(
+        id=11,
+        name="Rice",
+        category="Grains & Pasta",
+        unit="bags",
+        threshold=10,
+        food_bank_id=20,
+    )
+    db = FakeSession(
+        existing_week_total=0,
+        packages={},
+        inventory_items={11: inventory_item},
+        existing_inventory_item_ids=[],
+    )
+
+    application_in = ApplicationCreate(
+        food_bank_id=10,
+        week_start=date(2026, 3, 16),
+        items=[ApplicationItemCreatePayload(inventory_item_id=11, quantity=1)],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await submit_application(
+            application_in=application_in,
+            current_user={"sub": str(uuid.uuid4())},
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Provided food_bank_id does not match selected inventory items"

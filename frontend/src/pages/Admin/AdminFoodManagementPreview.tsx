@@ -27,6 +27,9 @@ const referenceScript = Array.from(
   .map((match: RegExpMatchArray) => match[1]?.trim() ?? '')
   .filter(Boolean)
   .join('\n')
+const safeReferenceScript = referenceScript
+  .replace(/document\.getElementById\(([^)]+)\)\.addEventListener/g, 'document.getElementById($1)?.addEventListener')
+  .replace(/document\.querySelector\(([^)]+)\)\.addEventListener/g, 'document.querySelector($1)?.addEventListener')
 
 const donorTypeLabelMap = {
   supermarket: 'Supermarket',
@@ -94,6 +97,12 @@ interface InventoryLotRecord {
   deleted_at?: string | null
 }
 
+interface ScopedFoodBankOption {
+  id: number
+  name: string
+  address?: string | null
+}
+
 const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, '&amp;')
@@ -109,7 +118,93 @@ const normalizeLooseText = (value: string): string =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 
-const formatIsoDate = (value?: string | null): string => (value ? value.slice(0, 10) : '-')
+const buildIsoDate = (year: number, month: number, day: number): string | null => {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return null
+  }
+
+  const candidate = new Date(Date.UTC(year, month - 1, day))
+  if (
+    candidate.getUTCFullYear() !== year
+    || candidate.getUTCMonth() !== month - 1
+    || candidate.getUTCDate() !== day
+  ) {
+    return null
+  }
+
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+const extractIsoDate = (value?: string | null): string => {
+  const trimmed = value?.trim() || ''
+  if (!trimmed) {
+    return ''
+  }
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (isoMatch) {
+    return buildIsoDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])) || ''
+  }
+
+  const ukMatch = trimmed.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/)
+  if (ukMatch) {
+    return buildIsoDate(Number(ukMatch[3]), Number(ukMatch[2]), Number(ukMatch[1])) || ''
+  }
+
+  return ''
+}
+
+const formatUkDate = (value?: string | null): string => {
+  const isoDate = extractIsoDate(value)
+  if (!isoDate) {
+    return '-'
+  }
+
+  const [year, month, day] = isoDate.split('-')
+  return `${day}/${month}/${year}`
+}
+
+const formatUkDateInput = (value?: string | null): string => {
+  const isoDate = extractIsoDate(value)
+  if (!isoDate) {
+    return ''
+  }
+
+  const [year, month, day] = isoDate.split('-')
+  return `${day}/${month}/${year}`
+}
+
+const parseUkDateInput = (value: string): string | null => {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const ukMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (!ukMatch) {
+    return null
+  }
+
+  return buildIsoDate(Number(ukMatch[3]), Number(ukMatch[2]), Number(ukMatch[1]))
+}
+
+const normalizeAdminDonationPhone = (value?: string | null): string => {
+  const digits = (value ?? '').replace(/\D/g, '')
+  return digits.length === 11 ? digits : '00000000000'
+}
+
+const getDaysUntilDate = (value?: string | null): number | null => {
+  const isoDate = extractIsoDate(value)
+  if (!isoDate) {
+    return null
+  }
+
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const targetUtc = Date.UTC(year, month - 1, day)
+  const now = new Date()
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.ceil((targetUtc - todayUtc) / (1000 * 60 * 60 * 24))
+}
 
 const formatMoney = (amountPence?: number): string =>
   `${'\u00A3'}${((amountPence ?? 0) / 100).toFixed(2)}`
@@ -159,7 +254,7 @@ const donationStatusLabel = (status?: string): string => {
 }
 
 const buildDonationDisplayId = (row: DonationListRow): string => {
-  const dateToken = formatIsoDate(row.pickup_date || row.created_at).replace(/-/g, '') || '00000000'
+  const dateToken = extractIsoDate(row.pickup_date || row.created_at).replace(/-/g, '') || '00000000'
   return `D-${dateToken}-${row.id.slice(-4).toUpperCase()}`
 }
 
@@ -256,10 +351,135 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         return parent.querySelector('input, select, textarea')
       }
 
-      if (referenceScript && doc.body && doc.body.dataset.foodManagementScriptInjected !== 'true') {
+      const normalizeLabelText = (value: string): string =>
+        value.replace(/\*/g, '').replace(/\s+/g, ' ').trim()
+
+      const replaceIsoDateTokens = (value: string): string =>
+        value.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (match, year, month, day) => {
+          const isoDate = buildIsoDate(Number(year), Number(month), Number(day))
+          return isoDate ? formatUkDate(isoDate) : match
+        })
+
+      const normalizePreviewDateText = (root: ParentNode | null | undefined = doc.body) => {
+        if (!root || !frameWindow?.NodeFilter) {
+          return
+        }
+
+        const walker = doc.createTreeWalker(
+          root,
+          frameWindow.NodeFilter.SHOW_TEXT,
+          {
+            acceptNode: (node) => {
+              const parent = node.parentElement
+              if (!parent) {
+                return frameWindow.NodeFilter.FILTER_REJECT
+              }
+
+              const tagName = parent.tagName.toLowerCase()
+              if (tagName === 'script' || tagName === 'style' || tagName === 'textarea') {
+                return frameWindow.NodeFilter.FILTER_REJECT
+              }
+
+              return /\b\d{4}-\d{2}-\d{2}\b/.test(node.textContent ?? '')
+                ? frameWindow.NodeFilter.FILTER_ACCEPT
+                : frameWindow.NodeFilter.FILTER_SKIP
+            },
+          },
+        )
+
+        const nodesToUpdate: Text[] = []
+        let currentNode = walker.nextNode()
+        while (currentNode) {
+          nodesToUpdate.push(currentNode as Text)
+          currentNode = walker.nextNode()
+        }
+
+        for (const node of nodesToUpdate) {
+          const nextText = replaceIsoDateTokens(node.textContent ?? '')
+          if (nextText !== node.textContent) {
+            node.textContent = nextText
+          }
+        }
+      }
+
+      const normalizePreviewDateInputs = (root: ParentNode | null | undefined = doc.body) => {
+        if (!root) {
+          return
+        }
+
+        const inputs = Array.from(root.querySelectorAll('input')) as HTMLInputElement[]
+        for (const input of inputs) {
+          const labelText = normalizeLabelText(
+            input.parentElement?.querySelector('.form-label')?.textContent ?? '',
+          )
+          const currentValue = input.value.trim()
+          const isoDate = extractIsoDate(currentValue)
+          const isDateField =
+            labelText.endsWith('Date')
+            || labelText === 'Redeemed At'
+            || input.placeholder.includes('YYYY-MM-DD')
+            || input.placeholder.includes('DD/MM/YYYY')
+            || Boolean(isoDate)
+
+          if (!isDateField) {
+            continue
+          }
+
+          input.type = 'text'
+          input.placeholder = 'DD/MM/YYYY'
+          if (!input.disabled) {
+            input.inputMode = 'numeric'
+          }
+
+          if (isoDate) {
+            const formattedValue = formatUkDateInput(isoDate)
+            if (formattedValue) {
+              input.value = formattedValue
+            }
+          }
+        }
+      }
+
+      const normalizeLowStockButtonStyles = () => {
+        const classMap: Array<[string, string]> = [
+          ['#low-stock #new-item-btn', 'btn btn-primary'],
+          ['#low-stock .edit-item-btn', 'btn btn-secondary btn-sm edit-item-btn'],
+          ['#low-stock .stock-in-btn', 'btn btn-primary btn-sm stock-in-btn'],
+          ['#low-stock .delete-item-btn', 'btn btn-danger btn-sm delete-item-btn'],
+        ]
+
+        for (const [selector, className] of classMap) {
+          doc.querySelectorAll(selector).forEach((element) => {
+            if (isFrameHTMLElement(element)) {
+              element.className = className
+              if (selector === '#low-stock .edit-item-btn') {
+                element.style.backgroundColor = '#f5f5f5'
+                element.style.color = '#000000'
+                element.style.border = '1px solid var(--color-border)'
+              } else if (selector === '#low-stock .stock-in-btn') {
+                element.style.backgroundColor = 'var(--color-primary)'
+                element.style.color = 'var(--color-text-dark)'
+                element.style.border = 'none'
+              } else if (selector === '#low-stock .delete-item-btn') {
+                element.style.backgroundColor = 'var(--color-error)'
+                element.style.color = '#ffffff'
+                element.style.border = 'none'
+              }
+            }
+          })
+        }
+      }
+
+      const normalizePreviewFormatting = (root: ParentNode | null | undefined = doc.body) => {
+        normalizePreviewDateText(root)
+        normalizePreviewDateInputs(root)
+        normalizeLowStockButtonStyles()
+      }
+
+      if (safeReferenceScript && doc.body && doc.body.dataset.foodManagementScriptInjected !== 'true') {
         const script = doc.createElement('script')
         script.type = 'text/javascript'
-        script.text = `${referenceScript}\ndocument.dispatchEvent(new Event('DOMContentLoaded'));`
+        script.text = `${safeReferenceScript}\ndocument.dispatchEvent(new Event('DOMContentLoaded'));`
         doc.body.appendChild(script)
         doc.body.dataset.foodManagementScriptInjected = 'true'
       }
@@ -338,9 +558,48 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           .record-header .record-title {
             margin: 0 !important;
           }
+
+          #low-stock .edit-item-btn,
+          #low-stock .stock-in-btn,
+          #low-stock .delete-item-btn {
+            font-weight: 600 !important;
+          }
+
+          #low-stock .edit-item-btn {
+            background-color: #f5f5f5 !important;
+            color: #000000 !important;
+            border: 1px solid var(--color-border) !important;
+          }
+
+          #low-stock .edit-item-btn:hover {
+            background-color: #ebebeb !important;
+            border-color: #d4d4d4 !important;
+          }
+
+          #low-stock .stock-in-btn {
+            background-color: var(--color-primary) !important;
+            color: var(--color-text-dark) !important;
+            border: none !important;
+          }
+
+          #low-stock .stock-in-btn:hover {
+            background-color: var(--color-primary-dark) !important;
+          }
+
+          #low-stock .delete-item-btn {
+            background-color: var(--color-error) !important;
+            color: #ffffff !important;
+            border: none !important;
+          }
+
+          #low-stock .delete-item-btn:hover {
+            background-color: #b71c1c !important;
+          }
         `
         doc.head.appendChild(style)
       }
+
+      normalizePreviewFormatting()
 
       if (!doc.getElementById('delete-package-confirm')) {
         const packageContainer = doc.querySelector('#package-management .container')
@@ -737,6 +996,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         const batchReceiveDonationsButton = doc.getElementById('batch-receive-donations') as HTMLButtonElement | null
 
         let packageBankId: number | null = null
+        let availableFoodBanks: ScopedFoodBankOption[] = []
         let packageTemplates: FoodPackageDetailRecord[] = []
         let inventoryItems: AdminInventoryItemRecord[] = []
         let lotRecords: InventoryLotRecord[] = []
@@ -760,6 +1020,111 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
         const getInventoryItemById = (itemId: number): AdminInventoryItemRecord | null =>
           inventoryItems.find((entry) => entry.id === itemId) ?? null
+
+        const isValidScopedFoodBankId = (foodBankId: number | null | undefined): foodBankId is number =>
+          Number.isFinite(foodBankId)
+          && Number(foodBankId) > 0
+          && availableFoodBanks.some((bank) => bank.id === Number(foodBankId))
+
+        const getFoodBankLabel = (foodBankId: number | null | undefined): string => {
+          if (isValidScopedFoodBankId(foodBankId)) {
+            return availableFoodBanks.find((bank) => bank.id === Number(foodBankId))?.name
+              ?? `Food Bank #${Number(foodBankId)}`
+          }
+          return 'Unassigned food bank'
+        }
+
+        const getTargetCreationFoodBankId = (): number | null => {
+          if (isLocalFoodBankAdmin) {
+            return adminScope.foodBankId ?? null
+          }
+          return isValidScopedFoodBankId(packageBankId) ? packageBankId : null
+        }
+
+        const getEditorFoodBankId = (editor: HTMLElement | null): number | null => {
+          if (editor === editPackageEditor) {
+            const packageId = Number(editPackageEditor?.getAttribute('data-package-id') || editingPackageId || '0')
+            const scopedPackage = getPackageById(packageId)
+            return scopedPackage?.food_bank_id == null ? null : Number(scopedPackage.food_bank_id)
+          }
+          return getTargetCreationFoodBankId()
+        }
+
+        const getScopedInventoryItems = (foodBankId: number | null | undefined): AdminInventoryItemRecord[] => {
+          if (!isValidScopedFoodBankId(foodBankId)) {
+            return []
+          }
+
+          return inventoryItems.filter((item) => item.food_bank_id === Number(foodBankId))
+        }
+
+        const ensureCreationFoodBankField = (
+          editor: HTMLElement | null,
+        ): HTMLSelectElement | null => {
+          if (!editor) {
+            return null
+          }
+
+          const fieldId = `${editor.id}-food-bank-field`
+          const existingField = doc.getElementById(fieldId)
+          if (isLocalFoodBankAdmin) {
+            existingField?.remove()
+            return null
+          }
+
+          let wrapper = existingField as HTMLElement | null
+          if (!wrapper) {
+            wrapper = doc.createElement('div')
+            wrapper.id = fieldId
+            wrapper.className = 'form-group'
+            wrapper.innerHTML = `
+              <label class="form-label">Food Bank</label>
+              <select class="form-select"></select>
+            `
+
+            const firstGroup = editor.querySelector('.form-group')
+            if (isFrameHTMLElement(firstGroup)) {
+              firstGroup.insertAdjacentElement('beforebegin', wrapper)
+            } else {
+              editor.querySelector('.editor-header')?.insertAdjacentElement('afterend', wrapper)
+            }
+          }
+
+          const select = wrapper.querySelector('select') as HTMLSelectElement | null
+          if (!select) {
+            return null
+          }
+
+          const selectedFoodBankId = getTargetCreationFoodBankId()
+          select.innerHTML = `
+            <option value="">${availableFoodBanks.length > 0 ? 'Choose a food bank' : 'No food banks available'}</option>
+            ${availableFoodBanks
+              .map(
+                (bank) =>
+                  `<option value="${bank.id}"${bank.id === selectedFoodBankId ? ' selected' : ''}>${escapeHtml(bank.name)}</option>`,
+              )
+              .join('')}
+          `
+          select.disabled = availableFoodBanks.length === 0
+          select.value = selectedFoodBankId ? String(selectedFoodBankId) : ''
+          select.onchange = () => {
+            const nextFoodBankId = Number(select.value || '0')
+            packageBankId = isValidScopedFoodBankId(nextFoodBankId) ? nextFoodBankId : null
+            ensureCreationFoodBankField(newItemEditor)
+            ensureCreationFoodBankField(newPackageEditor)
+
+            if (editor === newPackageEditor) {
+              setPackageItemRows(
+                newPackageEditor,
+                newPackageTemplateRow,
+                [],
+                getTargetCreationFoodBankId(),
+              )
+            }
+          }
+
+          return select
+        }
 
         const buildPackageDescription = (pkg: FoodPackageDetailRecord): string => {
           const category = pkg.category as (typeof packageCategoryOptions)[number]
@@ -789,12 +1154,14 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         const setInventoryItemOptions = (
           select: HTMLSelectElement | null,
           selectedItemId?: number | null,
+          foodBankId?: number | null,
         ) => {
           if (!select) {
             return
           }
 
-          const optionMarkup = inventoryItems
+          const selectableItems = getScopedInventoryItems(foodBankId)
+          const optionMarkup = selectableItems
             .map(
               (item) =>
                 `<option value="${item.id}"${item.id === selectedItemId ? ' selected' : ''}>${escapeHtml(item.name)}</option>`,
@@ -803,7 +1170,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
           select.innerHTML = `<option value="">Select item</option>${optionMarkup}`
 
-          if (selectedItemId && !inventoryItems.some((item) => item.id === selectedItemId)) {
+          if (selectedItemId && !selectableItems.some((item) => item.id === selectedItemId)) {
             const missingOption = doc.createElement('option')
             missingOption.value = String(selectedItemId)
             missingOption.textContent = `Item #${selectedItemId}`
@@ -821,6 +1188,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
         const createPackageItemRow = (
           templateRow: HTMLElement | null,
           draft?: Partial<PackageDraftRow>,
+          foodBankId?: number | null,
         ): HTMLElement | null => {
           if (!templateRow) {
             return null
@@ -829,7 +1197,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           const row = templateRow.cloneNode(true) as HTMLElement
           const select = row.querySelector('select') as HTMLSelectElement | null
           const quantityInput = row.querySelector('input[type="number"]') as HTMLInputElement | null
-          setInventoryItemOptions(select, draft?.item_id ?? null)
+          setInventoryItemOptions(select, draft?.item_id ?? null, foodBankId)
           if (quantityInput) {
             quantityInput.value = String(draft?.quantity && draft.quantity > 0 ? draft.quantity : 1)
           }
@@ -840,6 +1208,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           editor: HTMLElement | null,
           templateRow: HTMLElement | null,
           drafts: PackageDraftRow[],
+          foodBankId?: number | null,
         ) => {
           if (!editor || !templateRow) {
             return
@@ -853,14 +1222,17 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           editor.querySelectorAll('.package-item-row').forEach((row) => row.remove())
           const rowsToRender = drafts.length > 0 ? drafts : [{ item_id: 0, quantity: 1 }]
           rowsToRender.forEach((draft) => {
-            const row = createPackageItemRow(templateRow, draft)
+            const row = createPackageItemRow(templateRow, draft, foodBankId)
             if (row) {
               addButton.parentElement?.insertBefore(row, addButton)
             }
           })
         }
 
-        const refreshPackageEditorSelects = (editor: HTMLElement | null) => {
+        const refreshPackageEditorSelects = (
+          editor: HTMLElement | null,
+          foodBankId?: number | null,
+        ) => {
           if (!editor) {
             return
           }
@@ -868,7 +1240,11 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           editor.querySelectorAll('.package-item-row').forEach((row) => {
             const select = row.querySelector('select') as HTMLSelectElement | null
             const selectedItemId = Number(select?.value || '0')
-            setInventoryItemOptions(select, selectedItemId > 0 ? selectedItemId : null)
+            setInventoryItemOptions(
+              select,
+              selectedItemId > 0 ? selectedItemId : null,
+              foodBankId,
+            )
           })
         }
 
@@ -972,7 +1348,11 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             ${packageTemplates
               .map(
                 (pkg) =>
-                  `<option value="${pkg.id}"${pkg.id === packingPackageId ? ' selected' : ''}>${escapeHtml(pkg.name)}</option>`,
+                  `<option value="${pkg.id}"${pkg.id === packingPackageId ? ' selected' : ''}>${escapeHtml(
+                    !isLocalFoodBankAdmin
+                      ? `${pkg.name} (${getFoodBankLabel(pkg.food_bank_id)})`
+                      : pkg.name,
+                  )}</option>`,
               )
               .join('')}
           `
@@ -988,6 +1368,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           }
 
           editingPackageId = null
+          ensureCreationFoodBankField(newPackageEditor)
           const title = newPackageEditor.querySelector('.editor-title')
           const nameField = getModalField(newPackageEditor, 'Package Name') as HTMLInputElement | null
           const categoryField = getModalField(newPackageEditor, 'Category') as HTMLSelectElement | null
@@ -1002,7 +1383,12 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           if (thresholdField) {
             thresholdField.value = '0'
           }
-          setPackageItemRows(newPackageEditor, newPackageTemplateRow, [])
+          setPackageItemRows(
+            newPackageEditor,
+            newPackageTemplateRow,
+            [],
+            getTargetCreationFoodBankId(),
+          )
         }
 
         const prepareEditPackageEditor = (pkg: FoodPackageDetailRecord) => {
@@ -1033,6 +1419,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
               item_id: item.inventory_item_id,
               quantity: item.quantity,
             })),
+            pkg.food_bank_id == null ? null : Number(pkg.food_bank_id),
           )
         }
 
@@ -1102,11 +1489,15 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                       <button class="btn btn-danger btn-sm delete-package-btn" data-package-id="${pkg.id}">Delete</button>
                     </div>
                   `
+              const bankSummary = !isLocalFoodBankAdmin
+                ? `<p style="color: var(--color-text-light); font-size: 12px; margin-bottom: 8px;">Food Bank: ${escapeHtml(getFoodBankLabel(pkg.food_bank_id))}</p>`
+                : ''
 
               return `
                 <div class="card" data-package-id="${pkg.id}">
                   <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 4px;">${escapeHtml(pkg.name)}</h3>
                   <p style="color: var(--color-text-light); font-size: 13px; margin-bottom: var(--spacing-sm);">${escapeHtml(buildPackageDescription(pkg))}</p>
+                  ${bankSummary}
                   <div style="margin-bottom: var(--spacing-sm);">
                     ${itemMarkup}
                   </div>
@@ -1181,8 +1572,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             return [
               lot.item_name,
               getLotReference(lot),
-              formatIsoDate(lot.received_date),
-              formatIsoDate(lot.expiry_date),
+              formatUkDate(lot.received_date),
+              formatUkDate(lot.expiry_date),
               displayStatus,
             ]
               .join(' ')
@@ -1201,7 +1592,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             if (!keyword) {
               return true
             }
-            return [item.name, item.category, item.unit]
+            return [item.name, item.category, item.unit, getFoodBankLabel(item.food_bank_id)]
               .join(' ')
               .toLowerCase()
               .includes(keyword)
@@ -1217,7 +1608,13 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             const contents = pkg.package_items
               .map((item) => `${item.inventory_item_name} x${item.quantity}`)
               .join(' ')
-            return [pkg.name, pkg.category, buildPackageDescription(pkg), contents]
+            return [
+              pkg.name,
+              pkg.category,
+              buildPackageDescription(pkg),
+              contents,
+              getFoodBankLabel(pkg.food_bank_id),
+            ]
               .join(' ')
               .toLowerCase()
               .includes(keyword)
@@ -1235,8 +1632,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
               record.redemption_code,
               record.package_name ?? '',
               statusMeta.label,
-              formatIsoDate(record.created_at),
-              formatIsoDate(record.redeemed_at),
+              formatUkDate(record.created_at),
+              formatUkDate(record.redeemed_at),
             ]
               .join(' ')
               .toLowerCase()
@@ -1281,6 +1678,13 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                 adminAPI.getInventoryLots(accessToken, true),
               ])
 
+              availableFoodBanks =
+                adminScope.foodBankId != null && Number.isFinite(adminScope.foodBankId) && adminScope.foodBankId > 0
+                  ? [{
+                      id: adminScope.foodBankId,
+                      name: adminScope.foodBankName ?? `Food Bank #${adminScope.foodBankId}`,
+                    }]
+                  : []
               bankIds =
                 adminScope.foodBankId != null && Number.isFinite(adminScope.foodBankId) && adminScope.foodBankId > 0
                   ? [adminScope.foodBankId]
@@ -1301,8 +1705,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                     id: Number(lot.id),
                     inventory_item_id: Number(lot.inventory_item_id),
                     quantity: Number(lot.quantity ?? 0),
-                    expiry_date: formatIsoDate(String(lot.expiry_date)),
-                    received_date: formatIsoDate(String(lot.received_date)),
+                    expiry_date: extractIsoDate(String(lot.expiry_date)),
+                    received_date: extractIsoDate(String(lot.received_date)),
                   }))
                 : []
             } else {
@@ -1312,9 +1716,15 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                 adminAPI.getInventoryLots(accessToken, true),
               ])
 
-              bankIds = (Array.isArray(foodBankResponse.items) ? foodBankResponse.items : [])
-                .map((bank) => Number(bank.id))
-                .filter((bankId) => Number.isFinite(bankId) && bankId > 0)
+              availableFoodBanks = (Array.isArray(foodBankResponse.items) ? foodBankResponse.items : [])
+                .map((bank) => ({
+                  id: Number(bank.id),
+                  name: bank.name,
+                  address: bank.address,
+                }))
+                .filter((bank) => Number.isFinite(bank.id) && bank.id > 0)
+
+              bankIds = availableFoodBanks.map((bank) => bank.id)
 
               nextInventoryItems = Array.isArray(inventoryResponse.items)
                 ? inventoryResponse.items.map((item) => ({
@@ -1331,8 +1741,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                     id: Number(lot.id),
                     inventory_item_id: Number(lot.inventory_item_id),
                     quantity: Number(lot.quantity ?? 0),
-                    expiry_date: formatIsoDate(String(lot.expiry_date)),
-                    received_date: formatIsoDate(String(lot.received_date)),
+                    expiry_date: extractIsoDate(String(lot.expiry_date)),
+                    received_date: extractIsoDate(String(lot.received_date)),
                   }))
                 : []
             }
@@ -1392,7 +1802,13 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                   : [],
               }))
               .sort((left, right) => left.id - right.id)
-            packageBankId = packageTemplates[0]?.food_bank_id ?? bankIds[0] ?? adminScope.foodBankId ?? null
+            packageBankId = isLocalFoodBankAdmin
+              ? adminScope.foodBankId ?? null
+              : isValidScopedFoodBankId(packageBankId)
+                ? packageBankId
+                : availableFoodBanks.length === 1
+                  ? availableFoodBanks[0].id
+                  : null
 
             const newPackageCategoryField = newPackageEditor
               ? (getModalField(newPackageEditor, 'Category') as HTMLSelectElement | null)
@@ -1406,6 +1822,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             const editItemCategoryField = editItemEditor
               ? (getModalField(editItemEditor, 'Category') as HTMLSelectElement | null)
               : null
+            ensureCreationFoodBankField(newItemEditor)
+            ensureCreationFoodBankField(newPackageEditor)
             setPackageCategoryOptions(newPackageCategoryField, newPackageCategoryField?.value || packageCategoryOptions[0])
             setPackageCategoryOptions(editPackageCategoryField, editPackageCategoryField?.value || packageCategoryOptions[0])
             setInventoryCategoryOptions(inventoryCategoryFilter, { includeAll: true, selected: inventoryCategoryFilter?.value || '' })
@@ -1428,13 +1846,14 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
               `
               lotFilterSelects[1].value = selectedStatus
             }
-            refreshPackageEditorSelects(newPackageEditor)
-            refreshPackageEditorSelects(editPackageEditor)
+            refreshPackageEditorSelects(newPackageEditor, getTargetCreationFoodBankId())
+            refreshPackageEditorSelects(editPackageEditor, getEditorFoodBankId(editPackageEditor))
             syncPackingSelectOptions()
             renderPackingStockCheck()
             renderPackageGrid()
             renderInventoryGrid()
             renderLotTable(true)
+            normalizePreviewFormatting()
           } catch (error) {
             if (isCancelled) {
               return
@@ -1457,7 +1876,11 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             if (addButton) {
               event.preventDefault()
               event.stopImmediatePropagation()
-              const row = createPackageItemRow(templateRow, { quantity: 1 })
+              const row = createPackageItemRow(
+                templateRow,
+                { quantity: 1 },
+                getEditorFoodBankId(editor),
+              )
               if (row && addButton.parentElement) {
                 addButton.parentElement.insertBefore(row, addButton)
               }
@@ -1476,7 +1899,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             if (rows.length <= 1) {
               const select = currentRow?.querySelector('select') as HTMLSelectElement | null
               const quantityInput = currentRow?.querySelector('input[type="number"]') as HTMLInputElement | null
-              setInventoryItemOptions(select, null)
+              setInventoryItemOptions(select, null, getEditorFoodBankId(editor))
               if (quantityInput) {
                 quantityInput.value = '1'
               }
@@ -1507,9 +1930,10 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           if (lot.status !== 'active') {
             return false
           }
-          const now = new Date()
-          const expiry = new Date(lot.expiry_date)
-          const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+          const diffDays = getDaysUntilDate(lot.expiry_date)
+          if (diffDays == null) {
+            return false
+          }
           return diffDays >= 0 && diffDays <= 14
         }
 
@@ -1607,6 +2031,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           }
 
           editingItemId = null
+          ensureCreationFoodBankField(newItemEditor)
           const nameField = getModalField(newItemEditor, 'Item Name') as HTMLInputElement | null
           const categoryField = getModalField(newItemEditor, 'Category') as HTMLSelectElement | null
           const unitField = getModalField(newItemEditor, 'Unit') as HTMLInputElement | null
@@ -1663,7 +2088,10 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             quantityField.value = '1'
           }
           if (expiryField) {
+            expiryField.type = 'text'
             expiryField.value = ''
+            expiryField.placeholder = 'DD/MM/YYYY'
+            expiryField.inputMode = 'numeric'
           }
         }
 
@@ -1698,9 +2126,13 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
               const lowStockNotice = deficit > 0
                 ? '<span class="low-stock-notice">Stock is below the safety threshold and needs replenishment.</span>'
                 : ''
+              const bankSummary = !isLocalFoodBankAdmin
+                ? `<p><strong>Food Bank:</strong> ${escapeHtml(getFoodBankLabel(item.food_bank_id))}</p>`
+                : ''
               return `
                 <div class="card${deficit > 0 ? ' card-error' : ''}" data-item-id="${item.id}">
                   <h4>${escapeHtml(item.name)}</h4>
+                  ${bankSummary}
                   <p><strong>Current Stock:</strong> ${escapeHtml(String(item.total_stock))} ${escapeHtml(item.unit)}</p>
                   <p><strong>Safety Threshold:</strong> ${escapeHtml(String(item.threshold))} ${escapeHtml(item.unit)}</p>
                   <p><strong>Deficit:</strong> ${escapeHtml(String(deficit))}</p>
@@ -1757,8 +2189,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                         <td><input type="checkbox" class="row-checkbox"></td>
                         <td>${escapeHtml(lot.item_name)}</td>
                         <td>${escapeHtml(getLotReference(lot))}</td>
-                        <td>${escapeHtml(formatIsoDate(lot.received_date))}</td>
-                        <td>${escapeHtml(formatIsoDate(lot.expiry_date))}</td>
+                        <td>${escapeHtml(formatUkDate(lot.received_date))}</td>
+                        <td>${escapeHtml(formatUkDate(lot.expiry_date))}</td>
                         <td>${escapeHtml(String(lot.quantity))}</td>
                         <td style="color: ${statusMeta.color}; font-weight: 600;">${escapeHtml(statusMeta.label)}</td>
                         <td><div class="table-actions">${actions}</div></td>
@@ -1800,7 +2232,10 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             stockField.value = String(lot.quantity)
           }
           if (expiryField) {
-            expiryField.value = formatIsoDate(lot.expiry_date)
+            expiryField.type = 'text'
+            expiryField.value = formatUkDateInput(lot.expiry_date)
+            expiryField.placeholder = 'DD/MM/YYYY'
+            expiryField.inputMode = 'numeric'
           }
         }
 
@@ -1953,7 +2388,10 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
               quantityInput.value = String(item.quantity || 1)
             }
             if (expiryInput) {
-              expiryInput.value = item.expiry_date ? formatIsoDate(item.expiry_date) : ''
+              expiryInput.type = 'text'
+              expiryInput.value = item.expiry_date ? formatUkDateInput(item.expiry_date) : ''
+              expiryInput.placeholder = 'DD/MM/YYYY'
+              expiryInput.inputMode = 'numeric'
             }
 
             donationItemsAddButton.parentElement?.insertBefore(row, donationItemsAddButton)
@@ -1977,7 +2415,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             donorNameField && (donorNameField.value = donation.donor_name ?? '')
             contactEmailField && (contactEmailField.value = donation.donor_email ?? '')
             receivedDateField &&
-              (receivedDateField.value = formatIsoDate(donation.pickup_date || donation.created_at) || '')
+              (receivedDateField.value = formatUkDateInput(donation.pickup_date || donation.created_at) || '')
             setDonationItemRows(
               donation.donation_type === 'cash'
                 ? []
@@ -1991,8 +2429,14 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             donorTypeField && (donorTypeField.value = '')
             donorNameField && (donorNameField.value = '')
             contactEmailField && (contactEmailField.value = '')
-            receivedDateField && (receivedDateField.value = new Date().toISOString().slice(0, 10))
+            receivedDateField && (receivedDateField.value = formatUkDateInput(new Date().toISOString()))
             setDonationItemRows([])
+          }
+
+          if (receivedDateField) {
+            receivedDateField.type = 'text'
+            receivedDateField.placeholder = 'DD/MM/YYYY'
+            receivedDateField.inputMode = 'numeric'
           }
         }
 
@@ -2037,7 +2481,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                           <tr>
                             <td>${escapeHtml(item.item_name)}</td>
                             <td>${escapeHtml(String(item.quantity))}</td>
-                            <td>${escapeHtml(formatIsoDate(item.expiry_date))}</td>
+                            <td>${escapeHtml(formatUkDate(item.expiry_date))}</td>
                           </tr>
                         `,
                       )
@@ -2072,7 +2516,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             packageField.value = record.package_name ?? 'Package unavailable'
           }
           if (redeemedAtField) {
-            redeemedAtField.value = formatIsoDate(record.redeemed_at)
+            redeemedAtField.value = formatUkDate(record.redeemed_at)
           }
         }
 
@@ -2116,7 +2560,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
           codeVerifyResult.innerHTML = `
             <p style="font-weight: 600; color: ${record.is_voided ? 'var(--color-error)' : statusMeta.color};">${escapeHtml(headerText)}</p>
             <p><strong>Package:</strong> ${escapeHtml(record.package_name ?? 'Package unavailable')}</p>
-            <p><strong>Generated At:</strong> ${escapeHtml(formatIsoDate(record.created_at))}</p>
+            <p><strong>Generated At:</strong> ${escapeHtml(formatUkDate(record.created_at))}</p>
             <p><strong>Status:</strong> ${escapeHtml(statusMeta.label)}</p>
           `
         }
@@ -2166,7 +2610,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                         <td>${escapeHtml(buildDonationDisplayId(row))}</td>
                         <td>${escapeHtml(donorTypeLabelMap[donorType])}</td>
                         <td>${escapeHtml(row.donor_name ?? 'Anonymous')}</td>
-                        <td>${escapeHtml(formatIsoDate(row.pickup_date || row.created_at))}</td>
+                        <td>${escapeHtml(formatUkDate(row.pickup_date || row.created_at))}</td>
                         <td>${escapeHtml(buildDonationTotalLabel(row))}</td>
                         <td>${escapeHtml(donationStatusLabel(row.status))}</td>
                         <td><div class="table-actions">${actions}</div></td>
@@ -2221,9 +2665,9 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                         <td><input type="checkbox" class="row-checkbox"></td>
                         <td>${escapeHtml(record.redemption_code)}</td>
                         <td>${escapeHtml(record.package_name ?? 'Package unavailable')}</td>
-                        <td>${escapeHtml(formatIsoDate(record.created_at))}</td>
+                        <td>${escapeHtml(formatUkDate(record.created_at))}</td>
                         <td style="color: ${statusMeta.color}; font-weight: 600;">${escapeHtml(statusMeta.label)}</td>
-                        <td>${escapeHtml(formatIsoDate(record.redeemed_at))}</td>
+                        <td>${escapeHtml(formatUkDate(record.redeemed_at))}</td>
                         <td><div class="table-actions">${actions}</div></td>
                       </tr>
                     `
@@ -2269,6 +2713,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
             renderDonationTable(options?.resetDonationPage ?? true)
             renderCodeTable(options?.resetCodePage ?? true)
+            normalizePreviewFormatting()
 
             if (failedDatasets.length > 0) {
               showToast(`Failed to load ${failedDatasets.join(' and ')}.`, 'error')
@@ -2629,7 +3074,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                     'Donor Type': donorTypeLabelMap[donorType],
                     Donor: row.donor_name ?? 'Anonymous',
                     Email: row.donor_email ?? '',
-                    Date: formatIsoDate(row.pickup_date || row.created_at),
+                    Date: formatUkDate(row.pickup_date || row.created_at),
                     Total: buildDonationTotalLabel(row),
                     Status: donationStatusLabel(row.status),
                   }
@@ -2733,8 +3178,8 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                 getFilteredLots().map((lot) => ({
                   Item: lot.item_name,
                   'Lot Number': getLotReference(lot),
-                  'Received Date': formatIsoDate(lot.received_date),
-                  'Expiry Date': formatIsoDate(lot.expiry_date),
+                  'Received Date': formatUkDate(lot.received_date),
+                  'Expiry Date': formatUkDate(lot.expiry_date),
                   Quantity: lot.quantity,
                   Status: getLotDisplayStatus(lot).label,
                 })),
@@ -2767,9 +3212,9 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                   return {
                     Code: record.redemption_code,
                     Package: record.package_name ?? 'Package unavailable',
-                    'Created At': formatIsoDate(record.created_at),
+                    'Created At': formatUkDate(record.created_at),
                     Status: statusMeta.label,
-                    'Redeemed At': formatIsoDate(record.redeemed_at),
+                    'Redeemed At': formatUkDate(record.redeemed_at),
                   }
                 }),
               )
@@ -2792,8 +3237,9 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             showToast(draft.error || 'Package data is incomplete.', 'error')
             return
           }
-          if (!packageBankId) {
-            showToast('No food bank is available for package creation.', 'error')
+          const targetFoodBankId = getTargetCreationFoodBankId()
+          if (!targetFoodBankId) {
+            showToast('Choose a food bank before creating a package.', 'error')
             return
           }
 
@@ -2806,7 +3252,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
               await adminAPI.createFoodPackage(
                 {
                   ...draft.value,
-                  food_bank_id: packageBankId,
+                  food_bank_id: targetFoodBankId,
                 },
                 accessToken,
               )
@@ -2950,6 +3396,12 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             return
           }
 
+          const targetFoodBankId = getTargetCreationFoodBankId()
+          if (!targetFoodBankId) {
+            showToast('Choose a food bank before creating an item.', 'error')
+            return
+          }
+
           void (async () => {
             try {
               if (newItemSubmitButton) {
@@ -2960,7 +3412,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                 {
                   ...draft.value,
                   initial_stock: 0,
-                  food_bank_id: packageBankId ?? undefined,
+                  food_bank_id: targetFoodBankId,
                 },
                 accessToken,
               )
@@ -3034,14 +3486,15 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
           const quantity = Number(quantityField?.value || '0')
           const expiryDate = expiryField?.value.trim() || ''
+          const normalizedExpiryDate = expiryDate ? parseUkDateInput(expiryDate) : null
 
           if (!Number.isFinite(quantity) || quantity <= 0) {
             showToast('Quantity must be at least 1.', 'error')
             return
           }
 
-          if (expiryDate && !/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
-            showToast('Expiry Date must use YYYY-MM-DD.', 'error')
+          if (expiryDate && !normalizedExpiryDate) {
+            showToast('Expiry Date must use DD/MM/YYYY.', 'error')
             return
           }
 
@@ -3056,7 +3509,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                 {
                   quantity,
                   reason: 'admin manual stock in',
-                  expiry_date: expiryDate || undefined,
+                  expiry_date: normalizedExpiryDate || undefined,
                 },
                 accessToken,
               )
@@ -3118,8 +3571,9 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             ? (getModalField(editLotEditor, 'Expiry Date') as HTMLInputElement | null)
             : null
           const expiryDate = expiryField?.value.trim() || ''
-          if (!expiryDate || !/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
-            showToast('Expiry Date must use YYYY-MM-DD.', 'error')
+          const normalizedExpiryDate = parseUkDateInput(expiryDate)
+          if (!normalizedExpiryDate) {
+            showToast('Expiry Date must use DD/MM/YYYY.', 'error')
             return
           }
 
@@ -3129,7 +3583,7 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                 editLotSubmitButton.disabled = true
               }
 
-              await adminAPI.adjustInventoryLot(lotId, { expiry_date: expiryDate }, accessToken)
+              await adminAPI.adjustInventoryLot(lotId, { expiry_date: normalizedExpiryDate }, accessToken)
               showToast('Expiry saved.')
               closeAllEditors()
               editingLotId = null
@@ -3319,8 +3773,9 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             return
           }
 
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(receivedDate)) {
-            showToast('Received Date must use YYYY-MM-DD.', 'error')
+          const normalizedReceivedDate = parseUkDateInput(receivedDate)
+          if (!normalizedReceivedDate) {
+            showToast('Received Date must use DD/MM/YYYY.', 'error')
             return
           }
 
@@ -3329,8 +3784,22 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
             return
           }
 
+          const normalizedItems = items.map((item) => ({
+            ...item,
+            expiry_date: item.expiry_date ? parseUkDateInput(item.expiry_date) : undefined,
+          }))
+          if (normalizedItems.some((item) => item.expiry_date === null)) {
+            showToast('Item expiry dates must use DD/MM/YYYY.', 'error')
+            return
+          }
+
           const mode = donationEditor.getAttribute('data-mode')
           const donationId = donationEditor.getAttribute('data-donation-id') || ''
+          const existingDonation =
+            mode === 'edit' && donationId
+              ? (donations.find((row) => row.id === donationId) ?? null)
+              : null
+          const donorPhone = normalizeAdminDonationPhone(existingDonation?.donor_phone)
           void (async () => {
             try {
               if (donationSubmitButton instanceof HTMLButtonElement) {
@@ -3341,10 +3810,14 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
                 donor_name: donorName,
                 donor_type: donorType,
                 donor_email: donorEmail,
-                donor_phone: 'Not provided',
-                pickup_date: receivedDate,
+                donor_phone: donorPhone,
+                pickup_date: normalizedReceivedDate,
                 status: 'received' as const,
-                items,
+                items: normalizedItems.map((item) => ({
+                  item_name: item.item_name,
+                  quantity: item.quantity,
+                  expiry_date: item.expiry_date ?? undefined,
+                })),
               }
 
               if (mode === 'edit' && donationId) {
@@ -3579,8 +4052,6 @@ export default function AdminFoodManagementPreview({ onSwitch: _onSwitch }: Prop
 
     if (iframe.contentDocument?.readyState === 'complete') {
       handleLoad()
-    } else {
-      cleanup = syncIframe()
     }
 
     return () => {

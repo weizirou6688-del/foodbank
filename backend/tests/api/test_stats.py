@@ -1,8 +1,3 @@
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from datetime import date, datetime
 from types import SimpleNamespace
 
@@ -16,25 +11,7 @@ from app.routers.stats import (
     get_public_impact_metrics,
     get_stock_gap_analysis,
 )
-
-
-class _ScalarResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def all(self):
-        return self._rows
-
-
-class _ExecuteResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def scalars(self):
-        return _ScalarResult(self._rows)
-
-    def all(self):
-        return self._rows
+from tests.support import ExecuteResult
 
 
 class FakeSession:
@@ -43,7 +20,7 @@ class FakeSession:
 
     async def execute(self, _query):
         rows = self.execute_rows_seq.pop(0) if self.execute_rows_seq else []
-        return _ExecuteResult(rows)
+        return ExecuteResult(rows)
 
 
 @pytest.mark.asyncio
@@ -272,7 +249,7 @@ async def test_get_public_goods_impact_metrics_aligns_dashboard_counts():
 
 
 @pytest.mark.asyncio
-async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
+async def test_get_dashboard_analytics_ignores_unscoped_legacy_donations():
     current_year = date.today().year
 
     cash_partner = SimpleNamespace(
@@ -282,6 +259,16 @@ async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
         donor_name='Community Partner',
         amount_pence=1500,
         created_at=datetime(current_year, 4, 1),
+        food_bank_id=1,
+    )
+    legacy_shared_cash = SimpleNamespace(
+        status='completed',
+        donor_type='organization',
+        donor_email='legacy-shared@example.org',
+        donor_name='Legacy Shared Partner',
+        amount_pence=9900,
+        created_at=datetime(current_year, 4, 1),
+        food_bank_id=None,
     )
     goods_current = SimpleNamespace(
         status='received',
@@ -290,6 +277,7 @@ async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
         donor_name='Neighbourhood Market',
         pickup_date=f"01/04/{current_year}",
         created_at=datetime(current_year, 4, 1),
+        food_bank_id=1,
         items=[
             SimpleNamespace(quantity=10, item_name='Rice'),
             SimpleNamespace(quantity=5, item_name='Beans'),
@@ -302,7 +290,18 @@ async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
         donor_name='Helpful Donor',
         pickup_date=f"01/03/{current_year}",
         created_at=datetime(current_year, 3, 1),
+        food_bank_id=1,
         items=[SimpleNamespace(quantity=5, item_name='Pasta')],
+    )
+    legacy_shared_goods = SimpleNamespace(
+        status='received',
+        donor_type='individual',
+        donor_email='legacy-shared-goods@example.org',
+        donor_name='Legacy Shared Goods',
+        pickup_date=f"01/04/{current_year}",
+        created_at=datetime(current_year, 4, 1),
+        food_bank_id=None,
+        items=[SimpleNamespace(quantity=40, item_name='Shared Beans')],
     )
     current_application = SimpleNamespace(
         id='app-current',
@@ -311,13 +310,14 @@ async def test_get_dashboard_analytics_reuses_shared_goods_impact_snapshot():
         deleted_at=None,
         status='pending',
         week_start=date(current_year, 4, 1),
+        food_bank_id=1,
         items=[],
     )
 
     db = FakeSession(
         execute_rows_seq=[
-            [cash_partner],
-            [goods_previous, goods_current],
+            [cash_partner, legacy_shared_cash],
+            [goods_previous, goods_current, legacy_shared_goods],
             [],
             [],
             [],

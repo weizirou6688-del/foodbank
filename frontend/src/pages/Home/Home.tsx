@@ -108,7 +108,7 @@ const uniqueCards: UniqueCard[] = [
   {
     title: 'Less Waste',
     description:
-      'Shared reporting helps teams request what they need and move surplus stock before it sits unused.',
+      'Clear reporting helps teams request what they need and move surplus stock across participating food banks before it sits unused.',
     image: '/home-gallery/photo-1603418735094-800d47a56ea1',
   },
   {
@@ -151,13 +151,13 @@ const donationTiers: DonationTier[] = [
   {
     name: 'Hero',
     amount: '\u00A330',
-    description: 'Contributes to shared purchasing, logistics, and coordination costs',
+    description: 'Contributes to urgent purchases, transport, and coordination across participating food banks',
     cta: 'Give \u00A330 Monthly',
     href: '/donate/cash?type=monthly&amount=30#donate-form',
     features: [
       'Email receipt',
       'Monthly summary updates',
-      'Supports shared logistics and purchasing',
+      'Supports network logistics and urgent purchasing',
       'Secure online payment',
     ],
   },
@@ -238,9 +238,7 @@ export default function Home() {
           })),
         )
       })
-      .catch(() => {
-        // Keep the homepage stable with fallback metrics when the API is unavailable.
-      })
+      .catch(() => {})
 
     return () => {
       active = false
@@ -259,9 +257,6 @@ export default function Home() {
 
     return () => window.clearTimeout(timeoutHandle)
   }, [location.hash])
-
-  // Some homepage navigation stays on the same page and scrolls to sections
-  // instead of pushing the user onto a new route.
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -280,7 +275,7 @@ export default function Home() {
                     Find support. <span className="text-[#FFB800]">Coordinate donations.</span>
                   </h1>
                   <p className="text-[1.25rem] leading-relaxed text-[#57606A] mb-8 max-w-[560px]">
-                    Search local food banks, submit donation details, and manage shared stock
+                    Search local food banks, submit donation details, and manage food bank stock
                     across the network from one place.
                   </p>
                   <div className="flex max-w-[360px] flex-col gap-4">
@@ -330,7 +325,7 @@ export default function Home() {
                   Current network totals
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  These figures combine reporting from participating food banks and shared platform
+                  These figures combine reporting from participating food banks and platform
                   services.
                 </p>
               </div>
@@ -535,11 +530,11 @@ export default function Home() {
               <div className="text-center max-w-[640px] mx-auto mb-16">
 
                 <h2 className="text-[2.5rem] font-bold text-[#0D1117] mb-4 tracking-tight">
-                  Support shared costs and urgent purchases
+                  Support urgent purchases and food bank operations
                 </h2>
                 <p className="text-[18px] text-[#57606A] leading-relaxed">
-                  Cash donations help cover urgent purchases, shared logistics, and coordination
-                  where local supply is short.
+                  Cash donations help cover urgent purchases, transport, and coordination
+                  across participating food banks where local supply is short.
                 </p>
               </div>
 

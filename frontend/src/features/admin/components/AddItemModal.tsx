@@ -1,6 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { useFoodBankStore } from '@/app/store/foodBankStore'
+import { useAuthStore } from '@/app/store/authStore'
+import { foodBanksAPI } from '@/shared/lib/api'
+import { getAdminScopeMeta } from '@/shared/lib/adminScope'
+import Modal from '@/shared/ui/Modal'
+import { AdminModalPrimaryButton, AdminModalSecondaryButton } from './AdminModalPrimitives'
+import { AdminModalField, AdminModalInput, AdminModalSelect } from './AdminModalFields'
+import { AdminModalFormLayout } from './AdminModalLayouts'
 
 const ITEM_CATEGORIES = [
   'Proteins & Meat',
@@ -19,20 +26,75 @@ interface AddItemModalProps {
   onClose: () => void
 }
 
+interface FoodBankOption {
+  id: number
+  name: string
+}
+
 export default function AddItemModal({ isOpen, onClose }: AddItemModalProps) {
   const addItem = useFoodBankStore((state) => state.addItem)
+  const user = useAuthStore((state) => state.user)
+  const adminScope = getAdminScopeMeta(user)
+  const isPlatformAdmin = adminScope.isPlatformAdmin
 
   const [name, setName] = useState('')
   const [category, setCategory] = useState<(typeof ITEM_CATEGORIES)[number]>('Proteins & Meat')
   const [initialStock, setInitialStock] = useState('0')
+  const [foodBankId, setFoodBankId] = useState('')
+  const [foodBanks, setFoodBanks] = useState<FoodBankOption[]>([])
+  const [loadingFoodBanks, setLoadingFoodBanks] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   const parsedStock = useMemo(() => Number(initialStock), [initialStock])
 
-  if (!isOpen) {
-    return null
-  }
+  useEffect(() => {
+    if (!isOpen || !isPlatformAdmin) {
+      return
+    }
+
+    let cancelled = false
+
+    const loadFoodBanks = async () => {
+      setLoadingFoodBanks(true)
+      try {
+        const response = await foodBanksAPI.getFoodBanks()
+        const items = Array.isArray(response?.items) ? response.items : []
+        const nextFoodBanks = items
+          .map((item) => ({
+            id: Number(item.id),
+            name: item.name,
+          }))
+          .filter((item) => Number.isFinite(item.id) && item.id > 0)
+
+        if (cancelled) {
+          return
+        }
+
+        setFoodBanks(nextFoodBanks)
+        setFoodBankId((current) => {
+          if (current && nextFoodBanks.some((item) => String(item.id) === current)) {
+            return current
+          }
+          return nextFoodBanks.length === 1 ? String(nextFoodBanks[0].id) : ''
+        })
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load food banks.')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingFoodBanks(false)
+        }
+      }
+    }
+
+    void loadFoodBanks()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, isPlatformAdmin])
 
   const resetAndClose = () => {
     setName('')
@@ -57,12 +119,19 @@ export default function AddItemModal({ isOpen, onClose }: AddItemModalProps) {
       return
     }
 
+    const parsedFoodBankId = Number(foodBankId)
+    if (isPlatformAdmin && (!Number.isFinite(parsedFoodBankId) || parsedFoodBankId <= 0)) {
+      setError('Choose a food bank before adding an item.')
+      return
+    }
+
     try {
       setSubmitting(true)
       await addItem({
         name: name.trim(),
         category,
         initial_stock: parsedStock,
+        food_bank_id: isPlatformAdmin ? parsedFoodBankId : undefined,
       })
       resetAndClose()
     } catch (e) {
@@ -73,87 +142,80 @@ export default function AddItemModal({ isOpen, onClose }: AddItemModalProps) {
   }
 
   return (
-    <div
-      className="_modalOverlay_fmbrn_179 fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={resetAndClose}
-      role="dialog"
-      aria-modal="true"
+    <Modal
+      isOpen={isOpen}
+      onClose={resetAndClose}
+      title="Add New Item"
+      maxWidth="max-w-xl"
+      dialogClassName="border border-[#E8E8E8]"
     >
-      <div
-        className="w-[90%] max-w-xl rounded-[2rem] shadow-2xl border border-[#E8E8E8] bg-white p-6 md:p-8"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-[#1A1A1A]">Add New Item</h3>
-          <button
-            type="button"
-            onClick={resetAndClose}
-            className="h-9 w-9 rounded-full border border-[#E8E8E8] text-[#1A1A1A]"
-            aria-label="Close"
-          >
-            x
-          </button>
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-[#1A1A1A] mb-1.5">Item Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="w-full h-11 px-3 rounded-lg border border-[#E8E8E8] outline-none"
-              placeholder="e.g. Canned Tuna"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-[#1A1A1A] mb-1.5">Category</label>
-            <select
-              value={category}
-              onChange={(event) => setCategory(event.target.value as (typeof ITEM_CATEGORIES)[number])}
-              className="w-full h-11 px-3 rounded-lg border border-[#E8E8E8] bg-white outline-none"
+      <AdminModalFormLayout
+        onSubmit={onSubmit}
+        error={error}
+        className="space-y-4"
+        actionsPadded
+        actions={
+          <>
+            <AdminModalSecondaryButton onClick={resetAndClose}>
+              Cancel
+            </AdminModalSecondaryButton>
+            <AdminModalPrimaryButton type="submit" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Add Item'}
+            </AdminModalPrimaryButton>
+          </>
+        }
+        >
+        {isPlatformAdmin && (
+          <AdminModalField label="Food Bank">
+            <AdminModalSelect
+              value={foodBankId}
+              onChange={(event) => setFoodBankId(event.target.value)}
+              disabled={loadingFoodBanks || submitting}
             >
-              {ITEM_CATEGORIES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+              <option value="">
+                {loadingFoodBanks ? 'Loading food banks...' : 'Choose a food bank'}
+              </option>
+              {foodBanks.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </AdminModalSelect>
+          </AdminModalField>
+        )}
 
-          <div>
-            <label className="block text-sm font-semibold text-[#1A1A1A] mb-1.5">Initial Stock</label>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={initialStock}
-              onChange={(event) => setInitialStock(event.target.value)}
-              className="w-full h-11 px-3 rounded-lg border border-[#E8E8E8] outline-none"
-            />
-          </div>
+        <AdminModalField label="Item Name">
+          <AdminModalInput
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Canned Tuna"
+          />
+        </AdminModalField>
 
-          {error && <p className="text-sm text-[#E63946]">{error}</p>}
+        <AdminModalField label="Category">
+          <AdminModalSelect
+            value={category}
+            onChange={(event) => setCategory(event.target.value as (typeof ITEM_CATEGORIES)[number])}
+          >
+            {ITEM_CATEGORIES.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </AdminModalSelect>
+        </AdminModalField>
 
-          <div className="pt-2 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={resetAndClose}
-              className="px-4 py-2 rounded-full border border-[#E8E8E8] text-sm text-[#1A1A1A]"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-5 py-2 rounded-full border border-[#F7DC6F] bg-[#F7DC6F] text-sm font-semibold text-[#1A1A1A] disabled:opacity-60"
-            >
-              {submitting ? 'Saving...' : 'Add Item'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <AdminModalField label="Initial Stock">
+          <AdminModalInput
+            type="number"
+            min={0}
+            step={1}
+            value={initialStock}
+            onChange={(event) => setInitialStock(event.target.value)}
+          />
+        </AdminModalField>
+      </AdminModalFormLayout>
+    </Modal>
   )
 }

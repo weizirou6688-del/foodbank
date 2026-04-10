@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { FoodBank, FoodPackage, InventoryItem } from '@/shared/types/common'
 import { buildFoodBankDisplayAddress } from '@/shared/lib/foodBankAddress'
+import { getAdminScopeMeta } from '@/shared/lib/adminScope'
 import { useAuthStore } from './authStore'
 import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
 import { getCoordinatesFromPostcode, getNearbyFoodbanks, getRankedFoodbanks } from '@/utils/foodbankApi'
@@ -200,7 +201,7 @@ interface FoodBankState {
   loadPackages: () => Promise<void>
   loadAvailableItems: () => Promise<void>
   loadInventory: () => Promise<void>
-  addItem: (data: { name: string; category: string; initial_stock: number }) => Promise<void>
+  addItem: (data: { name: string; category: string; initial_stock: number; food_bank_id?: number }) => Promise<void>
   updateItem: (itemId: number, data: Partial<Pick<InventoryItem, 'name' | 'category' | 'stock' | 'unit' | 'threshold'>>) => Promise<void>
   stockInItem: (itemId: number, quantity: number, reason?: string) => Promise<void>
   stockOutItem: (itemId: number, quantity: number, reason?: string) => Promise<void>
@@ -369,6 +370,13 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   },
 
   addItem: async (data) => {
+    const adminScope = getAdminScopeMeta(useAuthStore.getState().user)
+    const targetFoodBankId = data.food_bank_id ?? adminScope.foodBankId ?? undefined
+
+    if (adminScope.isPlatformAdmin && targetFoodBankId == null) {
+      throw new Error('Choose a food bank before adding an inventory item')
+    }
+
     const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/inventory`, {
       method: 'POST',
       headers: {
@@ -380,6 +388,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         initial_stock: data.initial_stock,
         unit: 'units',
         threshold: 10,
+        food_bank_id: targetFoodBankId,
       }),
     })
 
@@ -396,6 +405,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       stock: Number(createdItem.total_stock ?? createdItem.stock ?? 0),
       unit: createdItem.unit,
       threshold: Number(createdItem.threshold ?? 0),
+      foodBankId: createdItem.food_bank_id == null ? undefined : Number(createdItem.food_bank_id),
     }
 
     set((state) => ({
@@ -506,26 +516,20 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   },
 
   addPackage: async (data) => {
-    let foodBankId = data.food_bank_id ?? get().selectedFoodBank?.id
+    const adminScope = getAdminScopeMeta(useAuthStore.getState().user)
+    let foodBankId = data.food_bank_id ?? adminScope.foodBankId ?? get().selectedFoodBank?.id
+
+    if (adminScope.isPlatformAdmin && (!foodBankId || foodBankId <= 0)) {
+      throw new Error('Choose a food bank before adding a package')
+    }
 
     if (!foodBankId || foodBankId <= 0) {
-      const foodBanksResponse = await fetch(`${API_BASE_URL}/api/v1/food-banks`)
-      if (!foodBanksResponse.ok) {
-        throw new Error('Failed to resolve food bank for new package')
-      }
+      const resolvedFoodBank = await resolveSelectedFoodBank(get, set)
+      foodBankId = resolvedFoodBank?.id
+    }
 
-      const foodBanksPayload = await foodBanksResponse.json()
-      const foodBanks = Array.isArray(foodBanksPayload)
-        ? foodBanksPayload
-        : Array.isArray(foodBanksPayload?.items)
-          ? foodBanksPayload.items
-          : []
-
-      if (foodBanks.length === 0) {
-        throw new Error('No food banks available. Create a food bank before adding packages.')
-      }
-
-      foodBankId = Number(foodBanks[0].id)
+    if (!foodBankId || foodBankId <= 0) {
+      throw new Error('No food bank available. Create a food bank before adding packages.')
     }
 
     const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/packages`, {

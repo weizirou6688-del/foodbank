@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.core.database import AsyncSessionLocal
 from app.core.goods_donation_format import format_goods_pickup_date, normalize_goods_donor_phone
@@ -19,6 +19,11 @@ from app.models.package_item import PackageItem
 from app.models.user import User
 
 DEMO_LOCAL_ADMIN_BANK_NAME = "Downtown Community Food Bank"
+DEMO_SECOND_LOCAL_ADMIN_BANK_NAME = "Westside Food Support Centre"
+DEMO_ADMIN_SCOPE_BANK_NAMES = [
+    DEMO_LOCAL_ADMIN_BANK_NAME,
+    DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+]
 
 
 DEMO_USERS = [
@@ -47,6 +52,13 @@ DEMO_USERS = [
         "role": "admin",
         "food_bank_name": DEMO_LOCAL_ADMIN_BANK_NAME,
     },
+    {
+        "name": "Westside Local Admin",
+        "email": "local1admin@foodbank.com",
+        "password": "local1admin123",
+        "role": "admin",
+        "food_bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+    },
 ]
 
 DEMO_FOOD_BANKS = [
@@ -73,7 +85,7 @@ DEMO_FOOD_BANKS = [
     },
 ]
 
-DEMO_INVENTORY_ITEMS = [
+DEMO_BASE_INVENTORY_ITEMS = [
     {
         "name": "Rice (2kg)",
         "category": "Grains & Pasta",
@@ -188,7 +200,84 @@ DEMO_INVENTORY_ITEMS = [
     },
 ]
 
-DEMO_INVENTORY_ITEM_NAMES = {item["name"] for item in DEMO_INVENTORY_ITEMS}
+DEMO_INVENTORY_ITEMS = [
+    {
+        **item,
+        "food_bank_name": bank_name,
+    }
+    for bank_name in DEMO_ADMIN_SCOPE_BANK_NAMES
+    for item in DEMO_BASE_INVENTORY_ITEMS
+]
+
+DEMO_SCOPED_INVENTORY_ITEMS = [
+    {
+        "food_bank_name": DEMO_LOCAL_ADMIN_BANK_NAME,
+        "name": "Downtown Ready Meal Tray",
+        "category": "Snacks",
+        "unit": "trays",
+        "threshold": 14,
+        "quantity": 5,
+        "expiry_days": 18,
+    },
+    {
+        "food_bank_name": DEMO_LOCAL_ADMIN_BANK_NAME,
+        "name": "Downtown Kids Snack Box",
+        "category": "Snacks",
+        "unit": "boxes",
+        "threshold": 12,
+        "quantity": 4,
+        "expiry_days": 35,
+    },
+    {
+        "food_bank_name": DEMO_LOCAL_ADMIN_BANK_NAME,
+        "name": "Downtown Fruit Cup",
+        "category": "Fruits",
+        "unit": "cups",
+        "threshold": 15,
+        "quantity": 6,
+        "expiry_days": 12,
+    },
+    {
+        "food_bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+        "name": "Westside Student Meal Kit",
+        "category": "Grains & Pasta",
+        "unit": "kits",
+        "threshold": 18,
+        "quantity": 6,
+        "expiry_days": 25,
+    },
+    {
+        "food_bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+        "name": "Westside Baby Formula",
+        "category": "Baby Food",
+        "unit": "tins",
+        "threshold": 12,
+        "quantity": 4,
+        "expiry_days": 120,
+    },
+    {
+        "food_bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+        "name": "Westside Fruit Puree",
+        "category": "Baby Food",
+        "unit": "pouches",
+        "threshold": 16,
+        "quantity": 7,
+        "expiry_days": 60,
+    },
+    {
+        "food_bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+        "name": "Westside Oat Cups",
+        "category": "Grains & Pasta",
+        "unit": "cups",
+        "threshold": 14,
+        "quantity": 9,
+        "expiry_days": 45,
+    },
+]
+
+DEMO_INVENTORY_ITEM_NAMES = {
+    item["name"] for item in [*DEMO_INVENTORY_ITEMS, *DEMO_SCOPED_INVENTORY_ITEMS]
+}
 
 
 def _demo_batch_reference(item_name: str) -> str:
@@ -261,6 +350,76 @@ DEMO_PACKAGES = [
             {"item_name": "Canned Tomatoes", "quantity": 2},
         ],
     },
+    {
+        "food_bank_name": DEMO_LOCAL_ADMIN_BANK_NAME,
+        "name": "Downtown Quick Lunch Pack",
+        "category": "Lunchbox",
+        "description": "Compact midday support with ready meals and snacks.",
+        "stock": 3,
+        "threshold": 4,
+        "image_url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+        "contents": [
+            {"item_name": "Downtown Ready Meal Tray", "quantity": 2},
+            {"item_name": "Downtown Kids Snack Box", "quantity": 1},
+            {"item_name": "UHT Milk (1L)", "quantity": 1},
+        ],
+    },
+    {
+        "food_bank_name": DEMO_LOCAL_ADMIN_BANK_NAME,
+        "name": "Downtown Fresh Start Pack",
+        "category": "Breakfast",
+        "description": "Breakfast-focused support with fruit and shelf-stable items.",
+        "stock": 2,
+        "threshold": 4,
+        "image_url": "https://images.unsplash.com/photo-1484723091739-30a097e8f929?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+        "contents": [
+            {"item_name": "Downtown Fruit Cup", "quantity": 3},
+            {"item_name": "Cornflakes Cereal", "quantity": 1},
+            {"item_name": "UHT Milk (1L)", "quantity": 2},
+        ],
+    },
+    {
+        "food_bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+        "name": "Westside Student Essentials Pack",
+        "category": "Emergency Pack",
+        "description": "Compact staples for students and single-adult pickups.",
+        "stock": 2,
+        "threshold": 4,
+        "image_url": "https://images.unsplash.com/photo-1542838132-92c53300491e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+        "contents": [
+            {"item_name": "Westside Student Meal Kit", "quantity": 1},
+            {"item_name": "Tomato Soup (400g)", "quantity": 2},
+            {"item_name": "UHT Milk (1L)", "quantity": 1},
+        ],
+    },
+    {
+        "food_bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+        "name": "Westside Baby Support Pack",
+        "category": "Family Bundle",
+        "description": "High-priority supplies for families with infants.",
+        "stock": 3,
+        "threshold": 4,
+        "image_url": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+        "contents": [
+            {"item_name": "Westside Baby Formula", "quantity": 1},
+            {"item_name": "Westside Fruit Puree", "quantity": 4},
+            {"item_name": "UHT Milk (1L)", "quantity": 1},
+        ],
+    },
+    {
+        "food_bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+        "name": "Westside Breakfast Booster Pack",
+        "category": "Breakfast",
+        "description": "Breakfast-focused support package for recurring pickups.",
+        "stock": 6,
+        "threshold": 4,
+        "image_url": "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+        "contents": [
+            {"item_name": "Westside Oat Cups", "quantity": 4},
+            {"item_name": "Cornflakes Cereal", "quantity": 1},
+            {"item_name": "UHT Milk (1L)", "quantity": 2},
+        ],
+    },
 ]
 
 DEMO_LOCAL_SCOPE_CASH_DONATIONS = [
@@ -289,7 +448,99 @@ DEMO_LOCAL_SCOPE_GOODS_DONATIONS = [
             {"item_name": "Canned Beans", "quantity": 8},
         ],
     },
+    {
+        "donor_name": "Downtown School Pantry",
+        "donor_email": "downtown.school.pantry@example.com",
+        "donor_phone": "07111222333",
+        "postcode": "SW1A 1AA",
+        "pickup_date_offset_days": 1,
+        "item_condition": "New or unopened",
+        "estimated_quantity": "2 trolleys",
+        "status": "received",
+        "notes": "Downtown received snack support donation",
+        "items": [
+            {"item_name": "Downtown Ready Meal Tray", "quantity": 4},
+            {"item_name": "Downtown Kids Snack Box", "quantity": 6},
+        ],
+    },
 ]
+
+DEMO_SECOND_LOCAL_SCOPE_CASH_DONATIONS = [
+    {
+        "payment_reference": "DEMO-WESTSIDE-CASH-001",
+        "donor_name": "Westside Student Union",
+        "donor_email": "westside.students.union@example.com",
+        "amount_pence": 4200,
+        "status": "completed",
+    },
+    {
+        "payment_reference": "DEMO-WESTSIDE-CASH-002",
+        "donor_name": "Westside Family Circle",
+        "donor_email": "westside.family.circle@example.com",
+        "amount_pence": 1800,
+        "status": "completed",
+    },
+]
+
+DEMO_SECOND_LOCAL_SCOPE_GOODS_DONATIONS = [
+    {
+        "donor_name": "Westside Campus Pantry",
+        "donor_email": "westside.campus.pantry@example.com",
+        "donor_phone": "07234567890",
+        "postcode": "W1K 1AA",
+        "pickup_date_offset_days": 3,
+        "item_condition": "New or unopened",
+        "estimated_quantity": "5 crates",
+        "status": "pending",
+        "notes": "Westside pending student meal stock donation",
+        "items": [
+            {"item_name": "Westside Student Meal Kit", "quantity": 5},
+            {"item_name": "Westside Oat Cups", "quantity": 10},
+        ],
+    },
+    {
+        "donor_name": "Westside Baby Network",
+        "donor_email": "westside.baby.network@example.com",
+        "donor_phone": "07345678901",
+        "postcode": "W1K 1AA",
+        "pickup_date_offset_days": 1,
+        "item_condition": "New or unopened",
+        "estimated_quantity": "2 trolleys",
+        "status": "received",
+        "notes": "Westside received infant support donation",
+        "items": [
+            {"item_name": "Westside Baby Formula", "quantity": 3},
+            {"item_name": "Westside Fruit Puree", "quantity": 12},
+        ],
+    },
+]
+
+DEMO_SCOPED_CASH_DONATION_SEEDS = [
+    *DEMO_LOCAL_SCOPE_CASH_DONATIONS,
+    *DEMO_SECOND_LOCAL_SCOPE_CASH_DONATIONS,
+]
+
+DEMO_SCOPED_GOODS_DONATION_SEEDS = [
+    *DEMO_LOCAL_SCOPE_GOODS_DONATIONS,
+    *DEMO_SECOND_LOCAL_SCOPE_GOODS_DONATIONS,
+]
+
+DEMO_SCOPED_CASH_PAYMENT_REFERENCES = {
+    str(seed["payment_reference"])
+    for seed in DEMO_SCOPED_CASH_DONATION_SEEDS
+}
+
+DEMO_SCOPED_CASH_DONOR_EMAILS = {
+    str(seed["donor_email"])
+    for seed in DEMO_SCOPED_CASH_DONATION_SEEDS
+    if seed.get("donor_email")
+}
+
+DEMO_SCOPED_GOODS_DONOR_EMAILS = {
+    str(seed["donor_email"])
+    for seed in DEMO_SCOPED_GOODS_DONATION_SEEDS
+    if seed.get("donor_email")
+}
 
 def _build_demo_local_scope_applications() -> list[dict[str, object]]:
     package_names = [
@@ -329,6 +580,62 @@ def _build_demo_local_scope_applications() -> list[dict[str, object]]:
 
 
 DEMO_LOCAL_SCOPE_APPLICATIONS = _build_demo_local_scope_applications()
+
+
+def _build_demo_second_local_scope_applications() -> list[dict[str, object]]:
+    package_names = [
+        "Westside Student Essentials Pack",
+        "Westside Baby Support Pack",
+        "Westside Breakfast Booster Pack",
+    ]
+    records: list[dict[str, object]] = []
+    sequence = 1
+
+    for week_offset in range(-11, 1):
+        for package_index, package_name in enumerate(package_names):
+            if week_offset >= -1:
+                status = "pending" if package_index != 1 else "collected"
+            elif (sequence + package_index) % 6 == 0:
+                status = "expired"
+            elif sequence % 4 == 0:
+                status = "pending"
+            else:
+                status = "collected"
+
+            records.append(
+                {
+                    "redemption_code": f"LFB2-{sequence:04d}",
+                    "package_name": package_name,
+                    "status": status,
+                    "week_offset": week_offset,
+                    "quantity": 1,
+                    "created_day_offset": package_index + 1,
+                    "created_hour": 10 + (sequence % 5),
+                }
+            )
+            sequence += 1
+
+    return records
+
+
+DEMO_SECOND_LOCAL_SCOPE_APPLICATIONS = _build_demo_second_local_scope_applications()
+
+DEMO_SCOPED_ADMIN_SEEDS = [
+    {
+        "admin_email": "localadmin@foodbank.com",
+        "bank_name": DEMO_LOCAL_ADMIN_BANK_NAME,
+        "cash_donations": DEMO_LOCAL_SCOPE_CASH_DONATIONS,
+        "goods_donations": DEMO_LOCAL_SCOPE_GOODS_DONATIONS,
+        "applications": DEMO_LOCAL_SCOPE_APPLICATIONS,
+    },
+    {
+        "admin_email": "local1admin@foodbank.com",
+        "bank_name": DEMO_SECOND_LOCAL_ADMIN_BANK_NAME,
+        "cash_donations": DEMO_SECOND_LOCAL_SCOPE_CASH_DONATIONS,
+        "goods_donations": DEMO_SECOND_LOCAL_SCOPE_GOODS_DONATIONS,
+        "applications": DEMO_SECOND_LOCAL_SCOPE_APPLICATIONS,
+    },
+]
 
 
 def _demo_application_created_at(week_start: date, day_offset: int = 0, hour: int = 10) -> datetime:
@@ -473,16 +780,91 @@ async def ensure_demo_food_banks() -> None:
             await db.commit()
 
 
+async def _cleanup_legacy_demo_shared_records(db) -> bool:
+    changed = False
+
+    legacy_cash_rows = (
+        await db.execute(
+            select(DonationCash).where(
+                DonationCash.food_bank_id.is_(None),
+                or_(
+                    DonationCash.payment_reference.in_(DEMO_SCOPED_CASH_PAYMENT_REFERENCES),
+                    DonationCash.donor_email.in_(DEMO_SCOPED_CASH_DONOR_EMAILS),
+                ),
+            )
+        )
+    ).scalars().all()
+    for donation in legacy_cash_rows:
+        await db.delete(donation)
+        changed = True
+
+    legacy_goods_rows = (
+        await db.execute(
+            select(DonationGoods).where(
+                DonationGoods.food_bank_id.is_(None),
+                DonationGoods.donor_email.in_(DEMO_SCOPED_GOODS_DONOR_EMAILS),
+            )
+        )
+    ).scalars().all()
+    for donation in legacy_goods_rows:
+        await db.delete(donation)
+        changed = True
+
+    legacy_demo_lots = (
+        await db.execute(
+            select(InventoryLot, InventoryItem.name, InventoryItem.food_bank_id)
+            .join(InventoryItem, InventoryItem.id == InventoryLot.inventory_item_id)
+            .where(
+                InventoryLot.batch_reference.like("demo-seed-%"),
+                InventoryLot.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    now = datetime.now(timezone.utc)
+    for lot, item_name, item_food_bank_id in legacy_demo_lots:
+        if item_food_bank_id is None or item_name not in DEMO_INVENTORY_ITEM_NAMES:
+            lot.deleted_at = now
+            changed = True
+            continue
+
+        batch_reference = lot.batch_reference or ""
+        expected_suffix = f"-bank-{item_food_bank_id}"
+        if not batch_reference.endswith(expected_suffix):
+            lot.deleted_at = now
+            changed = True
+
+    return changed
+
+
 async def ensure_demo_inventory_and_packages() -> None:
     """Create demo inventory and packages so the search-to-application flow works on a fresh DB."""
     async with AsyncSessionLocal() as db:
         changed = False
         expected_package_names_by_bank: dict[str, set[str]] = {}
+        food_banks_by_name: dict[str, FoodBank] = {}
 
-        inventory_items_by_name: dict[str, InventoryItem] = {}
-        for item_data in DEMO_INVENTORY_ITEMS:
+        inventory_items_by_scope: dict[tuple[str, str], InventoryItem] = {}
+        for bank_name in (
+            {bank["name"] for bank in DEMO_FOOD_BANKS}
+            | {package["food_bank_name"] for package in DEMO_PACKAGES}
+            | {item["food_bank_name"] for item in DEMO_INVENTORY_ITEMS}
+            | {item["food_bank_name"] for item in DEMO_SCOPED_INVENTORY_ITEMS}
+        ):
+            result = await db.execute(select(FoodBank).where(FoodBank.name == bank_name))
+            bank = result.scalar_one_or_none()
+            if bank is not None:
+                food_banks_by_name[bank_name] = bank
+
+        for item_data in [*DEMO_INVENTORY_ITEMS, *DEMO_SCOPED_INVENTORY_ITEMS]:
+            bank = food_banks_by_name.get(item_data["food_bank_name"])
+            if bank is None:
+                continue
+
             result = await db.execute(
-                select(InventoryItem).where(InventoryItem.name == item_data["name"])
+                select(InventoryItem).where(
+                    InventoryItem.name == item_data["name"],
+                    InventoryItem.food_bank_id == bank.id,
+                )
             )
             existing_item = result.scalar_one_or_none()
 
@@ -492,6 +874,7 @@ async def ensure_demo_inventory_and_packages() -> None:
                     category=item_data["category"],
                     unit=item_data["unit"],
                     threshold=item_data["threshold"],
+                    food_bank_id=bank.id,
                 )
                 db.add(existing_item)
                 await db.flush()
@@ -501,15 +884,17 @@ async def ensure_demo_inventory_and_packages() -> None:
                     existing_item.category != item_data["category"]
                     or existing_item.unit != item_data["unit"]
                     or existing_item.threshold != item_data["threshold"]
+                    or existing_item.food_bank_id != bank.id
                 ):
                     existing_item.category = item_data["category"]
                     existing_item.unit = item_data["unit"]
                     existing_item.threshold = item_data["threshold"]
+                    existing_item.food_bank_id = bank.id
                     changed = True
 
-            inventory_items_by_name[item_data["name"]] = existing_item
+            inventory_items_by_scope[(item_data["food_bank_name"], item_data["name"])] = existing_item
 
-            batch_reference = _demo_batch_reference(item_data["name"])
+            batch_reference = f"{_demo_batch_reference(item_data['name'])}-bank-{bank.id}"
             lot_result = await db.execute(
                 select(InventoryLot).where(
                     InventoryLot.inventory_item_id == existing_item.id,
@@ -517,7 +902,7 @@ async def ensure_demo_inventory_and_packages() -> None:
                 )
             )
             existing_lot = lot_result.scalar_one_or_none()
-            expiry_date = date.today() + timedelta(days=365)
+            expiry_date = date.today() + timedelta(days=int(item_data.get("expiry_days", 365)))
 
             if existing_lot is None:
                 db.add(
@@ -543,12 +928,9 @@ async def ensure_demo_inventory_and_packages() -> None:
                     existing_lot.deleted_at = None
                     changed = True
 
-        food_banks_by_name: dict[str, FoodBank] = {}
         for bank_name in {package["food_bank_name"] for package in DEMO_PACKAGES}:
-            result = await db.execute(select(FoodBank).where(FoodBank.name == bank_name))
-            bank = result.scalar_one_or_none()
+            bank = food_banks_by_name.get(bank_name)
             if bank is not None:
-                food_banks_by_name[bank_name] = bank
                 expected_package_names_by_bank[bank_name] = {
                     package["name"]
                     for package in DEMO_PACKAGES
@@ -616,7 +998,7 @@ async def ensure_demo_inventory_and_packages() -> None:
             target_inventory_ids: set[int] = set()
 
             for content in package_data["contents"]:
-                inventory_item = inventory_items_by_name[content["item_name"]]
+                inventory_item = inventory_items_by_scope[(package_data["food_bank_name"], content["item_name"])]
                 target_inventory_ids.add(inventory_item.id)
                 package_item = existing_items_by_inventory_id.get(inventory_item.id)
 
@@ -648,270 +1030,268 @@ async def ensure_demo_inventory_and_packages() -> None:
                     existing_package.is_active = False
                     changed = True
 
-        # Previous demo seeds used a few legacy item names that now have
-        # renamed replacements (for example Rice -> Rice (2kg)). When those
-        # old lots stay active, the public item list shows duplicate entries.
-        legacy_demo_lots = (
-            await db.execute(
-                select(InventoryLot, InventoryItem.name)
-                .join(InventoryItem, InventoryItem.id == InventoryLot.inventory_item_id)
-                .where(
-                    InventoryLot.batch_reference.like("demo-seed-%"),
-                    InventoryLot.deleted_at.is_(None),
-                )
-            )
-        ).all()
-        now = datetime.now(timezone.utc)
-        for lot, item_name in legacy_demo_lots:
-            if item_name in DEMO_INVENTORY_ITEM_NAMES:
-                continue
-            lot.deleted_at = now
-            changed = True
+        changed = await _cleanup_legacy_demo_shared_records(db) or changed
 
         if changed:
             await db.commit()
 
 
+async def _ensure_demo_scoped_admin_records(
+    db,
+    *,
+    admin_email: str,
+    bank_name: str,
+    cash_donations: list[dict[str, object]],
+    goods_donations: list[dict[str, object]],
+    applications: list[dict[str, object]],
+) -> bool:
+    changed = False
+
+    bank = await db.scalar(select(FoodBank).where(FoodBank.name == bank_name))
+    if bank is None:
+        return changed
+
+    local_admin = await db.scalar(select(User).where(User.email == admin_email))
+    if local_admin is not None and local_admin.food_bank_id != bank.id:
+        local_admin.food_bank_id = bank.id
+        changed = True
+
+    public_user = await db.scalar(select(User).where(User.email == "user@example.com"))
+    if public_user is None:
+        return changed
+
+    packages_result = await db.execute(
+        select(FoodPackage).where(FoodPackage.food_bank_id == bank.id)
+    )
+    packages_by_name = {
+        package.name: package for package in packages_result.scalars().all()
+    }
+
+    for cash_seed in cash_donations:
+        donation = await db.scalar(
+            select(DonationCash).where(
+                DonationCash.payment_reference == cash_seed["payment_reference"]
+            )
+        )
+        if donation is None:
+            db.add(
+                DonationCash(
+                    donor_name=cash_seed["donor_name"],
+                    donor_email=cash_seed["donor_email"],
+                    amount_pence=cash_seed["amount_pence"],
+                    payment_reference=cash_seed["payment_reference"],
+                    status=cash_seed["status"],
+                    food_bank_id=bank.id,
+                )
+            )
+            changed = True
+        else:
+            if (
+                donation.donor_name != cash_seed["donor_name"]
+                or donation.donor_email != cash_seed["donor_email"]
+                or donation.amount_pence != cash_seed["amount_pence"]
+                or donation.status != cash_seed["status"]
+                or donation.food_bank_id != bank.id
+            ):
+                donation.donor_name = cash_seed["donor_name"]
+                donation.donor_email = cash_seed["donor_email"]
+                donation.amount_pence = cash_seed["amount_pence"]
+                donation.status = cash_seed["status"]
+                donation.food_bank_id = bank.id
+                changed = True
+
+    for goods_seed in goods_donations:
+        donation = await db.scalar(
+            select(DonationGoods).where(
+                DonationGoods.food_bank_id == bank.id,
+                DonationGoods.donor_email == goods_seed["donor_email"],
+                DonationGoods.donor_name == goods_seed["donor_name"],
+            )
+        )
+        pickup_date = format_goods_pickup_date(date.today() + timedelta(
+            days=goods_seed["pickup_date_offset_days"]
+        ))
+        donor_phone = normalize_goods_donor_phone(goods_seed["donor_phone"], required=True)
+        if donation is None:
+            donation = DonationGoods(
+                food_bank_id=bank.id,
+                food_bank_name=bank.name,
+                food_bank_address=bank.address,
+                donor_name=goods_seed["donor_name"],
+                donor_email=goods_seed["donor_email"],
+                donor_phone=donor_phone,
+                postcode=goods_seed["postcode"],
+                pickup_date=pickup_date,
+                item_condition=goods_seed["item_condition"],
+                estimated_quantity=goods_seed["estimated_quantity"],
+                notes=goods_seed["notes"],
+                status=goods_seed["status"],
+            )
+            db.add(donation)
+            await db.flush()
+            changed = True
+        else:
+            if (
+                donation.food_bank_id != bank.id
+                or donation.food_bank_name != bank.name
+                or donation.food_bank_address != bank.address
+                or donation.donor_phone != donor_phone
+                or donation.postcode != goods_seed["postcode"]
+                or donation.pickup_date != pickup_date
+                or donation.item_condition != goods_seed["item_condition"]
+                or donation.estimated_quantity != goods_seed["estimated_quantity"]
+                or donation.notes != goods_seed["notes"]
+                or donation.status != goods_seed["status"]
+            ):
+                donation.food_bank_id = bank.id
+                donation.food_bank_name = bank.name
+                donation.food_bank_address = bank.address
+                donation.donor_phone = donor_phone
+                donation.postcode = goods_seed["postcode"]
+                donation.pickup_date = pickup_date
+                donation.item_condition = goods_seed["item_condition"]
+                donation.estimated_quantity = goods_seed["estimated_quantity"]
+                donation.notes = goods_seed["notes"]
+                donation.status = goods_seed["status"]
+                changed = True
+
+        existing_items_result = await db.execute(
+            select(DonationGoodsItem).where(
+                DonationGoodsItem.donation_id == donation.id
+            )
+        )
+        existing_items = list(existing_items_result.scalars().all())
+        existing_items_by_name = {
+            item.item_name: item for item in existing_items
+        }
+        target_item_names: set[str] = set()
+
+        for item_seed in goods_seed["items"]:
+            target_item_names.add(item_seed["item_name"])
+            existing_item = existing_items_by_name.get(item_seed["item_name"])
+            if existing_item is None:
+                db.add(
+                    DonationGoodsItem(
+                        donation_id=donation.id,
+                        item_name=item_seed["item_name"],
+                        quantity=item_seed["quantity"],
+                    )
+                )
+                changed = True
+            elif existing_item.quantity != item_seed["quantity"]:
+                existing_item.quantity = item_seed["quantity"]
+                changed = True
+
+        for existing_item in existing_items:
+            if existing_item.item_name not in target_item_names:
+                await db.delete(existing_item)
+                changed = True
+
+    for application_seed in applications:
+        package = packages_by_name.get(application_seed["package_name"])
+        if package is None:
+            continue
+
+        application = await db.scalar(
+            select(Application).where(
+                Application.redemption_code == application_seed["redemption_code"]
+            )
+        )
+        week_start = _demo_week_start(application_seed["week_offset"])
+        created_at = _demo_application_created_at(
+            week_start,
+            int(application_seed.get("created_day_offset", 0)),
+            int(application_seed.get("created_hour", 10)),
+        )
+        created_at_aware = created_at.replace(tzinfo=timezone.utc)
+        redeemed_at = (
+            created_at_aware + timedelta(days=2)
+            if application_seed["status"] == "collected"
+            else None
+        )
+        updated_at = redeemed_at or (created_at_aware + timedelta(hours=6))
+        if application is None:
+            application = Application(
+                user_id=public_user.id,
+                food_bank_id=bank.id,
+                redemption_code=application_seed["redemption_code"],
+                status=application_seed["status"],
+                week_start=week_start,
+                total_quantity=application_seed["quantity"],
+                created_at=created_at,
+                updated_at=updated_at,
+                redeemed_at=redeemed_at,
+            )
+            db.add(application)
+            await db.flush()
+            changed = True
+        else:
+            if (
+                application.user_id != public_user.id
+                or application.food_bank_id != bank.id
+                or application.status != application_seed["status"]
+                or application.week_start != week_start
+                or application.total_quantity != application_seed["quantity"]
+                or application.updated_at != updated_at
+                or application.redeemed_at != redeemed_at
+                or application.deleted_at is not None
+            ):
+                application.user_id = public_user.id
+                application.food_bank_id = bank.id
+                application.status = application_seed["status"]
+                application.week_start = week_start
+                application.total_quantity = application_seed["quantity"]
+                application.updated_at = updated_at
+                application.redeemed_at = redeemed_at
+                application.deleted_at = None
+                changed = True
+
+        existing_app_items_result = await db.execute(
+            select(ApplicationItem).where(
+                ApplicationItem.application_id == application.id
+            )
+        )
+        existing_app_items = list(existing_app_items_result.scalars().all())
+
+        matching_package_item = next(
+            (
+                item
+                for item in existing_app_items
+                if item.package_id == package.id
+                and item.quantity == application_seed["quantity"]
+                and item.inventory_item_id is None
+            ),
+            None,
+        )
+        if matching_package_item is None:
+            for existing_item in existing_app_items:
+                await db.delete(existing_item)
+            db.add(
+                ApplicationItem(
+                    application_id=application.id,
+                    package_id=package.id,
+                    quantity=application_seed["quantity"],
+                )
+            )
+            changed = True
+
+    return changed
+
+
 async def ensure_demo_admin_scope_records() -> None:
-    """Seed bank-scoped demo records so the local admin account has visible data."""
+    """Seed bank-scoped demo records so local admin accounts have visibly different data."""
     async with AsyncSessionLocal() as db:
         changed = False
 
-        bank = await db.scalar(
-            select(FoodBank).where(FoodBank.name == DEMO_LOCAL_ADMIN_BANK_NAME)
-        )
-        if bank is None:
-            return
-
-        local_admin = await db.scalar(
-            select(User).where(User.email == "localadmin@foodbank.com")
-        )
-        if local_admin is not None and local_admin.food_bank_id != bank.id:
-            local_admin.food_bank_id = bank.id
-            changed = True
-
-        public_user = await db.scalar(
-            select(User).where(User.email == "user@example.com")
-        )
-        if public_user is None:
-            if changed:
-                await db.commit()
-            return
-
-        packages_result = await db.execute(
-            select(FoodPackage).where(FoodPackage.food_bank_id == bank.id)
-        )
-        packages_by_name = {
-            package.name: package for package in packages_result.scalars().all()
-        }
-
-        for cash_seed in DEMO_LOCAL_SCOPE_CASH_DONATIONS:
-            donation = await db.scalar(
-                select(DonationCash).where(
-                    DonationCash.payment_reference == cash_seed["payment_reference"]
-                )
-            )
-            if donation is None:
-                db.add(
-                    DonationCash(
-                        donor_name=cash_seed["donor_name"],
-                        donor_email=cash_seed["donor_email"],
-                        amount_pence=cash_seed["amount_pence"],
-                        payment_reference=cash_seed["payment_reference"],
-                        status=cash_seed["status"],
-                        food_bank_id=bank.id,
-                    )
-                )
-                changed = True
-            else:
-                if (
-                    donation.donor_name != cash_seed["donor_name"]
-                    or donation.donor_email != cash_seed["donor_email"]
-                    or donation.amount_pence != cash_seed["amount_pence"]
-                    or donation.status != cash_seed["status"]
-                    or donation.food_bank_id != bank.id
-                ):
-                    donation.donor_name = cash_seed["donor_name"]
-                    donation.donor_email = cash_seed["donor_email"]
-                    donation.amount_pence = cash_seed["amount_pence"]
-                    donation.status = cash_seed["status"]
-                    donation.food_bank_id = bank.id
-                    changed = True
-
-        for goods_seed in DEMO_LOCAL_SCOPE_GOODS_DONATIONS:
-            donation = await db.scalar(
-                select(DonationGoods).where(
-                    DonationGoods.food_bank_id == bank.id,
-                    DonationGoods.donor_email == goods_seed["donor_email"],
-                    DonationGoods.donor_name == goods_seed["donor_name"],
-                )
-            )
-            pickup_date = format_goods_pickup_date(date.today() + timedelta(
-                days=goods_seed["pickup_date_offset_days"]
-            ))
-            donor_phone = normalize_goods_donor_phone(goods_seed["donor_phone"], required=True)
-            if donation is None:
-                donation = DonationGoods(
-                    food_bank_id=bank.id,
-                    food_bank_name=bank.name,
-                    food_bank_address=bank.address,
-                    donor_name=goods_seed["donor_name"],
-                    donor_email=goods_seed["donor_email"],
-                    donor_phone=donor_phone,
-                    postcode=goods_seed["postcode"],
-                    pickup_date=pickup_date,
-                    item_condition=goods_seed["item_condition"],
-                    estimated_quantity=goods_seed["estimated_quantity"],
-                    notes=goods_seed["notes"],
-                    status=goods_seed["status"],
-                )
-                db.add(donation)
-                await db.flush()
-                changed = True
-            else:
-                if (
-                    donation.food_bank_id != bank.id
-                    or donation.food_bank_name != bank.name
-                    or donation.food_bank_address != bank.address
-                    or donation.donor_phone != donor_phone
-                    or donation.postcode != goods_seed["postcode"]
-                    or donation.pickup_date != pickup_date
-                    or donation.item_condition != goods_seed["item_condition"]
-                    or donation.estimated_quantity != goods_seed["estimated_quantity"]
-                    or donation.notes != goods_seed["notes"]
-                    or donation.status != goods_seed["status"]
-                ):
-                    donation.food_bank_id = bank.id
-                    donation.food_bank_name = bank.name
-                    donation.food_bank_address = bank.address
-                    donation.donor_phone = donor_phone
-                    donation.postcode = goods_seed["postcode"]
-                    donation.pickup_date = pickup_date
-                    donation.item_condition = goods_seed["item_condition"]
-                    donation.estimated_quantity = goods_seed["estimated_quantity"]
-                    donation.notes = goods_seed["notes"]
-                    donation.status = goods_seed["status"]
-                    changed = True
-
-            existing_items_result = await db.execute(
-                select(DonationGoodsItem).where(
-                    DonationGoodsItem.donation_id == donation.id
-                )
-            )
-            existing_items = list(existing_items_result.scalars().all())
-            existing_items_by_name = {
-                item.item_name: item for item in existing_items
-            }
-            target_item_names: set[str] = set()
-
-            for item_seed in goods_seed["items"]:
-                target_item_names.add(item_seed["item_name"])
-                existing_item = existing_items_by_name.get(item_seed["item_name"])
-                if existing_item is None:
-                    db.add(
-                        DonationGoodsItem(
-                            donation_id=donation.id,
-                            item_name=item_seed["item_name"],
-                            quantity=item_seed["quantity"],
-                        )
-                    )
-                    changed = True
-                elif existing_item.quantity != item_seed["quantity"]:
-                    existing_item.quantity = item_seed["quantity"]
-                    changed = True
-
-            for existing_item in existing_items:
-                if existing_item.item_name not in target_item_names:
-                    await db.delete(existing_item)
-                    changed = True
-
-        for application_seed in DEMO_LOCAL_SCOPE_APPLICATIONS:
-            package = packages_by_name.get(application_seed["package_name"])
-            if package is None:
-                continue
-
-            application = await db.scalar(
-                select(Application).where(
-                    Application.redemption_code == application_seed["redemption_code"]
-                )
-            )
-            week_start = _demo_week_start(application_seed["week_offset"])
-            created_at = _demo_application_created_at(
-                week_start,
-                int(application_seed.get("created_day_offset", 0)),
-                int(application_seed.get("created_hour", 10)),
-            )
-            created_at_aware = created_at.replace(tzinfo=timezone.utc)
-            redeemed_at = (
-                created_at_aware + timedelta(days=2)
-                if application_seed["status"] == "collected"
-                else None
-            )
-            updated_at = redeemed_at or (created_at_aware + timedelta(hours=6))
-            if application is None:
-                application = Application(
-                    user_id=public_user.id,
-                    food_bank_id=bank.id,
-                    redemption_code=application_seed["redemption_code"],
-                    status=application_seed["status"],
-                    week_start=week_start,
-                    total_quantity=application_seed["quantity"],
-                    created_at=created_at,
-                    updated_at=updated_at,
-                    redeemed_at=redeemed_at,
-                )
-                db.add(application)
-                await db.flush()
-                changed = True
-            else:
-                if (
-                    application.user_id != public_user.id
-                    or application.food_bank_id != bank.id
-                    or application.status != application_seed["status"]
-                    or application.week_start != week_start
-                    or application.total_quantity != application_seed["quantity"]
-                    or application.updated_at != updated_at
-                    or application.redeemed_at != redeemed_at
-                    or application.deleted_at is not None
-                ):
-                    application.user_id = public_user.id
-                    application.food_bank_id = bank.id
-                    application.status = application_seed["status"]
-                    application.week_start = week_start
-                    application.total_quantity = application_seed["quantity"]
-                    application.updated_at = updated_at
-                    application.redeemed_at = redeemed_at
-                    application.deleted_at = None
-                    changed = True
-
-            existing_app_items_result = await db.execute(
-                select(ApplicationItem).where(
-                    ApplicationItem.application_id == application.id
-                )
-            )
-            existing_app_items = list(existing_app_items_result.scalars().all())
-
-            matching_package_item = next(
-                (
-                    item
-                    for item in existing_app_items
-                    if item.package_id == package.id
-                    and item.quantity == application_seed["quantity"]
-                    and item.inventory_item_id is None
-                ),
-                None,
-            )
-            if matching_package_item is None:
-                for existing_item in existing_app_items:
-                    await db.delete(existing_item)
-                db.add(
-                    ApplicationItem(
-                        application_id=application.id,
-                        package_id=package.id,
-                        quantity=application_seed["quantity"],
-                    )
-                )
-                changed = True
+        for seed in DEMO_SCOPED_ADMIN_SEEDS:
+            changed = await _ensure_demo_scoped_admin_records(
+                db,
+                admin_email=str(seed["admin_email"]),
+                bank_name=str(seed["bank_name"]),
+                cash_donations=list(seed["cash_donations"]),
+                goods_donations=list(seed["goods_donations"]),
+                applications=list(seed["applications"]),
+            ) or changed
 
         if changed:
             await db.commit()

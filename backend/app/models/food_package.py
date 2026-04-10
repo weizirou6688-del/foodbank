@@ -4,8 +4,9 @@ FoodPackage model representing pre-configured food packages.
 From spec section 1 for the `food_packages` table:
 FoodPackage entities represent curated collections of inventory items ready
 for distribution. Each package has a stock level, threshold for restock, and
-tracks how many times it has been applied for. Packages may be food-bank
-specific (`food_bank_id` set) or system-wide (`food_bank_id` NULL). The
+tracks how many times it has been applied for. The live application treats
+packages as food-bank scoped records tied to `food_bank_id`; legacy NULL-scope
+rows may still exist in old databases but are not used by current flows. The
 `is_active` flag allows soft-deletion for historical tracking.
 """
 

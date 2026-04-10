@@ -348,6 +348,17 @@ async def submit_application(
                         detail=f"Inventory item(s) not found: {missing_inventory_item_ids}",
                     )
 
+                invalid_inventory_item_ids = [
+                    item.id
+                    for item in inventory_items.values()
+                    if item.food_bank_id != application_in.food_bank_id
+                ]
+                if invalid_inventory_item_ids:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Provided food_bank_id does not match selected inventory items",
+                    )
+
             redemption_code = await _generate_unique_redemption_code(db)
 
             application = Application(

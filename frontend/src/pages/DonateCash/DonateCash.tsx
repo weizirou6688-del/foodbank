@@ -221,8 +221,8 @@ export default function DonateCash() {
             <div className={`${styles.sectionInner} ${styles.heroInner}`}>
               <h1 className={styles.heroTitle}>Support Food Banks Across the Network</h1>
               <p className={styles.heroText}>
-                Cash donations help cover urgent purchases, transport, and shared coordination
-                costs when local stock is short.
+                Cash donations help cover urgent purchases, transport, and coordination
+                across participating food banks when local stock is short.
               </p>
 
               <div className={styles.checkList}>

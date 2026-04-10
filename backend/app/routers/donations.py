@@ -62,6 +62,13 @@ def _normalize_food_bank_match_text(value: str | None) -> str:
     return " ".join((value or "").strip().lower().split())
 
 
+def _donation_scope_filter(model, admin_user: dict):
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    if admin_food_bank_id is None:
+        return model.food_bank_id.is_not(None)
+    return model.food_bank_id == admin_food_bank_id
+
+
 async def _resolve_food_bank_from_metadata(
     *,
     food_bank_name: str | None,
@@ -147,42 +154,32 @@ async def _resolve_or_create_inventory_item(
     food_bank_id: int | None,
     db: AsyncSession,
 ) -> InventoryItem:
+    if food_bank_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Received goods donations must target a specific food bank",
+        )
+
     normalized_name = item_name.strip()
     exact_name_query = select(InventoryItem).where(
         func.lower(InventoryItem.name) == normalized_name.lower()
     )
-
-    if food_bank_id is not None:
-        exact_scoped_item = await db.scalar(
-            exact_name_query.where(InventoryItem.food_bank_id == food_bank_id)
-        )
-        if exact_scoped_item is not None:
-            return exact_scoped_item
-
-    exact_shared_item = await db.scalar(
-        exact_name_query.where(InventoryItem.food_bank_id.is_(None)).order_by(InventoryItem.id)
+    exact_scoped_item = await db.scalar(
+        exact_name_query.where(InventoryItem.food_bank_id == food_bank_id)
     )
-    if exact_shared_item is not None:
-        return exact_shared_item
+    if exact_scoped_item is not None and exact_scoped_item.food_bank_id == food_bank_id:
+        return exact_scoped_item
 
     fuzzy_name_query = (
         select(InventoryItem)
         .where(func.lower(InventoryItem.name).like(f"{normalized_name.lower()}%"))
         .order_by(InventoryItem.id)
     )
-
-    if food_bank_id is not None:
-        fuzzy_scoped_item = await db.scalar(
-            fuzzy_name_query.where(InventoryItem.food_bank_id == food_bank_id)
-        )
-        if fuzzy_scoped_item is not None:
-            return fuzzy_scoped_item
-
-    fuzzy_shared_item = await db.scalar(
-        fuzzy_name_query.where(InventoryItem.food_bank_id.is_(None))
+    fuzzy_scoped_item = await db.scalar(
+        fuzzy_name_query.where(InventoryItem.food_bank_id == food_bank_id)
     )
-    if fuzzy_shared_item is not None:
-        return fuzzy_shared_item
+    if fuzzy_scoped_item is not None and fuzzy_scoped_item.food_bank_id == food_bank_id:
+        return fuzzy_scoped_item
 
     item = InventoryItem(
         name=normalized_name,
@@ -201,6 +198,9 @@ async def _sync_goods_donation_inventory(
     db: AsyncSession,
     items: list[DonationGoodsItem | DonationGoodsItemCreatePayload] | None = None,
 ) -> None:
+    if donation.food_bank_id is None:
+        return
+
     received_date = parse_goods_pickup_date(donation.pickup_date) or date.today()
     donation_items = items if items is not None else list(donation.items)
 
@@ -237,13 +237,23 @@ async def _resolve_supermarket_inventory_item(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Inventory item #{item_in.inventory_item_id} not found",
             )
+        if inventory_item.food_bank_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inventory item must belong to a specific food bank",
+            )
         return inventory_item
 
     normalized_name = (item_in.item_name or "").strip()
     inventory_item = await db.scalar(
-        select(InventoryItem).where(func.lower(InventoryItem.name) == normalized_name.lower())
+        select(InventoryItem)
+        .where(
+            func.lower(InventoryItem.name) == normalized_name.lower(),
+            InventoryItem.food_bank_id.is_not(None),
+        )
+        .order_by(InventoryItem.id)
     )
-    if inventory_item is None:
+    if inventory_item is None or inventory_item.food_bank_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -544,8 +554,32 @@ async def submit_supermarket_goods_donation(
                     detail="Authenticated supermarket user not found",
                 )
 
+            resolved_items: list[tuple[SupermarketDonationItemPayload, InventoryItem]] = []
+            scoped_food_bank_ids: set[int] = set()
+            for item in donation_in.items:
+                inventory_item = await _resolve_supermarket_inventory_item(item, db)
+                resolved_items.append((item, inventory_item))
+                if inventory_item.food_bank_id is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Inventory item must belong to a specific food bank",
+                    )
+                scoped_food_bank_ids.add(int(inventory_item.food_bank_id))
+
+            if len(scoped_food_bank_ids) != 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="All supermarket donation items must belong to the same food bank",
+                )
+
+            donation_food_bank_id = scoped_food_bank_ids.pop()
+            selected_food_bank = await _resolve_food_bank(donation_food_bank_id, db)
+
             donation = DonationGoods(
                 donor_user_id=supermarket_user.id,
+                food_bank_id=selected_food_bank.id,
+                food_bank_name=selected_food_bank.name,
+                food_bank_address=selected_food_bank.address,
                 donor_name=supermarket_user.name,
                 donor_type="supermarket",
                 donor_email=supermarket_user.email,
@@ -561,8 +595,7 @@ async def submit_supermarket_goods_donation(
             received_date = parse_goods_pickup_date(donation.pickup_date) or date.today()
             touched_inventory_item_ids: set[int] = set()
 
-            for item in donation_in.items:
-                inventory_item = await _resolve_supermarket_inventory_item(item, db)
+            for item, inventory_item in resolved_items:
                 touched_inventory_item_ids.add(inventory_item.id)
 
                 db.add(
@@ -860,9 +893,14 @@ async def list_donations(
 
     if normalized in (None, "cash"):
         cash_query = select(DonationCash).order_by(DonationCash.created_at.desc())
-        if admin_food_bank_id is not None:
-            cash_query = cash_query.where(DonationCash.food_bank_id == admin_food_bank_id)
+        cash_query = cash_query.where(_donation_scope_filter(DonationCash, admin_user))
         cash_rows = (await db.execute(cash_query)).scalars().all()
+        if admin_food_bank_id is None:
+            cash_rows = [
+                row
+                for row in cash_rows
+                if not hasattr(row, "food_bank_id") or getattr(row, "food_bank_id", None) is not None
+            ]
         for row in cash_rows:
             payload = DonationCashOut.model_validate(row).model_dump(mode="json")
             payload["donation_type"] = "cash"
@@ -874,9 +912,14 @@ async def list_donations(
             .options(selectinload(DonationGoods.items))
             .order_by(DonationGoods.created_at.desc())
         )
-        if admin_food_bank_id is not None:
-            goods_query = goods_query.where(DonationGoods.food_bank_id == admin_food_bank_id)
+        goods_query = goods_query.where(_donation_scope_filter(DonationGoods, admin_user))
         goods_rows = (await db.execute(goods_query)).scalars().all()
+        if admin_food_bank_id is None:
+            goods_rows = [
+                row
+                for row in goods_rows
+                if not hasattr(row, "food_bank_id") or getattr(row, "food_bank_id", None) is not None
+            ]
         for row in goods_rows:
             payload = DonationGoodsOut.model_validate(row).model_dump(mode="json")
             payload["donation_type"] = "goods"

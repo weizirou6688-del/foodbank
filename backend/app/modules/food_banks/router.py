@@ -57,9 +57,8 @@ async def list_food_bank_inventory_items(
 ):
     """List publicly available individual inventory items for the selected food bank.
 
-    Inventory is currently global in the data model, so the bank id is validated
-    for route consistency and response metadata, while stock is aggregated from
-    active lots across the shared inventory pool.
+    Public inventory is bank-scoped. Only items that belong to the requested
+    food bank and currently have active stock are returned.
     """
     food_bank = await db.scalar(select(FoodBank).where(FoodBank.id == food_bank_id))
     if food_bank is None:
@@ -93,7 +92,10 @@ async def list_food_bank_inventory_items(
             InventoryItem.id == stock_subquery.c.inventory_item_id,
             isouter=True,
         )
-        .where(func.coalesce(stock_subquery.c.total_stock, 0) > 0)
+        .where(
+            InventoryItem.food_bank_id == food_bank_id,
+            func.coalesce(stock_subquery.c.total_stock, 0) > 0,
+        )
         .order_by(InventoryItem.category.asc(), InventoryItem.name.asc())
     )
 
@@ -107,7 +109,7 @@ async def list_food_bank_inventory_items(
             total_stock=int(total_stock or 0),
             unit=item.unit,
             threshold=item.threshold,
-            food_bank_id=food_bank_id,
+            food_bank_id=item.food_bank_id,
             updated_at=item.updated_at,
         )
         for item, total_stock in rows
