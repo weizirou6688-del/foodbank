@@ -3,23 +3,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { useFoodBankStore } from '@/app/store/foodBankStore'
 import { useAuthStore } from '@/app/store/authStore'
 import { foodBanksAPI } from '@/shared/lib/api'
+import {
+  inventoryCategoryOptions,
+  type InventoryCategoryOption,
+} from '@/pages/Admin/adminFoodManagement.constants'
 import { getAdminScopeMeta } from '@/shared/lib/adminScope'
 import Modal from '@/shared/ui/Modal'
 import { AdminModalPrimaryButton, AdminModalSecondaryButton } from './AdminModalPrimitives'
 import { AdminModalField, AdminModalInput, AdminModalSelect } from './AdminModalFields'
 import { AdminModalFormLayout } from './AdminModalLayouts'
 
-const ITEM_CATEGORIES = [
-  'Proteins & Meat',
-  'Vegetables',
-  'Fruits',
-  'Dairy',
-  'Canned Goods',
-  'Grains & Pasta',
-  'Snacks',
-  'Beverages',
-  'Baby Food',
-] as const
+const DEFAULT_ITEM_CATEGORY: InventoryCategoryOption = inventoryCategoryOptions[0]
 
 interface AddItemModalProps {
   isOpen: boolean
@@ -38,7 +32,7 @@ export default function AddItemModal({ isOpen, onClose }: AddItemModalProps) {
   const isPlatformAdmin = adminScope.isPlatformAdmin
 
   const [name, setName] = useState('')
-  const [category, setCategory] = useState<(typeof ITEM_CATEGORIES)[number]>('Proteins & Meat')
+  const [category, setCategory] = useState<InventoryCategoryOption>(DEFAULT_ITEM_CATEGORY)
   const [initialStock, setInitialStock] = useState('0')
   const [foodBankId, setFoodBankId] = useState('')
   const [foodBanks, setFoodBanks] = useState<FoodBankOption[]>([])
@@ -98,7 +92,7 @@ export default function AddItemModal({ isOpen, onClose }: AddItemModalProps) {
 
   const resetAndClose = () => {
     setName('')
-    setCategory('Proteins & Meat')
+    setCategory(DEFAULT_ITEM_CATEGORY)
     setInitialStock('0')
     setError('')
     setSubmitting(false)
@@ -196,9 +190,9 @@ export default function AddItemModal({ isOpen, onClose }: AddItemModalProps) {
         <AdminModalField label="Category">
           <AdminModalSelect
             value={category}
-            onChange={(event) => setCategory(event.target.value as (typeof ITEM_CATEGORIES)[number])}
+            onChange={(event) => setCategory(event.target.value as InventoryCategoryOption)}
           >
-            {ITEM_CATEGORIES.map((option) => (
+            {inventoryCategoryOptions.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
