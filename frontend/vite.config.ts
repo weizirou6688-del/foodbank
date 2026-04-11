@@ -250,11 +250,7 @@ export default defineConfig({
             return 'state'
           }
 
-          if (
-            packageName === 'class-variance-authority' ||
-            packageName === 'clsx' ||
-            packageName === 'tailwind-merge'
-          ) {
+          if (packageName === 'clsx' || packageName === 'tailwind-merge') {
             return 'ui-utils'
           }
 

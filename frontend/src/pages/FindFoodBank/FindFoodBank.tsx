@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { useFoodBankStore } from '@/app/store/foodBankStore'
@@ -8,10 +8,247 @@ import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import type { FoodBank } from '@/shared/types/common'
 import FoodBankMap from './FoodBankMap'
 
+const RESULTS_PER_PAGE = 3
+const DETAIL_ROW_CLASS_NAME = 'flex items-start gap-2 text-sm text-gray-600'
+const DETAIL_ICON_CLASS_NAME = 'size-4 mt-0.5 flex-shrink-0 text-[#F5A623]'
+
 const getFoodBankKey = (foodBank: FoodBank) =>
   `${foodBank.id}-${foodBank.name}-${foodBank.lat}-${foodBank.lng}`
 
-const RESULTS_PER_PAGE = 3
+function getSecondaryLine(foodBank: FoodBank) {
+  if (foodBank.systemMatched) {
+    return 'Online application available'
+  }
+  return 'Contact this location directly'
+}
+
+function getDistanceLabel(foodBank: FoodBank) {
+  return typeof foodBank.distance === 'number'
+    ? `${foodBank.distance.toFixed(2)} km away`
+    : 'Nearby location'
+}
+
+function SearchIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    </svg>
+  )
+}
+
+function AddressIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={DETAIL_ICON_CLASS_NAME}>
+      <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  )
+}
+
+function MailIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={DETAIL_ICON_CLASS_NAME}>
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  )
+}
+
+function PhoneIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={DETAIL_ICON_CLASS_NAME}>
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  )
+}
+
+function DistanceIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={DETAIL_ICON_CLASS_NAME}>
+      <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  )
+}
+
+function PackagesIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+      <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" />
+      <path d="M12 22V12" />
+      <polyline points="3.29 7 12 12 20.71 7" />
+      <path d="m7.5 4.27 9 5.15" />
+    </svg>
+  )
+}
+
+function GoogleMapsIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+      <polygon points="3 11 22 2 13 21 11 13 3 11" />
+    </svg>
+  )
+}
+
+function DetailRow({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <div className={DETAIL_ROW_CLASS_NAME}>
+      {icon}
+      <span>{children}</span>
+    </div>
+  )
+}
+
+function FoodBankName({ foodBank }: { foodBank: FoodBank }) {
+  if (!foodBank.url) {
+    return <span className="text-gray-900 inline-flex items-center gap-2">{foodBank.name}</span>
+  }
+
+  return (
+    <a
+      href={foodBank.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) => event.stopPropagation()}
+      className="text-gray-900 hover:text-[#F5A623] transition-colors inline-flex items-center gap-2"
+    >
+      {foodBank.name}
+      <ExternalLinkIcon />
+    </a>
+  )
+}
+
+function FoodBankResultCard({
+  foodBank,
+  isSelected,
+  onSelect,
+  onViewPackages,
+}: {
+  foodBank: FoodBank
+  isSelected: boolean
+  onSelect: () => void
+  onViewPackages: (foodBank: FoodBank) => void
+}) {
+  const secondaryLine = getSecondaryLine(foodBank)
+
+  return (
+    <article
+      className={`bg-card text-card-foreground flex flex-col gap-6 rounded-xl border hover:shadow-lg transition-shadow ${
+        isSelected
+          ? 'border-[#F5A623] shadow-lg'
+          : 'border-gray-200'
+      }`}
+      onClick={onSelect}
+    >
+      <div className="grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 pt-6">
+        <h4 className="leading-none flex items-start justify-between gap-2">
+          <div className="flex-1">
+            <FoodBankName foodBank={foodBank} />
+          </div>
+        </h4>
+      </div>
+
+      <div className="px-6 [&:last-child]:pb-6 space-y-4">
+        <DetailRow icon={<AddressIcon />}>{foodBank.address}</DetailRow>
+
+        <DetailRow icon={<MailIcon />}>{secondaryLine}</DetailRow>
+
+        {foodBank.phone || foodBank.email ? (
+          <DetailRow icon={<PhoneIcon />}>{foodBank.phone ?? foodBank.email}</DetailRow>
+        ) : null}
+
+        <DetailRow icon={<DistanceIcon />}>{getDistanceLabel(foodBank)}</DetailRow>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onViewPackages(foodBank)
+            }}
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background h-9 px-4 py-2 flex-1 border-[#F5A623] text-[#F5A623] hover:bg-[#F9F7F2]"
+          >
+            <PackagesIcon />
+            View packages
+          </button>
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(foodBank.address)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all h-9 px-4 py-2 bg-[#F5A623] hover:bg-[#F5A623] text-gray-900"
+          >
+            <GoogleMapsIcon />
+            Google Maps
+          </a>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+}) {
+  if (totalPages <= 1) {
+    return null
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-2 mt-4">
+      <button
+        type="button"
+        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+        disabled={currentPage === 1}
+        className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 h-9 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+      >
+        Prev
+      </button>
+      {Array.from({ length: totalPages }, (_, index) => {
+        const pageNumber = index + 1
+        return (
+          <button
+            key={pageNumber}
+            type="button"
+            onClick={() => onPageChange(pageNumber)}
+            className={`inline-flex items-center justify-center rounded-md border h-9 min-w-9 px-3 text-sm ${
+              currentPage === pageNumber
+                ? 'border-[#F5A623] bg-[#F5A623] text-gray-900'
+                : 'border-gray-300 hover:bg-gray-50 text-gray-700'
+            }`}
+          >
+            {pageNumber}
+          </button>
+        )
+      })}
+      <button
+        type="button"
+        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+        disabled={currentPage === totalPages}
+        className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 h-9 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+      >
+        Next
+      </button>
+    </div>
+  )
+}
 
 export default function FindFoodBank() {
   const navigate = useNavigate()
@@ -53,7 +290,10 @@ export default function FindFoodBank() {
 
   const handleSearch = async () => {
     const trimmed = localPostcode.trim()
-    if (!trimmed) return
+    if (!trimmed) {
+      return
+    }
+
     setSearchPostcode(trimmed)
     await searchFoodBanks(trimmed)
   }
@@ -76,6 +316,7 @@ export default function FindFoodBank() {
     (currentPage - 1) * RESULTS_PER_PAGE,
     currentPage * RESULTS_PER_PAGE,
   )
+
   return (
     <>
       <div className="public-page-font min-h-screen bg-white flex flex-col">
@@ -88,8 +329,8 @@ export default function FindFoodBank() {
                 Find a food bank <span className="text-[#F5A623]">near you</span>
               </h1>
               <p className="max-w-3xl mx-auto text-base md:text-lg text-gray-600 leading-7">
-                Search by postcode to see nearby locations, opening information, and whether a
-                site can accept online package applications.
+                Search by postcode to see nearby locations and whether a site can accept online
+                package applications.
               </p>
             </div>
           </div>
@@ -116,10 +357,7 @@ export default function FindFoodBank() {
                   value={localPostcode}
                   onChange={(event) => setLocalPostcode(event.target.value)}
                 />
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.3-4.3" />
-                </svg>
+                <SearchIcon />
               </div>
               <button
                 type="submit"
@@ -160,185 +398,31 @@ export default function FindFoodBank() {
                 <div className="space-y-4">
                   {displayedResults.map((foodBank) => {
                     const key = getFoodBankKey(foodBank)
-                    const isSelected = selectedFoodBankKey === key
-                    const openingLine =
-                      (foodBank.hours ?? []).length > 0
-                        ? foodBank.hours?.[0] ?? 'Opening hours unavailable'
-                        : 'Please contact this food bank directly'
-                    const secondaryLine =
-                      foodBank.phone
-                        ? `Phone: ${foodBank.phone}`
-                        : foodBank.email
-                          ? `Email: ${foodBank.email}`
-                          : foodBank.systemMatched
-                            ? 'Online application available'
-                            : 'Contact this location directly'
-
                     return (
-                      <article
+                      <FoodBankResultCard
                         key={key}
-                        className={`bg-card text-card-foreground flex flex-col gap-6 rounded-xl border hover:shadow-lg transition-shadow ${
-                          isSelected
-                            ? 'border-[#F5A623] shadow-lg'
-                            : 'border-gray-200'
-                        }`}
-                        onClick={() => setSelectedFoodBankKey(key)}
-                      >
-                        <div className="grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 pt-6">
-                          <h4 className="leading-none flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              {foodBank.url ? (
-                                <a
-                                  href={foodBank.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(event) => event.stopPropagation()}
-                                  className="text-gray-900 hover:text-[#F5A623] transition-colors inline-flex items-center gap-2"
-                                >
-                                  {foodBank.name}
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
-                                    <path d="M15 3h6v6"></path>
-                                    <path d="M10 14 21 3"></path>
-                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                  </svg>
-                                </a>
-                              ) : (
-                                <span className="text-gray-900 inline-flex items-center gap-2">
-                                  {foodBank.name}
-                                </span>
-                              )}
-                            </div>
-                          </h4>
-                        </div>
-
-                        <div className="px-6 [&:last-child]:pb-6 space-y-4">
-                          <div className="flex items-start gap-2 text-sm text-gray-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
-                              <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path>
-                              <circle cx="12" cy="10" r="3"></circle>
-                            </svg>
-                            <span>{foodBank.address}</span>
-                          </div>
-
-                          {(foodBank.hours ?? []).length > 0 && (
-                            <div className="flex items-start gap-2 text-sm text-gray-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                              </svg>
-                              <span>{openingLine}</span>
-                            </div>
-                          )}
-
-                          <div className="flex items-start gap-2 text-sm text-gray-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
-                              <rect width="20" height="16" x="2" y="4" rx="2"></rect>
-                              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
-                            </svg>
-                            <span>{secondaryLine}</span>
-                          </div>
-
-                          {(foodBank.phone || foodBank.email) && (
-                            <div className="flex items-start gap-2 text-sm text-gray-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
-                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                              </svg>
-                              <span>{foodBank.phone ?? foodBank.email}</span>
-                            </div>
-                          )}
-
-                          <div className="flex items-start gap-2 text-sm text-gray-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4 mt-0.5 flex-shrink-0 text-[#F5A623]">
-                              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path>
-                              <circle cx="12" cy="10" r="3"></circle>
-                            </svg>
-                            <span>
-                              {typeof foodBank.distance === 'number'
-                                ? `${foodBank.distance.toFixed(2)} km away`
-                                : 'Nearby location'}
-                            </span>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                handleViewPackages(foodBank)
-                              }}
-                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all border bg-background h-9 px-4 py-2 flex-1 border-[#F5A623] text-[#F5A623] hover:bg-[#F9F7F2]"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
-                                <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"></path>
-                                <path d="M12 22V12"></path>
-                                <polyline points="3.29 7 12 12 20.71 7"></polyline>
-                                <path d="m7.5 4.27 9 5.15"></path>
-                              </svg>
-                              View packages
-                            </button>
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(foodBank.address)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(event) => event.stopPropagation()}
-                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all h-9 px-4 py-2 bg-[#F5A623] hover:bg-[#F5A623] text-gray-900"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
-                                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-                              </svg>
-                              Google Maps
-                            </a>
-                          </div>
-                        </div>
-                      </article>
+                        foodBank={foodBank}
+                        isSelected={selectedFoodBankKey === key}
+                        onSelect={() => setSelectedFoodBankKey(key)}
+                        onViewPackages={handleViewPackages}
+                      />
                     )
                   })}
-                  {hasSearched && searchResults.length === 0 && (
+
+                  {hasSearched && searchResults.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-gray-300 p-6 text-sm text-gray-600 leading-6">
                       {searchError
                         ? `Search error: ${searchError}`
                         : 'No nearby food banks were found for this postcode. Try another postcode or a nearby area.'}
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                      disabled={currentPage === 1}
-                      className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 h-9 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      Prev
-                    </button>
-                    {Array.from({ length: totalPages }, (_, index) => {
-                      const pageNumber = index + 1
-                      return (
-                        <button
-                          key={pageNumber}
-                          type="button"
-                          onClick={() => setCurrentPage(pageNumber)}
-                          className={`inline-flex items-center justify-center rounded-md border h-9 min-w-9 px-3 text-sm ${
-                            currentPage === pageNumber
-                              ? 'border-[#F5A623] bg-[#F5A623] text-gray-900'
-                              : 'border-gray-300 hover:bg-gray-50 text-gray-700'
-                          }`}
-                        >
-                          {pageNumber}
-                        </button>
-                      )
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                      disabled={currentPage === totalPages}
-                      className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 h-9 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
               </div>
             </div>
           </div>
@@ -350,6 +434,3 @@ export default function FindFoodBank() {
     </>
   )
 }
-
-
-

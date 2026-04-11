@@ -10,7 +10,6 @@ psycopg2-binary==2.9.10
 
 # Security & Passwords
 passlib==1.7.4
-python-jose==3.3.0
 PyJWT==2.12.1
 bcrypt==4.0.1
 
@@ -24,7 +23,6 @@ aiosmtplib==3.0.2
 # Development & Testing (optional)
 pytest==7.4.3
 pytest-asyncio==0.21.1
-httpx==0.25.2
 requests==2.32.3
 
 # Utilities

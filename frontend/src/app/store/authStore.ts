@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User } from '@/shared/types/common'
-import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
+import { authAPI } from '@/shared/lib/api'
 
 type AuthActionResult = {
   success: boolean
@@ -21,31 +21,6 @@ interface AuthState {
   resetPassword: (email: string, verificationCode: string, newPassword: string) => Promise<AuthActionResult>
 }
 
-async function readApiErrorMessage(response: Response, fallback: string): Promise<string> {
-  try {
-    const error = await response.json()
-
-    if (typeof error?.detail === 'string') {
-      return error.detail
-    }
-
-    if (typeof error?.message === 'string') {
-      return error.message
-    }
-
-    if (Array.isArray(error?.errors) && error.errors.length > 0) {
-      const firstError = error.errors[0]
-      if (firstError && typeof firstError.message === 'string') {
-        return firstError.message
-      }
-    }
-  } catch {
-    return fallback
-  }
-
-  return fallback
-}
-
 function normalizeUser(user: User | null | undefined): User | null {
   if (!user) {
     return null
@@ -58,6 +33,9 @@ function normalizeUser(user: User | null | undefined): User | null {
   }
 }
 
+const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -68,20 +46,7 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (email, password) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-          })
-
-          if (!response.ok) {
-            return {
-              success: false,
-              message: await readApiErrorMessage(response, 'Login failed'),
-            }
-          }
-
-          const data = await response.json()
+          const data = await authAPI.login({ email, password })
           set({
             user: normalizeUser(data.user),
             isAuthenticated: true,
@@ -92,7 +57,7 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           return {
             success: false,
-            message: `Network error during login. Cannot reach API at ${API_BASE_URL}`,
+            message: getErrorMessage(error, 'Login failed'),
           }
         }
       },
@@ -104,23 +69,18 @@ export const useAuthStore = create<AuthState>()(
             return false
           }
 
-          const response = await fetch(
-            `${API_BASE_URL}/api/v1/auth/refresh?refresh_token=${encodeURIComponent(currentRefreshToken)}`,
-            { method: 'POST' },
-          )
-
-          if (!response.ok) {
+          try {
+            const data = await authAPI.refreshAccessToken(currentRefreshToken)
+            set((state) => ({
+              ...state,
+              accessToken: data.access_token,
+              isAuthenticated: true,
+            }))
+            return true
+          } catch {
             set({ user: null, isAuthenticated: false, accessToken: null, refreshToken: null })
             return false
           }
-
-          const data = await response.json()
-          set((state) => ({
-            ...state,
-            accessToken: data.access_token,
-            isAuthenticated: true,
-          }))
-          return true
         } catch {
           return false
         }
@@ -132,97 +92,56 @@ export const useAuthStore = create<AuthState>()(
 
       register: async (name, email, password) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password }),
-          })
-
-          if (!response.ok) {
-            return {
-              success: false,
-              message: await readApiErrorMessage(response, 'Registration failed'),
-            }
-          }
+          await authAPI.register({ name, email, password })
 
           // After successful registration, automatically log in
-          const loginResponse = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-          })
-
-          if (loginResponse.ok) {
-            const loginData = await loginResponse.json()
+          try {
+            const loginData = await authAPI.login({ email, password })
             set({
               user: normalizeUser(loginData.user),
               isAuthenticated: true,
               accessToken: loginData.access_token,
               refreshToken: loginData.refresh_token ?? null,
             })
+          } catch {
+            // Keep registration successful even if auto-login fails.
           }
           return { success: true }
         } catch (error) {
-          return { success: false, message: 'Network error during registration' }
+          return { success: false, message: getErrorMessage(error, 'Registration failed') }
         }
       },
 
       forgotPassword: async (email) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/auth/forgot-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
-          })
-
-          if (!response.ok) {
-            return {
-              success: false,
-              message: await readApiErrorMessage(response, 'Unable to start password reset'),
-            }
-          }
-
-          const data = (await response.json()) as { message?: string }
+          const data = await authAPI.forgotPassword({ email })
           return {
             success: true,
             message: data.message,
           }
-        } catch {
+        } catch (error) {
           return {
             success: false,
-            message: `Network error during password reset request. Cannot reach API at ${API_BASE_URL}`,
+            message: getErrorMessage(error, 'Unable to start password reset'),
           }
         }
       },
 
       resetPassword: async (email, verificationCode, newPassword) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v1/auth/reset-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email,
-              verification_code: verificationCode,
-              new_password: newPassword,
-            }),
+          const data = await authAPI.resetPassword({
+            email,
+            verification_code: verificationCode,
+            new_password: newPassword,
           })
-
-          if (!response.ok) {
-            return {
-              success: false,
-              message: await readApiErrorMessage(response, 'Password reset failed'),
-            }
-          }
-
-          const data = (await response.json()) as { message?: string }
           return {
             success: true,
             message: data.message ?? 'Password reset successful.',
           }
-        } catch {
+        } catch (error) {
           return {
             success: false,
-            message: `Network error during password reset. Cannot reach API at ${API_BASE_URL}`,
+            message: getErrorMessage(error, 'Password reset failed'),
           }
         }
       },

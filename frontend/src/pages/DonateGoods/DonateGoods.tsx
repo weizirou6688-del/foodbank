@@ -15,9 +15,20 @@ import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
 import { donationsAPI, foodBanksAPI, statsAPI, type PublicImpactMetric } from '@/shared/lib/api'
 import { buildFoodBankDisplayAddress } from '@/shared/lib/foodBankAddress'
 import { isValidEmail } from '@/shared/lib/validation'
+import { ImageWithFallback } from '@/shared/ui/ImageWithFallback'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
 import { getNearbyFoodbanks } from '@/utils/foodbankApi'
-import { ImageWithFallback } from './components/media/ImageWithFallback'
+import {
+  DONATE_GOODS_ACCEPTED_CATEGORIES,
+  DONATE_GOODS_CONDITION_OPTIONS,
+  DONATE_GOODS_FORM_STEPS,
+  DONATE_GOODS_HERO_POINTS,
+  DONATE_GOODS_JOURNEY_STAGES,
+  DONATE_GOODS_LOCAL_HIGHLIGHTS,
+  DONATE_GOODS_PRE_DONATION_NOTES,
+  DONATE_GOODS_REJECTED_ITEMS,
+  type DonateGoodsIconKey,
+} from './donateGoods.content'
 import styles from './DonateGoods.module.css'
 
 type FeatureCardProps = {
@@ -60,48 +71,6 @@ type InternalFoodBankRecord = {
   address: string
 }
 
-const STEP_FEATURES = [
-  {
-    icon: <Package className={styles.featureIcon} />,
-    title: '1. Choose Items',
-    description: 'Select gently used items you no longer need',
-  },
-  {
-    icon: <Heart className={styles.featureIcon} />,
-    title: '2. Fill Form',
-    description: 'Tell us about your donation request through our simple form',
-  },
-  {
-    icon: <Users className={styles.featureIcon} />,
-    title: '3. Local Team Follows Up',
-    description: 'The selected food bank reviews your request and contacts you directly',
-  },
-  {
-    icon: <TrendingUp className={styles.featureIcon} />,
-    title: '4. Complete The Donation',
-    description: 'Arrange pickup or drop-off with the local food bank team',
-  },
-]
-
-const FEATURE_STORIES = [
-  {
-    icon: <Package className={styles.featureImageIcon} />,
-    title: 'Coordinated Local Collection',
-    description:
-      'The platform records your request and passes it to the selected food bank so their local team can review what is needed and arrange the next step with you.',
-    image:
-      'https://images.unsplash.com/photo-1765744893064-dce3184289ef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3YXJlaG91c2UlMjBib3hlcyUyMG9yZ2FuaXplZHxlbnwxfHx8fDE3NzQ5MzU0OTV8MA&ixlib=rb-4.1.0&q=80&w=1080',
-  },
-  {
-    icon: <Heart className={styles.featureImageIcon} />,
-    title: 'Local Coordination',
-    description:
-      'Donation requests are passed to the selected food bank so their team can review what is needed and arrange the next step.',
-    image:
-      'https://images.unsplash.com/photo-1617080090911-91409e3496ad?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb21tdW5pdHklMjBzdXBwb3J0JTIwaGFuZHN8ZW58MXx8fHwxNzc0OTM1NDk1fDA&ixlib=rb-4.1.0&q=80&w=1080',
-  },
-]
-
 const INITIAL_IMPACT_STATS: ImpactCardProps[] = [
   { number: '--', label: 'Items Donated This Month' },
   { number: '--', label: 'Families Helped' },
@@ -128,48 +97,6 @@ function mapImpactStats(metrics: PublicImpactMetric[]): ImpactCardProps[] {
     },
   ]
 }
-
-const ACCEPTED_ITEMS = [
-  {
-    category: 'Non-Perishable Food',
-    items: [
-      'Canned proteins: tuna, chicken, salmon, corned beef, spam',
-      'Canned vegetables: tomatoes, carrots, peas, sweetcorn, mixed vegetables',
-      'Canned fruit: peaches, pears, pineapple, fruit cocktail in juice',
-      'Pantry staples: pasta, rice, noodles, pasta sauce, cooking sauce',
-      'Breakfast foods: cereal, oatmeal, porridge oats, granola bars',
-    ],
-  },
-  {
-    category: 'Personal Care & Hygiene',
-    items: [
-      'Toiletries: shampoo, conditioner, body wash, hand soap, deodorant',
-      'Oral care: toothbrushes, toothpaste',
-      'Shaving: razors, shaving foam or gel',
-      'Feminine hygiene: sanitary pads, tampons',
-      'Baby care: nappies, baby wipes, baby food when unopened',
-    ],
-  },
-  {
-    category: 'Household & Cleaning',
-    items: [
-      'Cleaning supplies: washing powder, washing-up liquid, household cleaner',
-      'Kitchen essentials: dish soap, sponges, bin bags',
-      'Laundry items: fabric softener, stain remover, laundry detergent',
-      'Paper products: toilet paper, tissues, paper towels',
-      'Air care: air fresheners, disinfectant spray',
-    ],
-  },
-]
-
-const REJECTED_ITEMS = [
-  'Homemade foods',
-  'Opened or damaged packages',
-  'Dented or bulging cans',
-  'Expired items',
-  'Perishable foods requiring refrigeration',
-  'Glass jars where possible',
-]
 
 const INITIAL_DETAILS: DonationDetails = {
   name: '',
@@ -314,7 +241,14 @@ function FeatureCard({ icon, title, description, image }: FeatureCardProps) {
   if (image) {
     return (
       <article className={styles.featureImageCard}>
-        <ImageWithFallback src={image} alt={title} className={styles.featureImage} />
+        <ImageWithFallback
+          src={image}
+          alt={title}
+          className={styles.featureImage}
+          centerFallback={false}
+          fallbackContainerClassName=""
+          fallbackContentClassName=""
+        />
         <div className={styles.featureImageOverlay}>
           <div className={styles.featureImageContent}>
             <div className={styles.featureImageIconWrap}>{icon}</div>
@@ -352,6 +286,169 @@ function ImpactCard({ number, label, trend }: ImpactCardProps) {
   )
 }
 
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string
+  description?: string
+}) {
+  return (
+    <div className={styles.sectionHeader}>
+      <h2 className={styles.sectionTitle}>{title}</h2>
+      {description ? <p className={styles.sectionText}>{description}</p> : null}
+    </div>
+  )
+}
+
+function HeroBenefit({ text }: { text: string }) {
+  return (
+    <div className={styles.heroBenefit}>
+      <Check className={styles.checkIcon} />
+      <span>{text}</span>
+    </div>
+  )
+}
+
+function AcceptedGroupCard({
+  category,
+  items,
+}: {
+  category: string
+  items: string[]
+}) {
+  return (
+    <article className={styles.acceptedCard}>
+      <h3 className={styles.acceptedCardTitle}>{category}</h3>
+      <ul className={styles.acceptedList}>
+        {items.map((item) => (
+          <li key={item} className={styles.acceptedListItem}>
+            <Check className={styles.acceptedListIcon} />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </article>
+  )
+}
+
+function ProgressHeader({ step }: { step: number }) {
+  return (
+    <div className={styles.progressHeader}>
+      <div className={styles.progressTrack}>
+        {DONATE_GOODS_FORM_STEPS.map((flowStep, index) => (
+          <div key={flowStep.id} style={{ display: 'contents' }}>
+            <div
+              className={`${styles.progressDot} ${
+                step >= flowStep.id ? styles.progressDotActive : ''
+              }`}
+            >
+              {flowStep.id}
+            </div>
+            {index < DONATE_GOODS_FORM_STEPS.length - 1 ? (
+              <div
+                className={`${styles.progressLine} ${
+                  step >= flowStep.id + 1 ? styles.progressLineActive : ''
+                }`}
+              />
+            ) : null}
+          </div>
+        ))}
+      </div>
+      <div className={styles.progressLabels}>
+        {DONATE_GOODS_FORM_STEPS.map((flowStep) => (
+          <span
+            key={flowStep.id}
+            className={step >= flowStep.id ? styles.progressLabelActive : ''}
+          >
+            {flowStep.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BankResultCard({
+  bank,
+  onSelect,
+}: {
+  bank: FoodBankOption
+  onSelect: (bank: FoodBankOption) => void
+}) {
+  return (
+    <button
+      type="button"
+      className={styles.bankCard}
+      onClick={() => onSelect(bank)}
+    >
+      <div className={styles.bankCardTop}>
+        <div>
+          <h4 className={styles.bankName}>{bank.name}</h4>
+          <div className={styles.bankAddress}>
+            <MapPin size={16} />
+            <span>{bank.address}</span>
+          </div>
+          <span className={styles.bankDistance}>{bank.distance} away</span>
+        </div>
+        <ChevronRight className={styles.bankArrow} />
+      </div>
+    </button>
+  )
+}
+
+function FormField({
+  id,
+  label,
+  error,
+  children,
+}: {
+  id: string
+  label: string
+  error?: string
+  children: ReactNode
+}) {
+  return (
+    <div className={styles.formField}>
+      <label htmlFor={id} className={styles.formLabel}>
+        {label}
+      </label>
+      {children}
+      {error ? <p className={styles.fieldError}>{error}</p> : null}
+    </div>
+  )
+}
+
+function FeedbackBanner({
+  feedback,
+}: {
+  feedback: { type: 'success' | 'error'; message: string }
+}) {
+  return (
+    <div
+      className={
+        feedback.type === 'success'
+          ? styles.feedbackSuccess
+          : styles.feedbackError
+      }
+      role={feedback.type === 'error' ? 'alert' : 'status'}
+    >
+      {feedback.message}
+    </div>
+  )
+}
+
+function WhyListItem({ text }: { text: string }) {
+  return (
+    <li className={styles.whyListItem}>
+      <span className={styles.whyListIcon}>
+        <ArrowRight size={16} />
+      </span>
+      <span>{text}</span>
+    </li>
+  )
+}
+
 function estimateQuantity(value: string) {
   const numbers = value.match(/\d+/g)
   if (!numbers) return 1
@@ -362,6 +459,21 @@ function estimateQuantity(value: string) {
 function formatDistanceMiles(distanceKm: number) {
   const distanceMiles = distanceKm * 0.621371
   return `${distanceMiles.toFixed(1)} miles`
+}
+
+function renderDonateGoodsIcon(icon: DonateGoodsIconKey, className: string): ReactNode {
+  switch (icon) {
+    case 'package':
+      return <Package className={className} />
+    case 'search':
+      return <Search className={className} />
+    case 'heart':
+      return <Heart className={className} />
+    case 'map-pin':
+      return <MapPin className={className} />
+    case 'users':
+      return <Users className={className} />
+  }
 }
 
 export default function DonateGoods() {
@@ -670,26 +782,20 @@ export default function DonateGoods() {
                 </p>
 
                 <div className={styles.heroBenefits}>
-                  <div className={styles.heroBenefit}>
-                    <Check className={styles.checkIcon} />
-                    <span>Find and choose a nearby food bank</span>
-                  </div>
-                  <div className={styles.heroBenefit}>
-                    <Check className={styles.checkIcon} />
-                    <span>Your request goes to the selected food bank team</span>
-                  </div>
-                  <div className={styles.heroBenefit}>
-                    <Check className={styles.checkIcon} />
-                    <span>Pickup or drop-off is arranged locally</span>
-                  </div>
+                  {DONATE_GOODS_HERO_POINTS.map((point) => (
+                    <HeroBenefit key={point.id} text={point.text} />
+                  ))}
                 </div>
 
                 <div className={styles.heroImageCard}>
                   <ImageWithFallback
                     src="https://images.unsplash.com/photo-1738618141234-1ee52c6475a7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwYmFuayUyMHNoZWx2ZXMlMjBjYW5uZWQlMjBnb29kc3xlbnwxfHx8fDE3NzQ5Mzc1MDZ8MA&ixlib=rb-4.1.0&q=80&w=1080"
-                    alt="Food bank shelves with donations"
-                    className={styles.heroImage}
-                  />
+                  alt="Food bank shelves with donations"
+                  className={styles.heroImage}
+                  centerFallback={false}
+                  fallbackContainerClassName=""
+                  fallbackContentClassName=""
+                />
                   <div className={styles.heroImageOverlay}>
                     <p className={styles.heroQuote}>
                       Good donations help local teams respond faster.
@@ -706,31 +812,27 @@ export default function DonateGoods() {
 
         <section id="how-it-works" className={styles.surfaceSection}>
           <div className={styles.shell}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>
-                How the goods donation flow works
-              </h2>
-            </div>
+            <SectionHeader title="How the goods donation flow works" />
 
             <div className={styles.featureGrid}>
-              {STEP_FEATURES.map((feature) => (
+              {DONATE_GOODS_JOURNEY_STAGES.map((stage) => (
                 <FeatureCard
-                  key={feature.title}
-                  icon={feature.icon}
-                  title={feature.title}
-                  description={feature.description}
+                  key={stage.id}
+                  icon={renderDonateGoodsIcon(stage.icon, styles.featureIcon)}
+                  title={`${stage.stepNumber}. ${stage.heading}`}
+                  description={stage.detail}
                 />
               ))}
             </div>
 
             <div className={styles.featureStoryGrid}>
-              {FEATURE_STORIES.map((story) => (
+              {DONATE_GOODS_LOCAL_HIGHLIGHTS.map((highlight) => (
                 <FeatureCard
-                  key={story.title}
-                  icon={story.icon}
-                  title={story.title}
-                  description={story.description}
-                  image={story.image}
+                  key={highlight.id}
+                  icon={renderDonateGoodsIcon(highlight.icon, styles.featureImageIcon)}
+                  title={highlight.title}
+                  description={highlight.summary}
+                  image={highlight.image}
                 />
               ))}
             </div>
@@ -739,18 +841,16 @@ export default function DonateGoods() {
 
         <section id="impact" className={styles.section}>
           <div className={styles.shell}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>
-                Network goods support
-              </h2>
-              <p className={styles.sectionText}>
-                {impactStatsStatus === 'error'
+            <SectionHeader
+              title="Network goods support"
+              description={
+                impactStatsStatus === 'error'
                   ? 'Live impact data is temporarily unavailable. Please try again shortly.'
                   : impactStatsStatus === 'loading'
                     ? 'Loading live impact data from the dashboard.'
-                    : 'These figures reflect goods support coordinated across our wider food bank network.'}
-              </p>
-            </div>
+                    : 'These figures reflect goods support coordinated across our wider food bank network.'
+              }
+            />
 
             <div className={styles.impactGrid}>
               {impactStats.map((stat) => (
@@ -762,29 +862,18 @@ export default function DonateGoods() {
 
         <section className={styles.surfaceSection}>
           <div className={styles.shell}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>
-                Items we accept
-              </h2>
-              <p className={styles.sectionText}>
-                All items must be unopened, in original packaging, and within their best-before
-                dates
-              </p>
-            </div>
+            <SectionHeader
+              title="Items we accept"
+              description="All items must be unopened, in original packaging, and within their best-before dates"
+            />
 
             <div className={styles.acceptedGrid}>
-              {ACCEPTED_ITEMS.map((group) => (
-                <article key={group.category} className={styles.acceptedCard}>
-                  <h3 className={styles.acceptedCardTitle}>{group.category}</h3>
-                  <ul className={styles.acceptedList}>
-                    {group.items.map((item) => (
-                      <li key={item} className={styles.acceptedListItem}>
-                        <Check className={styles.acceptedListIcon} />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </article>
+              {DONATE_GOODS_ACCEPTED_CATEGORIES.map((group) => (
+                <AcceptedGroupCard
+                  key={group.id}
+                  category={group.category}
+                  items={group.items}
+                />
               ))}
             </div>
 
@@ -805,7 +894,7 @@ export default function DonateGoods() {
                   <strong>We cannot accept:</strong>
                 </p>
                 <ul className={styles.rejectedList}>
-                  {REJECTED_ITEMS.map((item) => (
+                  {DONATE_GOODS_REJECTED_ITEMS.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
@@ -816,46 +905,13 @@ export default function DonateGoods() {
 
         <section id="donate" className={styles.section}>
           <div className={styles.shell}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>
-                Submit a donation request
-              </h2>
-              <p className={styles.sectionText}>
-                Follow the steps below to choose a food bank and send your donation details.
-              </p>
-            </div>
+            <SectionHeader
+              title="Submit a donation request"
+              description="Follow the steps below to choose a food bank and send your donation details."
+            />
 
             <div className={styles.flowShell}>
-              <div className={styles.progressHeader}>
-                <div className={styles.progressTrack}>
-                  <div
-                    className={`${styles.progressDot} ${step >= 1 ? styles.progressDotActive : ''}`}
-                  >
-                    1
-                  </div>
-                  <div
-                    className={`${styles.progressLine} ${step >= 2 ? styles.progressLineActive : ''}`}
-                  />
-                  <div
-                    className={`${styles.progressDot} ${step >= 2 ? styles.progressDotActive : ''}`}
-                  >
-                    2
-                  </div>
-                  <div
-                    className={`${styles.progressLine} ${step >= 3 ? styles.progressLineActive : ''}`}
-                  />
-                  <div
-                    className={`${styles.progressDot} ${step >= 3 ? styles.progressDotActive : ''}`}
-                  >
-                    3
-                  </div>
-                </div>
-                <div className={styles.progressLabels}>
-                  <span className={step >= 1 ? styles.progressLabelActive : ''}>Search Location</span>
-                  <span className={step >= 2 ? styles.progressLabelActive : ''}>Select Food Bank</span>
-                  <span className={step >= 3 ? styles.progressLabelActive : ''}>Donation Details</span>
-                </div>
-              </div>
+              <ProgressHeader step={step} />
 
               {step === 1 ? (
                 <div className={styles.flowCard}>
@@ -913,31 +969,18 @@ export default function DonateGoods() {
 
                       <div className={styles.bankList}>
                         {searchResults.length === 0 ? (
-                        <p className={styles.flowTextLeft}>
-                          {searchFeedback ?? 'Try another postcode to load nearby foodbanks.'}
-                        </p>
-                      ) : (
-                        searchResults.map((bank) => (
-                          <button
-                            key={bank.id}
-                            type="button"
-                            className={styles.bankCard}
-                            onClick={() => handleSelectBank(bank)}
-                          >
-                            <div className={styles.bankCardTop}>
-                              <div>
-                                <h4 className={styles.bankName}>{bank.name}</h4>
-                                <div className={styles.bankAddress}>
-                                  <MapPin size={16} />
-                                  <span>{bank.address}</span>
-                                </div>
-                                <span className={styles.bankDistance}>{bank.distance} away</span>
-                              </div>
-                              <ChevronRight className={styles.bankArrow} />
-                            </div>
-                          </button>
-                        ))
-                      )}
+                          <p className={styles.flowTextLeft}>
+                            {searchFeedback ?? 'Try another postcode to load nearby foodbanks.'}
+                          </p>
+                        ) : (
+                          searchResults.map((bank) => (
+                            <BankResultCard
+                              key={bank.id}
+                              bank={bank}
+                              onSelect={handleSelectBank}
+                            />
+                          ))
+                        )}
                     </div>
                   </div>
                 </div>
@@ -977,10 +1020,7 @@ export default function DonateGoods() {
                     </div>
 
                     <div className={styles.formGrid}>
-                      <div className={styles.formField}>
-                        <label htmlFor="donor-name" className={styles.formLabel}>
-                          Full Name *
-                        </label>
+                      <FormField id="donor-name" label="Full Name *" error={fieldErrors.name}>
                         <input
                           id="donor-name"
                           type="text"
@@ -988,13 +1028,9 @@ export default function DonateGoods() {
                           onChange={(event) => updateDetails('name', event.target.value)}
                           className={styles.formInput}
                         />
-                        {fieldErrors.name ? <p className={styles.fieldError}>{fieldErrors.name}</p> : null}
-                      </div>
+                      </FormField>
 
-                      <div className={styles.formField}>
-                        <label htmlFor="donor-email" className={styles.formLabel}>
-                          Email Address *
-                        </label>
+                      <FormField id="donor-email" label="Email Address *" error={fieldErrors.email}>
                         <input
                           id="donor-email"
                           type="email"
@@ -1002,13 +1038,9 @@ export default function DonateGoods() {
                           onChange={(event) => updateDetails('email', event.target.value)}
                           className={styles.formInput}
                         />
-                        {fieldErrors.email ? <p className={styles.fieldError}>{fieldErrors.email}</p> : null}
-                      </div>
+                      </FormField>
 
-                      <div className={styles.formField}>
-                        <label htmlFor="donor-phone" className={styles.formLabel}>
-                          Phone Number *
-                        </label>
+                      <FormField id="donor-phone" label="Phone Number *" error={fieldErrors.phone}>
                         <input
                           id="donor-phone"
                           type="tel"
@@ -1019,13 +1051,13 @@ export default function DonateGoods() {
                           placeholder="07123456789"
                           className={styles.formInput}
                         />
-                        {fieldErrors.phone ? <p className={styles.fieldError}>{fieldErrors.phone}</p> : null}
-                      </div>
+                      </FormField>
 
-                      <div className={styles.formField}>
-                        <label htmlFor="pickup-date" className={styles.formLabel}>
-                          Preferred Collection or Drop-off Date *
-                        </label>
+                      <FormField
+                        id="pickup-date"
+                        label="Preferred Collection or Drop-off Date *"
+                        error={fieldErrors.pickupDate}
+                      >
                         <input
                           id="pickup-date"
                           type="text"
@@ -1037,16 +1069,10 @@ export default function DonateGoods() {
                           placeholder="DD/MM/YYYY"
                           className={styles.formInput}
                         />
-                        {fieldErrors.pickupDate ? (
-                          <p className={styles.fieldError}>{fieldErrors.pickupDate}</p>
-                        ) : null}
-                      </div>
+                      </FormField>
                     </div>
 
-                    <div className={styles.formField}>
-                      <label htmlFor="donation-items" className={styles.formLabel}>
-                        What are you donating? *
-                      </label>
+                    <FormField id="donation-items" label="What are you donating? *" error={fieldErrors.items}>
                       <textarea
                         id="donation-items"
                         value={details.items}
@@ -1054,34 +1080,25 @@ export default function DonateGoods() {
                         placeholder="Please describe the items you'd like to donate, for example canned vegetables, pasta, cereal, shampoo, or nappies."
                         className={styles.formTextarea}
                       />
-                      {fieldErrors.items ? <p className={styles.fieldError}>{fieldErrors.items}</p> : null}
-                    </div>
+                    </FormField>
 
                     <div className={styles.formGrid}>
-                      <div className={styles.formField}>
-                        <label htmlFor="item-condition" className={styles.formLabel}>
-                          Item Condition *
-                        </label>
+                      <FormField id="item-condition" label="Item Condition *" error={fieldErrors.condition}>
                         <select
                           id="item-condition"
                           value={details.condition}
                           onChange={(event) => updateDetails('condition', event.target.value)}
                           className={styles.formSelect}
                         >
-                          <option value="">Select condition</option>
-                          <option value="New or unopened">New or unopened</option>
-                          <option value="Excellent">Excellent</option>
-                          <option value="Good">Good</option>
+                          {DONATE_GOODS_CONDITION_OPTIONS.map((option) => (
+                            <option key={option.value || 'empty'} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
                         </select>
-                        {fieldErrors.condition ? (
-                          <p className={styles.fieldError}>{fieldErrors.condition}</p>
-                        ) : null}
-                      </div>
+                      </FormField>
 
-                      <div className={styles.formField}>
-                        <label htmlFor="estimated-quantity" className={styles.formLabel}>
-                          Estimated Quantity
-                        </label>
+                      <FormField id="estimated-quantity" label="Estimated Quantity">
                         <input
                           id="estimated-quantity"
                           type="text"
@@ -1090,13 +1107,10 @@ export default function DonateGoods() {
                           placeholder="For example 2 bags, 1 box"
                           className={styles.formInput}
                         />
-                      </div>
+                      </FormField>
                     </div>
 
-                    <div className={styles.formField}>
-                      <label htmlFor="special-notes" className={styles.formLabel}>
-                        Special Instructions or Notes
-                      </label>
+                    <FormField id="special-notes" label="Special Instructions or Notes">
                       <textarea
                         id="special-notes"
                         value={details.notes}
@@ -1104,19 +1118,10 @@ export default function DonateGoods() {
                         placeholder="Any pickup instructions, accessibility notes, or other details..."
                         className={styles.formTextareaSmall}
                       />
-                    </div>
+                    </FormField>
 
                     {submitFeedback ? (
-                      <div
-                        className={
-                          submitFeedback.type === 'success'
-                            ? styles.feedbackSuccess
-                            : styles.feedbackError
-                        }
-                        role={submitFeedback.type === 'error' ? 'alert' : 'status'}
-                      >
-                        {submitFeedback.message}
-                      </div>
+                      <FeedbackBanner feedback={submitFeedback} />
                     ) : null}
 
                     <button type="submit" disabled={submitting} className={styles.primaryActionWide}>
@@ -1139,21 +1144,11 @@ export default function DonateGoods() {
                 <p className={styles.whyText}>
                   Goods donations work best when the selected food bank can review what is being
                   offered and decide whether pickup or drop-off is the better option.
-                </p>
+                  </p>
 
                 <ul className={styles.whyList}>
-                  {[
-                    'Pickup or drop-off options depend on the selected food bank',
-                    'Please wait for local confirmation before travelling with goods',
-                    'The selected food bank team follows up directly',
-                    'Unopened and clearly described items are the easiest to process',
-                  ].map((item) => (
-                    <li key={item} className={styles.whyListItem}>
-                      <span className={styles.whyListIcon}>
-                        <ArrowRight size={16} />
-                      </span>
-                      <span>{item}</span>
-                    </li>
+                  {DONATE_GOODS_PRE_DONATION_NOTES.map((note) => (
+                    <WhyListItem key={note} text={note} />
                   ))}
                 </ul>
               </div>
@@ -1163,6 +1158,9 @@ export default function DonateGoods() {
                   src="https://images.unsplash.com/photo-1656336654278-d98a754436ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=80&w=1080"
                   alt="Food bank delivery and logistics"
                   className={styles.whyImage}
+                  centerFallback={false}
+                  fallbackContainerClassName=""
+                  fallbackContentClassName=""
                 />
               </div>
             </div>

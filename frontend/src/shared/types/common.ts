@@ -16,7 +16,6 @@ export interface FoodBank {
   name: string
   address: string
   distance?: number // km
-  hours?: string[]
   lat: number
   lng: number
   phone?: string

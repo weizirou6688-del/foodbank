@@ -6,7 +6,9 @@ from fastapi import HTTPException
 
 from app.models.food_bank import FoodBank
 from app.models.inventory_item import InventoryItem
+from app.routers import food_banks as food_banks_router
 from app.routers.food_banks import (
+    geocode_postcode,
     list_food_bank_inventory_items,
     list_food_banks,
     get_food_bank,
@@ -78,6 +80,54 @@ async def test_list_food_banks_returns_rows():
 
     assert len(result["items"]) == 1
     assert result["items"][0].name == "Main Center"
+
+
+@pytest.mark.asyncio
+async def test_geocode_postcode_uses_postcodes_io_only(monkeypatch):
+    async def fake_fetch_json(url, *, headers=None, timeout=20.0):
+        assert url == "https://api.postcodes.io/postcodes/SW1A%201AA"
+        return (
+            200,
+            {
+                "status": 200,
+                "result": {
+                    "latitude": 51.501009,
+                    "longitude": -0.141588,
+                },
+            },
+            url,
+        )
+
+    monkeypatch.setattr(food_banks_router, "_fetch_json", fake_fetch_json)
+
+    result = await geocode_postcode("SW1A 1AA")
+
+    assert result == {
+        "lat": 51.501009,
+        "lng": -0.141588,
+        "source": "postcodes.io",
+    }
+
+
+@pytest.mark.asyncio
+async def test_geocode_postcode_returns_not_found_for_invalid_postcode(monkeypatch):
+    async def fake_fetch_json(url, *, headers=None, timeout=20.0):
+        return (
+            404,
+            {
+                "status": 404,
+                "error": "Invalid postcode",
+            },
+            url,
+        )
+
+    monkeypatch.setattr(food_banks_router, "_fetch_json", fake_fetch_json)
+
+    with pytest.raises(HTTPException) as exc:
+        await geocode_postcode("INVALID")
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "Invalid postcode"
 
 
 @pytest.mark.asyncio

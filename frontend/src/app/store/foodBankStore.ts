@@ -1,46 +1,18 @@
 import { create } from 'zustand'
 import type { FoodBank, FoodPackage, InventoryItem } from '@/shared/types/common'
+import {
+  adminAPI,
+  applicationsAPI,
+  foodBanksAPI,
+  packagesAPI,
+  type ApplicationCreatePayload,
+  type InventoryItemUpdatePayload,
+  type InventoryItemCreatePayload,
+} from '@/shared/lib/api'
 import { buildFoodBankDisplayAddress } from '@/shared/lib/foodBankAddress'
 import { getAdminScopeMeta } from '@/shared/lib/adminScope'
 import { useAuthStore } from './authStore'
-import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
 import { getCoordinatesFromPostcode, getNearbyFoodbanks, getRankedFoodbanks } from '@/utils/foodbankApi'
-
-const fetchWithAuthRetry = async (url: string, init: RequestInit = {}) => {
-  // Protected endpoints share the same token refresh behaviour, so we keep the
-  // retry logic here instead of duplicating it in every action.
-  const withToken = async (token: string) =>
-    fetch(url, {
-      ...init,
-      headers: new Headers({
-        ...(init.headers instanceof Headers ? Object.fromEntries(init.headers.entries()) : (init.headers as Record<string, string> | undefined)),
-        Authorization: `Bearer ${token}`,
-      }),
-    })
-
-  const authStore = useAuthStore.getState()
-  if (!authStore.accessToken) {
-    throw new Error('Not authenticated')
-  }
-
-  let response = await withToken(authStore.accessToken)
-  if (response.status !== 401) {
-    return response
-  }
-
-  const refreshed = await useAuthStore.getState().refreshAccessToken()
-  if (!refreshed) {
-    throw new Error('Session expired, please login again')
-  }
-
-  const renewedToken = useAuthStore.getState().accessToken
-  if (!renewedToken) {
-    throw new Error('Session expired, please login again')
-  }
-
-  response = await withToken(renewedToken)
-  return response
-}
 
 interface InternalFoodBankRecord {
   id: number
@@ -61,7 +33,6 @@ const normalizeFoodBank = (bank: {
   address: string
   lat?: number | string | null
   lng?: number | string | null
-  hours?: string[]
   phone?: string
   email?: string
   url?: string
@@ -72,7 +43,6 @@ const normalizeFoodBank = (bank: {
   address: bank.address,
   lat: Number(bank.lat ?? 0),
   lng: Number(bank.lng ?? 0),
-  hours: Array.isArray(bank.hours) ? bank.hours : undefined,
   phone: bank.phone,
   email: bank.email,
   url: bank.url,
@@ -98,6 +68,81 @@ const normalizeInventoryItem = (item: {
   foodBankId: item.food_bank_id == null ? undefined : Number(item.food_bank_id),
 })
 
+const replaceInventoryItem = (
+  inventory: InventoryItem[],
+  itemId: number,
+  nextItem: InventoryItem,
+): InventoryItem[] => inventory.map((item) => (item.id === itemId ? nextItem : item))
+
+type RawPackage = {
+  id: number | string
+  name: string
+  category: string
+  description?: string | null
+  items?: Array<{ name: string; qty?: number }>
+  contents?: Array<{ item_id: number; quantity: number }>
+  stock?: number
+  threshold?: number
+  applied_count?: number
+  appliedCount?: number
+  image_url?: string | null
+  image?: string | null
+}
+
+type UserApplicationSummary = {
+  week_start?: string
+  total_quantity?: number
+}
+
+const normalizeNamedPackageItems = (
+  items: RawPackage['items'],
+): FoodPackage['items'] => (
+  Array.isArray(items)
+    ? items.map((item) => ({
+        name: item.name,
+        qty: Number(item.qty ?? 0),
+      }))
+    : []
+)
+
+const normalizePackageContents = (
+  contents: RawPackage['contents'],
+): FoodPackage['items'] => (
+  Array.isArray(contents)
+    ? contents.map((content) => ({
+        name: `Item #${content.item_id}`,
+        qty: Number(content.quantity ?? 0),
+      }))
+    : []
+)
+
+const normalizePackage = (
+  pkg: RawPackage,
+  itemsOverride?: FoodPackage['items'],
+): FoodPackage => {
+  const namedItems = normalizeNamedPackageItems(pkg.items)
+
+  return {
+    id: Number(pkg.id),
+    name: pkg.name,
+    category: pkg.category,
+    description: pkg.description ?? '',
+    items: itemsOverride ?? (namedItems.length > 0 ? namedItems : normalizePackageContents(pkg.contents)),
+    stock: Number(pkg.stock ?? 0),
+    threshold: Number(pkg.threshold ?? 0),
+    appliedCount: Number(pkg.applied_count ?? pkg.appliedCount ?? 0),
+    image: pkg.image_url ?? pkg.image ?? '',
+  }
+}
+
+const getRequiredAccessToken = (): string => {
+  const token = useAuthStore.getState().accessToken
+  if (!token) {
+    throw new Error('Not authenticated')
+  }
+  return token
+}
+
 const resolveSelectedFoodBank = async (
   get: () => FoodBankState,
   set: (partial: Partial<FoodBankState>) => void,
@@ -107,17 +152,8 @@ const resolveSelectedFoodBank = async (
     return existing
   }
 
-  const foodBanksResponse = await fetch(`${API_BASE_URL}/api/v1/food-banks`)
-  if (!foodBanksResponse.ok) {
-    throw new Error('Failed to load food banks')
-  }
-
-  const foodBanksPayload = await foodBanksResponse.json()
-  const foodBanks = Array.isArray(foodBanksPayload)
-    ? foodBanksPayload
-    : Array.isArray(foodBanksPayload?.items)
-      ? foodBanksPayload.items
-      : []
+  const foodBanksResponse = await foodBanksAPI.getFoodBanks()
+  const foodBanks = foodBanksResponse.items.map(normalizeFoodBank)
 
   if (foodBanks.length === 0) {
     set({ selectedFoodBank: null })
@@ -201,8 +237,8 @@ interface FoodBankState {
   loadPackages: () => Promise<void>
   loadAvailableItems: () => Promise<void>
   loadInventory: () => Promise<void>
-  addItem: (data: { name: string; category: string; initial_stock: number; food_bank_id?: number }) => Promise<void>
-  updateItem: (itemId: number, data: Partial<Pick<InventoryItem, 'name' | 'category' | 'stock' | 'unit' | 'threshold'>>) => Promise<void>
+  addItem: (data: Pick<InventoryItemCreatePayload, 'name' | 'category' | 'initial_stock' | 'food_bank_id'>) => Promise<void>
+  updateItem: (itemId: number, data: InventoryItemUpdatePayload) => Promise<void>
   stockInItem: (itemId: number, quantity: number, reason?: string) => Promise<void>
   stockOutItem: (itemId: number, quantity: number, reason?: string) => Promise<void>
   deleteItem: (itemId: number) => Promise<void>
@@ -239,15 +275,10 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/${foodBank.id}/packages`)
-      if (!response.ok) {
-        throw new Error('Failed to load packages')
-      }
-
-      const packages = await response.json()
+      const packages = await packagesAPI.listFoodBankPackages(foodBank.id)
       const detailItemsById = new Map<number, Array<{ name: string; qty: number }>>()
 
-      if (Array.isArray(packages) && packages.length > 0) {
+      if (packages.length > 0) {
         await Promise.all(
           packages.map(async (pkg) => {
             const packageId = Number(pkg.id)
@@ -256,13 +287,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
             }
 
             try {
-              const detailResponse = await fetch(`${API_BASE_URL}/api/v1/packages/${packageId}`)
-              if (!detailResponse.ok) {
-                return
-              }
-
-              const detail = await detailResponse.json()
-              const detailItems = Array.isArray(detail?.package_items)
+              const detail = await packagesAPI.getFoodPackageDetail(packageId)
+              const detailItems = Array.isArray(detail.package_items)
                 ? detail.package_items.map((entry: {
                     inventory_item_name?: string
                     quantity?: number
@@ -281,25 +307,9 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         )
       }
 
-      const normalizedPackages: FoodPackage[] = Array.isArray(packages)
-        ? packages.map((pkg) => ({
-            id: Number(pkg.id),
-            name: pkg.name,
-            category: pkg.category,
-            description: pkg.description ?? '',
-            items: detailItemsById.get(Number(pkg.id))
-              ?? (Array.isArray(pkg.items)
-                ? pkg.items.map((item: { name: string; qty: number }) => ({
-                    name: item.name,
-                    qty: Number(item.qty ?? 0),
-                  }))
-                : []),
-            stock: Number(pkg.stock ?? 0),
-            threshold: Number(pkg.threshold ?? 0),
-            appliedCount: Number(pkg.applied_count ?? pkg.appliedCount ?? 0),
-            image: pkg.image_url ?? pkg.image ?? '',
-          }))
-        : []
+      const normalizedPackages: FoodPackage[] = packages.map((pkg) =>
+        normalizePackage(pkg, detailItemsById.get(Number(pkg.id))),
+      )
       set({ packages: normalizedPackages })
     } catch (error) {
       console.error('Failed to load packages:', error)
@@ -315,17 +325,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/${foodBank.id}/inventory-items`)
-      if (!response.ok) {
-        throw new Error('Failed to load individual food items')
-      }
-
-      const payload = await response.json()
-      const items = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.items)
-          ? payload.items
-          : []
+      const response = await foodBanksAPI.getInventoryItems(foodBank.id)
+      const items = response.items
 
       set({
         availableItems: items.map(normalizeInventoryItem),
@@ -338,27 +339,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
 
   loadInventory: async () => {
     try {
-      const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/inventory`)
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Failed to load inventory' }))
-        throw new Error(error.detail || 'Failed to load inventory')
-      }
-
-      const data = await response.json()
-      const inventoryItems: Array<{
-        id: number | string
-        name: string
-        category: string
-        stock?: number
-        total_stock?: number
-        unit: string
-        threshold?: number
-      }> = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.items)
-          ? data.items
-          : []
+      const inventoryResponse = await adminAPI.getInventoryItems(getRequiredAccessToken())
+      const inventoryItems = inventoryResponse.items
 
       const normalizedInventory: InventoryItem[] = inventoryItems.map(normalizeInventoryItem)
 
@@ -377,36 +359,19 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       throw new Error('Choose a food bank before adding an inventory item')
     }
 
-    const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/inventory`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const normalizedItem = normalizeInventoryItem(
+      await adminAPI.createInventoryItem(
+        {
         name: data.name,
         category: data.category,
         initial_stock: data.initial_stock,
         unit: 'units',
         threshold: 10,
         food_bank_id: targetFoodBankId,
-      }),
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to add inventory item' }))
-      throw new Error(error.detail || 'Failed to add inventory item')
-    }
-
-    const createdItem = await response.json()
-    const normalizedItem: InventoryItem = {
-      id: Number(createdItem.id),
-      name: createdItem.name,
-      category: createdItem.category,
-      stock: Number(createdItem.total_stock ?? createdItem.stock ?? 0),
-      unit: createdItem.unit,
-      threshold: Number(createdItem.threshold ?? 0),
-      foodBankId: createdItem.food_bank_id == null ? undefined : Number(createdItem.food_bank_id),
-    }
+        },
+        getRequiredAccessToken(),
+      ),
+    )
 
     set((state) => ({
       inventory: [normalizedItem, ...state.inventory],
@@ -414,101 +379,37 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   },
 
   updateItem: async (itemId, data) => {
-    const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/inventory/${itemId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to update inventory item' }))
-      throw new Error(error.detail || 'Failed to update inventory item')
-    }
-
-    const updatedItem = await response.json()
-    const normalizedItem: InventoryItem = {
-      id: Number(updatedItem.id),
-      name: updatedItem.name,
-      category: updatedItem.category,
-      stock: Number(updatedItem.total_stock ?? updatedItem.stock ?? 0),
-      unit: updatedItem.unit,
-      threshold: Number(updatedItem.threshold ?? 0),
-    }
+    const normalizedItem = normalizeInventoryItem(
+      await adminAPI.updateInventoryItem(itemId, data, getRequiredAccessToken()),
+    )
 
     set((state) => ({
-      inventory: state.inventory.map((item) => (item.id === itemId ? normalizedItem : item)),
+      inventory: replaceInventoryItem(state.inventory, itemId, normalizedItem),
     }))
   },
 
   stockInItem: async (itemId, quantity, reason = 'manual stock in') => {
-    const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/inventory/${itemId}/stock-in`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ quantity, reason }),
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to increase stock' }))
-      throw new Error(error.detail || 'Failed to increase stock')
-    }
-
-    const updatedItem = await response.json()
-    const normalizedItem: InventoryItem = {
-      id: Number(updatedItem.id),
-      name: updatedItem.name,
-      category: updatedItem.category,
-      stock: Number(updatedItem.total_stock ?? updatedItem.stock ?? 0),
-      unit: updatedItem.unit,
-      threshold: Number(updatedItem.threshold ?? 0),
-    }
+    const normalizedItem = normalizeInventoryItem(
+      await adminAPI.stockInInventoryItem(itemId, { quantity, reason }, getRequiredAccessToken()),
+    )
 
     set((state) => ({
-      inventory: state.inventory.map((item) => (item.id === itemId ? normalizedItem : item)),
+      inventory: replaceInventoryItem(state.inventory, itemId, normalizedItem),
     }))
   },
 
   stockOutItem: async (itemId, quantity, reason = 'manual stock out') => {
-    const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/inventory/${itemId}/stock-out`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ quantity, reason }),
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to decrease stock' }))
-      throw new Error(error.detail || 'Failed to decrease stock')
-    }
-
-    const updatedItem = await response.json()
-    const normalizedItem: InventoryItem = {
-      id: Number(updatedItem.id),
-      name: updatedItem.name,
-      category: updatedItem.category,
-      stock: Number(updatedItem.total_stock ?? updatedItem.stock ?? 0),
-      unit: updatedItem.unit,
-      threshold: Number(updatedItem.threshold ?? 0),
-    }
+    const normalizedItem = normalizeInventoryItem(
+      await adminAPI.stockOutInventoryItem(itemId, { quantity, reason }, getRequiredAccessToken()),
+    )
 
     set((state) => ({
-      inventory: state.inventory.map((item) => (item.id === itemId ? normalizedItem : item)),
+      inventory: replaceInventoryItem(state.inventory, itemId, normalizedItem),
     }))
   },
 
   deleteItem: async (itemId) => {
-    const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/inventory/${itemId}`, {
-      method: 'DELETE',
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to delete inventory item' }))
-      throw new Error(error.detail || 'Failed to delete inventory item')
-    }
+    await adminAPI.deleteInventoryItem(itemId, getRequiredAccessToken())
 
     set((state) => ({
       inventory: state.inventory.filter((item) => item.id !== itemId),
@@ -532,39 +433,15 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       throw new Error('No food bank available. Create a food bank before adding packages.')
     }
 
-    const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/packages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const normalizedPackage = normalizePackage(
+      await adminAPI.createFoodPackage(
+        {
         ...data,
         food_bank_id: foodBankId,
-      }),
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to add package' }))
-      throw new Error(error.detail || 'Failed to add package')
-    }
-
-    const createdPackage = await response.json()
-    const normalizedPackage: FoodPackage = {
-      id: Number(createdPackage.id),
-      name: createdPackage.name,
-      category: createdPackage.category,
-      description: createdPackage.description ?? '',
-      items: Array.isArray(createdPackage.contents)
-        ? createdPackage.contents.map((content: { item_id: number; quantity: number }) => ({
-            name: `Item #${content.item_id}`,
-            qty: content.quantity,
-          }))
-        : [],
-      stock: Number(createdPackage.stock ?? 0),
-      threshold: Number(createdPackage.threshold ?? 0),
-      appliedCount: Number(createdPackage.applied_count ?? 0),
-      image: createdPackage.image_url ?? '',
-    }
+        },
+        getRequiredAccessToken(),
+      ),
+    )
 
     set((state) => ({
       packages: [normalizedPackage, ...state.packages],
@@ -572,23 +449,14 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   },
 
   updatePackage: async (packageId, data) => {
-    const response = await fetchWithAuthRetry(`${API_BASE_URL}/api/v1/packages/${packageId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const updatedPackage = await adminAPI.updateFoodPackage(
+      packageId,
+      {
         ...data,
         applied_count: data.appliedCount,
-      }),
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Failed to update package' }))
-      throw new Error(error.detail || 'Failed to update package')
-    }
-
-    const updatedPackage = await response.json()
+      },
+      getRequiredAccessToken(),
+    )
     set((state) => ({
       packages: state.packages.map((pkg) =>
         pkg.id === packageId
@@ -614,9 +482,9 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       // Search is composed from multiple sources in parallel:
       // postcode geocoding, internal DB banks, nearby external banks, and a
       // ranked external list used for debugging empty results.
-      const [userCoords, internalResponse, nearby, rankedNearby] = await Promise.all([
+      const [userCoords, internalFoodBanksResponse, nearby, rankedNearby] = await Promise.all([
         getCoordinatesFromPostcode(postcode),
-        fetch(`${API_BASE_URL}/api/v1/food-banks`),
+        foodBanksAPI.getFoodBanks(),
         getNearbyFoodbanks(postcode),
         getRankedFoodbanks(postcode),
       ])
@@ -627,12 +495,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         externalNearbyCount: nearby.length,
       })
 
-      const internalPayload = internalResponse.ok ? await internalResponse.json() : []
-      const internalBanks: InternalFoodBankRecord[] = Array.isArray(internalPayload)
-        ? internalPayload
-        : Array.isArray(internalPayload?.items)
-          ? internalPayload.items
-          : []
+      const internalBanks = internalFoodBanksResponse.items
 
       const rankedInternalBanks = internalBanks
         .flatMap((bank) => {
@@ -645,7 +508,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
             name: bank.name,
             address: bank.address,
             distance: haversineDistance(userCoords.lat, userCoords.lng, bank.lat, bank.lng),
-            hours: [],
             lat: bank.lat,
             lng: bank.lng,
             systemMatched: false,
@@ -659,13 +521,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           try {
             // A bank counts as "package-enabled" only if our own backend says
             // there are package records behind it.
-            const response = await fetch(`${API_BASE_URL}/api/v1/food-banks/${bank.id}/packages`)
-            if (!response.ok) {
-              return bank
-            }
-
-            const packagesPayload = await response.json()
-            const packageCount = Array.isArray(packagesPayload) ? packagesPayload.length : 0
+            const packageCount = (await packagesAPI.listFoodBankPackages(bank.id)).length
             return {
               ...bank,
               packageCount,
@@ -697,7 +553,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           name: fb.name,
           address: displayAddress,
           distance: fb.distance,
-          hours: fb.hours ?? [],
           lat: fb.lat,
           lng: fb.lng,
           phone: fb.phone,
@@ -758,27 +613,17 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
 
   loadUserCollections: async (_email, weekStart) => {
     try {
-      const authStore = useAuthStore.getState()
-      if (!authStore.accessToken) return
-
-      const response = await fetch(`${API_BASE_URL}/api/v1/applications/my`, {
-        headers: { Authorization: `Bearer ${authStore.accessToken}` },
-      })
-
-      if (!response.ok) {
+      const accessToken = useAuthStore.getState().accessToken
+      if (!accessToken) {
         return
       }
 
-      const payload = await response.json()
-      const items = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.items)
-          ? payload.items
-          : []
+      const response = await applicationsAPI.getMyApplications(accessToken)
+      const items = response.items as UserApplicationSummary[]
       const targetWeek = weekStart || getCurrentWeekMonday()
       const totalCollected = items
-        .filter((application: { week_start?: string }) => application.week_start === targetWeek)
-        .reduce((sum: number, application: { total_quantity?: number }) => sum + Number(application.total_quantity ?? 0), 0)
+        .filter((application) => application.week_start === targetWeek)
+        .reduce((sum, application) => sum + Number(application.total_quantity ?? 0), 0)
 
       set({ weeklyCollected: totalCollected })
     } catch (error) {
@@ -788,8 +633,9 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
 
   applyPackages: async (_userEmail, selections, weekStart, itemSelections = []) => {
     try {
-      const authStore = useAuthStore.getState()
-      if (!authStore.accessToken || !authStore.user) {
+      const accessToken = useAuthStore.getState().accessToken
+      const currentUser = useAuthStore.getState().user
+      if (!accessToken || !currentUser) {
         return { success: false, message: 'Not authenticated' }
       }
 
@@ -803,34 +649,22 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         finalWeekStart = getCurrentWeekMonday()
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/applications`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authStore.accessToken}`,
-        },
-        body: JSON.stringify({
-          food_bank_id: selectedFoodBank.id,
-          week_start: finalWeekStart,
-          items: [
-            ...selections.map((sel) => ({
-              package_id: sel.packageId,
-              quantity: sel.qty,
-            })),
-            ...itemSelections.map((sel) => ({
-              inventory_item_id: sel.itemId,
-              quantity: sel.qty,
-            })),
-          ],
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Application failed' }))
-        return { success: false, message: error.detail || 'Application failed' }
+      const payload: ApplicationCreatePayload = {
+        food_bank_id: selectedFoodBank.id,
+        week_start: finalWeekStart,
+        items: [
+          ...selections.map((sel) => ({
+            package_id: sel.packageId,
+            quantity: sel.qty,
+          })),
+          ...itemSelections.map((sel) => ({
+            inventory_item_id: sel.itemId,
+            quantity: sel.qty,
+          })),
+        ],
       }
 
-      const result = await response.json()
+      const result = await applicationsAPI.submitApplication(payload, accessToken)
       await Promise.allSettled([
         get().loadUserCollections(_userEmail, finalWeekStart),
         get().loadPackages(),
@@ -842,8 +676,11 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         message: 'Application successful!',
         code: result.redemption_code || result.id,
       }
-    } catch {
-      return { success: false, message: 'Network error during application' }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Network error during application',
+      }
     }
   },
 

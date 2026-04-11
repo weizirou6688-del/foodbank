@@ -1,11 +1,12 @@
-"""
-FastAPI main application entry point.
-
-Initializes the FastAPI app with CORS middleware, exception handlers,
-startup/shutdown hooks, and health routes.
-"""
-
 import logging
+import app.routers.applications as applications
+import app.routers.auth as auth
+import app.routers.donations as donations
+import app.routers.food_banks as food_banks
+import app.routers.food_packages as food_packages
+import app.routers.inventory as inventory
+import app.routers.restock as restock
+import app.routers.stats as stats
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, status
@@ -17,41 +18,35 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
 from app.core.bootstrap import (
     ensure_canonical_redemption_codes,
-    ensure_demo_admin_scope_records,
-    ensure_demo_food_banks,
-    ensure_demo_inventory_and_packages,
-    ensure_demo_users,
+    ensure_full_demo_data,
 )
-from app.core.database import check_database_connection, close_db, init_db
+from app.core.database import check_database_connection, close_db
 from app.core.database_errors import DATABASE_UNAVAILABLE_DETAIL
 from app.services.dashboard_history_service import ensure_dashboard_history
 
 logger = logging.getLogger(__name__)
 
 
+def _json_response(http_status: int, **content) -> JSONResponse:
+    return JSONResponse(status_code=http_status, content=content)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    FastAPI app lifespan context manager.
-    """
     db_ready = False
     db_error: str | None = None
 
     try:
-        await init_db()
         db_ready, db_error = await check_database_connection()
         if not db_ready:
             raise RuntimeError(db_error or "Database connection check failed")
 
         if settings.seed_demo_data:
-            await ensure_demo_food_banks()
-            await ensure_demo_users()
-            await ensure_demo_inventory_and_packages()
-            await ensure_demo_admin_scope_records()
+            await ensure_full_demo_data()
 
         await ensure_canonical_redemption_codes()
         await ensure_dashboard_history()
-        print("Database initialized and connected")
+        print("Database connected")
     except Exception as exc:
         db_error = str(exc)
         logger.warning("Database startup skipped: %s", exc)
@@ -87,26 +82,22 @@ app.add_middleware(
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc: RequestValidationError):
-    """
-    Handle Pydantic validation errors (400 Bad Request).
-    """
-    errors = []
-    for error in exc.errors():
-        errors.append({
+    errors = [
+        {
             "field": ".".join(str(x) for x in error["loc"][1:]) or "body",
             "message": error["msg"],
             "type": error["type"],
-        })
+        }
+        for error in exc.errors()
+    ]
 
     logger.warning("Validation error on %s: %s", request.url.path, errors)
 
-    return JSONResponse(
+    return _json_response(
+        status.HTTP_400_BAD_REQUEST,
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={
-            "status_code": status.HTTP_400_BAD_REQUEST,
-            "message": "Validation error",
-            "errors": errors,
-        },
+        message="Validation error",
+        errors=errors,
     )
 
 
@@ -114,9 +105,6 @@ async def validation_exception_handler(request, exc: RequestValidationError):
 @app.exception_handler(ConnectionError)
 @app.exception_handler(OSError)
 async def database_exception_handler(request, exc: Exception):
-    """
-    Convert uncaught database connectivity failures into HTTP 503 responses.
-    """
     logger.warning(
         "Database unavailable on %s %s",
         request.method,
@@ -124,21 +112,16 @@ async def database_exception_handler(request, exc: Exception):
         exc_info=exc,
     )
 
-    return JSONResponse(
+    return _json_response(
+        status.HTTP_503_SERVICE_UNAVAILABLE,
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={
-            "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
-            "message": "Service temporarily unavailable",
-            "detail": DATABASE_UNAVAILABLE_DETAIL,
-        },
+        message="Service temporarily unavailable",
+        detail=DATABASE_UNAVAILABLE_DETAIL,
     )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc: Exception):
-    """
-    Global exception handler for unhandled errors.
-    """
     logger.error(
         "Unhandled exception on %s %s",
         request.method,
@@ -146,53 +129,30 @@ async def general_exception_handler(request, exc: Exception):
         exc_info=exc,
     )
 
-    return JSONResponse(
+    return _json_response(
+        status.HTTP_500_INTERNAL_SERVER_ERROR,
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "message": "Internal server error",
-            "detail": "An unexpected error occurred. Please try again later.",
-        },
+        message="Internal server error",
+        detail="An unexpected error occurred. Please try again later.",
     )
 
 
 @app.get("/", tags=["Health"])
 async def root():
-    return {
-        "message": "ABC Community Food Bank API",
-        "status": "running",
-        "version": "1.0.0",
-    }
+    return {"message": "ABC Community Food Bank API", "status": "running", "version": "1.0.0"}
 
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     if getattr(app.state, "db_ready", False):
-        return {
-            "status": "ok",
-            "database": "connected",
-        }
+        return {"status": "ok", "database": "connected"}
 
-    return JSONResponse(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={
-            "status": "degraded",
-            "database": "unavailable",
-            "detail": getattr(app.state, "db_error", None) or DATABASE_UNAVAILABLE_DETAIL,
-        },
+    return _json_response(
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        status="degraded",
+        database="unavailable",
+        detail=getattr(app.state, "db_error", None) or DATABASE_UNAVAILABLE_DETAIL,
     )
-
-
-from app.modules import (  # noqa: E402
-    applications,
-    auth,
-    donations,
-    food_banks,
-    food_packages,
-    inventory,
-    restock,
-    stats,
-)
 
 API_ROUTERS = (
     (auth.router, "/api/v1/auth", ["Auth"]),
