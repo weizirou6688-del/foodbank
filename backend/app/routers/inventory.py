@@ -1,31 +1,25 @@
-"""
-Inventory management routes.
-
-The current frontend still expects item-level stock fields and stock-in/out
-endpoints. Internally inventory is lot-based, so these routes provide a
-compatibility layer by aggregating active lots into stock values.
-"""
-
 from datetime import date, datetime, timedelta, timezone
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import and_, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.database_errors import (
-    is_database_unavailable_exception,
-    raise_database_unavailable_http_exception,
-)
+from app.core.db_utils import fetch_one_or_none, fetch_rows, fetch_scalars, flush_refresh, sync_model_fields
+from app.core.database_errors import run_guarded_action, run_guarded_transaction
 from app.core.security import (
     enforce_admin_food_bank_scope,
     get_admin_food_bank_id,
     require_admin,
     require_admin_or_supermarket,
 )
-from app.models.food_bank import FoodBank
+from app.routers._shared import (
+    bank_scoped_clause,
+    require_by_id,
+    require_scoped_by_id,
+    resolve_admin_target_food_bank_id,
+    single_page_response,
+)
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.models.package_item import PackageItem
@@ -52,32 +46,26 @@ def _future_expiry_date() -> date:
     return date.today() + timedelta(days=365)
 
 
-def _inventory_scope_filter(
-    admin_user: dict,
-):
-    admin_food_bank_id = get_admin_food_bank_id(admin_user)
-    if admin_food_bank_id is None:
-        return InventoryItem.food_bank_id.is_not(None)
-    return InventoryItem.food_bank_id == admin_food_bank_id
+def _active_inventory_lot_filters():
+    return InventoryLot.deleted_at.is_(None), InventoryLot.expiry_date >= date.today()
 
 
-def _apply_inventory_scope(query, admin_user: dict):
-    scope_filter = _inventory_scope_filter(admin_user)
-    if scope_filter is None:
-        return query
-    return query.where(scope_filter)
-
-
-def _enforce_inventory_item_access(
-    admin_user: dict,
-    inventory_item: InventoryItem,
-    *,
-    detail: str,
-) -> None:
-    enforce_admin_food_bank_scope(
-        admin_user,
-        inventory_item.food_bank_id,
-        detail=detail,
+def _serialize_inventory_lot_row(lot: InventoryLot, item_name: str) -> InventoryLotOut:
+    status_value = (
+        "wasted"
+        if lot.deleted_at is not None
+        else "expired" if lot.expiry_date < date.today() else "active"
+    )
+    return InventoryLotOut(
+        id=lot.id,
+        inventory_item_id=lot.inventory_item_id,
+        item_name=item_name,
+        quantity=lot.quantity,
+        expiry_date=lot.expiry_date,
+        received_date=lot.received_date,
+        batch_reference=lot.batch_reference,
+        status=status_value,
+        deleted_at=lot.deleted_at,
     )
 
 
@@ -88,15 +76,14 @@ async def _get_inventory_item_for_admin(
     *,
     detail: str,
 ) -> InventoryItem:
-    item = await db.scalar(select(InventoryItem).where(InventoryItem.id == item_id))
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Inventory item not found",
-        )
-
-    _enforce_inventory_item_access(admin_user, item, detail=detail)
-    return item
+    return await require_scoped_by_id(
+        db,
+        InventoryItem,
+        item_id,
+        admin_user,
+        detail=detail,
+        not_found_detail="Inventory item not found",
+    )
 
 
 async def _get_inventory_lot_for_admin(
@@ -106,70 +93,35 @@ async def _get_inventory_lot_for_admin(
     *,
     detail: str,
 ) -> tuple[InventoryLot, InventoryItem]:
-    lot = await db.scalar(select(InventoryLot).where(InventoryLot.id == lot_id))
-    if lot is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Inventory lot not found",
-        )
-
-    inventory_item = await db.scalar(
-        select(InventoryItem).where(InventoryItem.id == lot.inventory_item_id)
+    lot = await require_by_id(
+        db,
+        InventoryLot,
+        lot_id,
+        detail="Inventory lot not found",
     )
-    if inventory_item is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Inventory item not found for lot",
-        )
+    inventory_item = await require_by_id(
+        db,
+        InventoryItem,
+        lot.inventory_item_id,
+        detail="Inventory item not found for lot",
+    )
 
-    _enforce_inventory_item_access(admin_user, inventory_item, detail=detail)
+    enforce_admin_food_bank_scope(
+        admin_user,
+        inventory_item.food_bank_id,
+        detail=detail,
+    )
     return lot, inventory_item
 
 
-async def _resolve_inventory_item_food_bank_id(
-    requested_food_bank_id: int | None,
-    admin_user: dict,
-    db: AsyncSession,
-) -> int | None:
-    admin_food_bank_id = get_admin_food_bank_id(admin_user)
-    if admin_food_bank_id is not None:
-        if requested_food_bank_id is not None:
-            enforce_admin_food_bank_scope(
-                admin_user,
-                requested_food_bank_id,
-                detail="You can only create inventory items for your assigned food bank",
-            )
-        return admin_food_bank_id
-
-    if requested_food_bank_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="food_bank_id is required for inventory item creation",
-        )
-
-    food_bank_exists = await db.scalar(
-        select(FoodBank.id).where(FoodBank.id == requested_food_bank_id)
-    )
-    if food_bank_exists is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Food bank not found",
-        )
-
-    return requested_food_bank_id
-
-
 async def _get_total_stock_for_item(db: AsyncSession, item_id: int) -> int:
-    total_stock = await db.scalar(
+    return int((await fetch_one_or_none(
+        db,
         select(func.coalesce(func.sum(InventoryLot.quantity), 0)).where(
-            and_(
-                InventoryLot.inventory_item_id == item_id,
-                InventoryLot.deleted_at.is_(None),
-                InventoryLot.expiry_date >= date.today(),
-            )
+            InventoryLot.inventory_item_id == item_id,
+            *_active_inventory_lot_filters(),
         )
-    )
-    return int(total_stock or 0)
+    )) or 0)
 
 
 async def _serialize_inventory_item(db: AsyncSession, item: InventoryItem) -> InventoryItemOut:
@@ -186,6 +138,90 @@ async def _serialize_inventory_item(db: AsyncSession, item: InventoryItem) -> In
         food_bank_id=item.food_bank_id,
         updated_at=updated_at,
     )
+
+
+async def _flush_refresh_serialize_inventory_item(
+    db: AsyncSession,
+    item: InventoryItem,
+) -> InventoryItemOut:
+    return await _serialize_inventory_item(db, await flush_refresh(db, item))
+
+
+async def _run_inventory_action(action, *, failure_detail: str):
+    return await run_guarded_action(action, failure_detail=failure_detail)
+
+
+async def _run_inventory_transaction(
+    db: AsyncSession,
+    action,
+    *,
+    failure_detail: str,
+    conflict_detail: str | None = None,
+):
+    return await run_guarded_transaction(
+        db,
+        action,
+        failure_detail=failure_detail,
+        conflict_detail=conflict_detail,
+    )
+
+
+async def _change_inventory_item_stock(
+    db: AsyncSession,
+    item_id: int,
+    adjustment_in: StockAdjustment,
+    admin_user: dict,
+    *,
+    stock_in: bool,
+) -> InventoryItemOut:
+    item = await _get_inventory_item_for_admin(
+        db,
+        item_id,
+        admin_user,
+        detail="You can only manage inventory items for your assigned food bank",
+    )
+
+    if stock_in:
+        db.add(
+            InventoryLot(
+                inventory_item_id=item.id,
+                quantity=adjustment_in.quantity,
+                received_date=date.today(),
+                expiry_date=adjustment_in.expiry_date or _future_expiry_date(),
+                batch_reference=adjustment_in.reason[:100],
+            )
+        )
+    else:
+        try:
+            await consume_inventory_lots(item.id, adjustment_in.quantity, db)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
+    return await _flush_refresh_serialize_inventory_item(db, item)
+
+
+async def _run_stock_adjustment(
+    db: AsyncSession,
+    item_id: int,
+    adjustment_in: StockAdjustment,
+    admin_user: dict,
+    *,
+    stock_in: bool,
+    failure_detail: str,
+) -> InventoryItemOut:
+    async def _action() -> InventoryItemOut:
+        return await _change_inventory_item_stock(
+            db,
+            item_id,
+            adjustment_in,
+            admin_user,
+            stock_in=stock_in,
+        )
+
+    return await _run_inventory_transaction(db, _action, failure_detail=failure_detail)
 
 
 @router.get("", response_model=InventoryItemListResponse)
@@ -212,7 +248,7 @@ async def list_inventory(
             )
         query = query.where(InventoryItem.food_bank_id == normalized_food_bank_id)
     else:
-        query = _apply_inventory_scope(query, admin_user)
+        query = query.where(bank_scoped_clause(InventoryItem, admin_user))
 
     if normalized_category is not None:
         query = query.where(InventoryItem.category == normalized_category)
@@ -227,17 +263,8 @@ async def list_inventory(
             )
         )
 
-    result = await db.execute(query)
-    items = list(result.scalars().all())
-    serialized_items = [await _serialize_inventory_item(db, item) for item in items]
-    total = len(serialized_items)
-    return {
-        "items": serialized_items,
-        "total": total,
-        "page": 1,
-        "size": total,
-        "pages": 1,
-    }
+    items = await fetch_scalars(db, query)
+    return single_page_response([await _serialize_inventory_item(db, item) for item in items])
 
 
 @router.post("", response_model=InventoryItemOut, status_code=status.HTTP_201_CREATED)
@@ -246,11 +273,13 @@ async def create_inventory_item(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        target_food_bank_id = await _resolve_inventory_item_food_bank_id(
+    async def _action() -> InventoryItemOut:
+        target_food_bank_id = await resolve_admin_target_food_bank_id(
+            db,
             item_in.food_bank_id,
             admin_user,
-            db,
+            scope_detail="You can only create inventory items for your assigned food bank",
+            required_detail="food_bank_id is required for inventory item creation",
         )
         normalized_name = item_in.name.strip()
         duplicate_query = select(InventoryItem.id).where(
@@ -260,9 +289,7 @@ async def create_inventory_item(
             InventoryItem.food_bank_id == target_food_bank_id
         )
 
-        existing_item_id = await db.scalar(
-            duplicate_query
-        )
+        existing_item_id = await fetch_one_or_none(db, duplicate_query)
         if existing_item_id is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -290,32 +317,23 @@ async def create_inventory_item(
                 )
             )
 
-        await db.flush()
-        await db.refresh(item)
-        return await _serialize_inventory_item(db, item)
-    except IntegrityError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Inventory item conflict detected",
-        ) from exc
-    except HTTPException:
-        raise
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create inventory item",
-        ) from exc
+        return await _flush_refresh_serialize_inventory_item(db, item)
+
+    return await _run_inventory_transaction(
+        db,
+        _action,
+        conflict_detail="Inventory item conflict detected",
+        failure_detail="Failed to create inventory item",
+    )
 
 
-@router.get("/lots", response_model=List[InventoryLotOut])
+@router.get("/lots", response_model=list[InventoryLotOut])
 async def list_inventory_lots(
     include_inactive: bool = Query(True, description="Include inactive (wasted) lots"),
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
+    async def _action() -> list[InventoryLotOut]:
         query = (
             select(InventoryLot, InventoryItem.name)
             .join(InventoryItem, InventoryItem.id == InventoryLot.inventory_item_id)
@@ -325,43 +343,12 @@ async def list_inventory_lots(
         if not include_inactive:
             query = query.where(InventoryLot.deleted_at.is_(None))
 
-        query = _apply_inventory_scope(query, admin_user)
+        query = query.where(bank_scoped_clause(InventoryItem, admin_user))
 
-        result = await db.execute(query)
-        rows = result.all()
+        rows = await fetch_rows(db, query)
+        return [_serialize_inventory_lot_row(lot, item_name) for lot, item_name in rows]
 
-        today = date.today()
-        lots: List[InventoryLotOut] = []
-        for lot, item_name in rows:
-            if lot.deleted_at is not None:
-                lot_status = "wasted"
-            elif lot.expiry_date < today:
-                lot_status = "expired"
-            else:
-                lot_status = "active"
-
-            lots.append(
-                InventoryLotOut(
-                    id=lot.id,
-                    inventory_item_id=lot.inventory_item_id,
-                    item_name=item_name,
-                    quantity=lot.quantity,
-                    expiry_date=lot.expiry_date,
-                    received_date=lot.received_date,
-                    batch_reference=lot.batch_reference,
-                    status=lot_status,
-                    deleted_at=lot.deleted_at,
-                )
-            )
-
-        return lots
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve inventory lots",
-        ) from exc
+    return await _run_inventory_action(_action, failure_detail="Failed to retrieve inventory lots")
 
 
 @router.patch("/lots/{lot_id}", response_model=InventoryLotOut)
@@ -377,87 +364,57 @@ async def adjust_inventory_lot(
             detail="No fields provided to adjust",
         )
 
-    try:
-        async with db.begin():
-            lot, inventory_item = await _get_inventory_lot_for_admin(
+    async def _action() -> InventoryLotOut:
+        lot, inventory_item = await _get_inventory_lot_for_admin(
+            db,
+            lot_id,
+            admin_user,
+            detail="You can only manage inventory lots for your assigned food bank",
+        )
+        sync_model_fields(
+            lot,
+            adjustment_in.model_dump(
+                exclude_unset=True,
+                exclude={"damage_quantity", "status"},
+            ),
+        )
+
+        if adjustment_in.damage_quantity is not None:
+            if lot.quantity < adjustment_in.damage_quantity:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Damage quantity exceeds lot quantity",
+                )
+
+            record_inventory_waste_event(
                 db,
-                lot_id,
-                admin_user,
-                detail="You can only manage inventory lots for your assigned food bank",
+                lot,
+                inventory_item,
+                adjustment_in.damage_quantity,
+                "damaged",
             )
+            remaining = lot.quantity - adjustment_in.damage_quantity
+            lot.quantity = remaining
+            if remaining == 0:
+                lot.deleted_at = datetime.now(timezone.utc)
 
-            if adjustment_in.expiry_date is not None:
-                lot.expiry_date = adjustment_in.expiry_date
-
-            if adjustment_in.batch_reference is not None:
-                lot.batch_reference = adjustment_in.batch_reference
-
-            if adjustment_in.quantity is not None:
-                lot.quantity = adjustment_in.quantity
-
-            if adjustment_in.damage_quantity is not None:
-                if lot.quantity < adjustment_in.damage_quantity:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Damage quantity exceeds lot quantity",
-                    )
-
+        if adjustment_in.status == "wasted":
+            if lot.deleted_at is None:
                 record_inventory_waste_event(
                     db,
                     lot,
                     inventory_item,
-                    adjustment_in.damage_quantity,
-                    "damaged",
+                    lot.quantity,
+                    "manual_waste",
                 )
-                remaining = lot.quantity - adjustment_in.damage_quantity
-                if remaining == 0:
-                    lot.deleted_at = datetime.now(timezone.utc)
-                else:
-                    lot.quantity = remaining
+            lot.deleted_at = datetime.now(timezone.utc)
+        elif adjustment_in.status == "active":
+            lot.deleted_at = None
 
-            if adjustment_in.status == "wasted":
-                if lot.deleted_at is None:
-                    record_inventory_waste_event(
-                        db,
-                        lot,
-                        inventory_item,
-                        lot.quantity,
-                        "manual_waste",
-                    )
-                lot.deleted_at = datetime.now(timezone.utc)
-            elif adjustment_in.status == "active":
-                lot.deleted_at = None
+        await db.flush()
+        return _serialize_inventory_lot_row(lot, inventory_item.name)
 
-            await db.flush()
-
-            today = date.today()
-            if lot.deleted_at is not None:
-                lot_status = "wasted"
-            elif lot.expiry_date < today:
-                lot_status = "expired"
-            else:
-                lot_status = "active"
-
-            return InventoryLotOut(
-                id=lot.id,
-                inventory_item_id=lot.inventory_item_id,
-                item_name=inventory_item.name,
-                quantity=lot.quantity,
-                expiry_date=lot.expiry_date,
-                received_date=lot.received_date,
-                batch_reference=lot.batch_reference,
-                status=lot_status,
-                deleted_at=lot.deleted_at,
-            )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to adjust inventory lot",
-        ) from exc
+    return await _run_inventory_transaction(db, _action, failure_detail="Failed to adjust inventory lot")
 
 
 @router.patch("/{item_id}", response_model=InventoryItemOut)
@@ -474,38 +431,22 @@ async def update_inventory_item(
             detail="No fields provided to update",
         )
 
-    # Stock is handled through lot endpoints, but older callers may still send it.
-    updates.pop("stock", None)
+    async def _action() -> InventoryItemOut:
+        item = await _get_inventory_item_for_admin(
+            db,
+            item_id,
+            admin_user,
+            detail="You can only manage inventory items for your assigned food bank",
+        )
+        sync_model_fields(item, updates)
+        return await _flush_refresh_serialize_inventory_item(db, item)
 
-    try:
-        async with db.begin():
-            item = await _get_inventory_item_for_admin(
-                db,
-                item_id,
-                admin_user,
-                detail="You can only manage inventory items for your assigned food bank",
-            )
-
-            for field, value in updates.items():
-                setattr(item, field, value)
-
-            await db.flush()
-            await db.refresh(item)
-            return await _serialize_inventory_item(db, item)
-    except HTTPException:
-        raise
-    except IntegrityError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Inventory update conflict detected",
-        ) from exc
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update inventory item",
-        ) from exc
+    return await _run_inventory_transaction(
+        db,
+        _action,
+        conflict_detail="Inventory update conflict detected",
+        failure_detail="Failed to update inventory item",
+    )
 
 
 @router.post("/{item_id}/stock-in", response_model=InventoryItemOut)
@@ -515,37 +456,14 @@ async def stock_in(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        async with db.begin():
-            item = await _get_inventory_item_for_admin(
-                db,
-                item_id,
-                admin_user,
-                detail="You can only manage inventory items for your assigned food bank",
-            )
-
-            db.add(
-                InventoryLot(
-                    inventory_item_id=item.id,
-                    quantity=adjustment_in.quantity,
-                    received_date=date.today(),
-                    expiry_date=adjustment_in.expiry_date or _future_expiry_date(),
-                    batch_reference=adjustment_in.reason[:100],
-                )
-            )
-
-            await db.flush()
-            await db.refresh(item)
-            return await _serialize_inventory_item(db, item)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to increase inventory stock",
-        ) from exc
+    return await _run_stock_adjustment(
+        db,
+        item_id,
+        adjustment_in,
+        admin_user,
+        stock_in=True,
+        failure_detail="Failed to increase inventory stock",
+    )
 
 
 @router.post("/{item_id}/stock-out", response_model=InventoryItemOut)
@@ -555,35 +473,14 @@ async def stock_out(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        async with db.begin():
-            item = await _get_inventory_item_for_admin(
-                db,
-                item_id,
-                admin_user,
-                detail="You can only manage inventory items for your assigned food bank",
-            )
-
-            try:
-                await consume_inventory_lots(item.id, adjustment_in.quantity, db)
-            except ValueError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(exc),
-                )
-
-            await db.flush()
-            await db.refresh(item)
-            return await _serialize_inventory_item(db, item)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to decrease inventory stock",
-        ) from exc
+    return await _run_stock_adjustment(
+        db,
+        item_id,
+        adjustment_in,
+        admin_user,
+        stock_in=False,
+        failure_detail="Failed to decrease inventory stock",
+    )
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -592,38 +489,30 @@ async def delete_inventory_item(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        async with db.begin():
-            item = await _get_inventory_item_for_admin(
-                db,
-                item_id,
-                admin_user,
-                detail="You can only delete inventory items for your assigned food bank",
+    async def _action() -> None:
+        item = await _get_inventory_item_for_admin(
+            db,
+            item_id,
+            admin_user,
+            detail="You can only delete inventory items for your assigned food bank",
+        )
+
+        package_usage_count = await fetch_one_or_none(
+            db,
+            select(func.count(PackageItem.id)).where(
+                PackageItem.inventory_item_id == item_id
+            )
+        )
+        if int(package_usage_count or 0) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot delete inventory item used in packages",
             )
 
-            package_usage_count = await db.scalar(
-                select(func.count(PackageItem.id)).where(
-                    PackageItem.inventory_item_id == item_id
-                )
-            )
-            if int(package_usage_count or 0) > 0:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Cannot delete inventory item used in packages",
-                )
+        await db.delete(item)
+        await db.flush()
 
-            await db.delete(item)
-            await db.flush()
-            return None
-    except HTTPException:
-        raise
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete inventory item",
-        ) from exc
+    return await _run_inventory_transaction(db, _action, failure_detail="Failed to delete inventory item")
 
 
 @router.delete("/lots/{lot_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -632,73 +521,60 @@ async def delete_inventory_lot(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        async with db.begin():
-            lot, inventory_item = await _get_inventory_lot_for_admin(
+    async def _action() -> None:
+        lot, inventory_item = await _get_inventory_lot_for_admin(
+            db,
+            lot_id,
+            admin_user,
+            detail="You can only delete inventory lots for your assigned food bank",
+        )
+
+        if not await lot_has_waste_event(db, lot.id):
+            reason = "deleted"
+            occurred_at = datetime.now(timezone.utc)
+            if lot.deleted_at is not None:
+                reason = "manual_waste"
+                occurred_at = lot.deleted_at
+            elif lot.expiry_date < date.today():
+                reason = "expired"
+
+            record_inventory_waste_event(
                 db,
-                lot_id,
-                admin_user,
-                detail="You can only delete inventory lots for your assigned food bank",
+                lot,
+                inventory_item,
+                lot.quantity,
+                reason,
+                occurred_at=occurred_at,
             )
 
-            if not await lot_has_waste_event(db, lot.id):
-                reason = "deleted"
-                occurred_at = datetime.now(timezone.utc)
-                if lot.deleted_at is not None:
-                    reason = "manual_waste"
-                    occurred_at = lot.deleted_at
-                elif lot.expiry_date < date.today():
-                    reason = "expired"
+        await db.delete(lot)
+        await db.flush()
 
-                record_inventory_waste_event(
-                    db,
-                    lot,
-                    inventory_item,
-                    lot.quantity,
-                    reason,
-                    occurred_at=occurred_at,
-                )
-
-            await db.delete(lot)
-            await db.flush()
-            return None
-    except HTTPException:
-        raise
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete inventory lot",
-        ) from exc
+    return await _run_inventory_transaction(db, _action, failure_detail="Failed to delete inventory lot")
 
 
-@router.get("/low-stock", response_model=List[LowStockItem])
+@router.get("/low-stock", response_model=list[LowStockItem])
 async def get_low_stock_items(
     threshold: int | None = Query(None, ge=0, description="Override default threshold"),
     admin_user: dict = Depends(require_admin_or_supermarket),
     db: AsyncSession = Depends(get_db),
 ):
-    try:
+    async def _action() -> list[LowStockItem]:
         stock_subquery = (
             select(
                 InventoryLot.inventory_item_id,
                 func.coalesce(func.sum(InventoryLot.quantity), 0).label("total_stock"),
             )
-            .where(
-                and_(
-                    InventoryLot.deleted_at.is_(None),
-                    InventoryLot.expiry_date >= date.today(),
-                )
-            )
+            .where(and_(*_active_inventory_lot_filters()))
             .group_by(InventoryLot.inventory_item_id)
             .subquery()
         )
 
         effective_total_stock = func.coalesce(stock_subquery.c.total_stock, 0)
-        stock_deficit_expr = (
-            (threshold if threshold is not None else InventoryItem.threshold) - effective_total_stock
+        effective_threshold = (
+            literal(threshold) if threshold is not None else InventoryItem.threshold
         )
+        stock_deficit_expr = effective_threshold - effective_total_stock
 
         query = select(
             InventoryItem.id,
@@ -706,7 +582,7 @@ async def get_low_stock_items(
             InventoryItem.category,
             InventoryItem.unit,
             effective_total_stock.label("current_stock"),
-            (threshold if threshold is not None else InventoryItem.threshold).label("threshold"),
+            effective_threshold.label("threshold"),
             stock_deficit_expr.label("stock_deficit"),
         ).join(
             stock_subquery,
@@ -714,7 +590,7 @@ async def get_low_stock_items(
             isouter=True,
         )
 
-        query = _apply_inventory_scope(query, admin_user)
+        query = query.where(bank_scoped_clause(InventoryItem, admin_user))
 
         if threshold is not None:
             query = query.where(effective_total_stock < threshold)
@@ -723,7 +599,7 @@ async def get_low_stock_items(
 
         query = query.order_by(stock_deficit_expr.desc())
 
-        rows = (await db.execute(query)).all()
+        rows = await fetch_rows(db, query)
         return [
             LowStockItem(
                 id=row[0],
@@ -736,10 +612,5 @@ async def get_low_stock_items(
             )
             for row in rows
         ]
-    except Exception as exc:
-        if is_database_unavailable_exception(exc):
-            raise_database_unavailable_http_exception()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve low-stock items",
-        ) from exc
+
+    return await _run_inventory_action(_action, failure_detail="Failed to retrieve low-stock items")
