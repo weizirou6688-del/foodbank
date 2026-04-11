@@ -3,6 +3,7 @@ import type {
   DonationListRow,
   FoodBank,
   GoodsDonationResponse,
+  User,
 } from '@/shared/types/common'
 import { apiClient } from './apiClient'
 
@@ -23,13 +24,29 @@ const buildQueryString = (params: Record<string, string | number | boolean | nul
 export interface CashDonationResponse {
   id: string
   donor_name?: string | null
-  donor_type?: 'supermarket' | 'individual' | 'organization' | null
+  donor_type?: DonationDonorType | null
   donor_email: string
   food_bank_id?: number | null
   amount_pence: number
   payment_reference?: string | null
-  status: 'completed' | 'failed' | 'refunded'
+  status: CashDonationStatus
   created_at: string
+}
+
+export interface AuthTokenResponse {
+  access_token: string
+  refresh_token: string
+  token_type: string
+  user: User
+}
+
+export interface AuthRefreshResponse {
+  access_token: string
+  token_type: string
+}
+
+export interface MessageResponse {
+  message?: string
 }
 
 export interface FoodBankListResponse {
@@ -38,6 +55,25 @@ export interface FoodBankListResponse {
   page: number
   size: number
   pages: number
+}
+
+export interface ExternalFoodBankRecord {
+  name: string
+  address: string
+  postcode: string
+  lat?: number | null
+  lng?: number | null
+  latt_long?: string | null
+  phone?: string
+  email?: string
+  url?: string
+  needs?: string[]
+}
+
+export interface GeocodeResponse {
+  lat: number
+  lng: number
+  source: string
 }
 
 export interface InventoryItemListResponse {
@@ -70,13 +106,106 @@ export interface AdminInventoryItemRecord {
   updated_at: string
 }
 
-export interface InventoryItemMutationPayload {
+export type DonationDonorType = 'supermarket' | 'individual' | 'organization'
+export type GoodsDonationStatus = 'pending' | 'received' | 'rejected'
+export type CashDonationStatus = 'completed' | 'failed' | 'refunded'
+
+export interface InventoryItemCreatePayload {
   name: string
   category: string
-  initial_stock?: number
-  unit: string
-  threshold: number
-  food_bank_id?: number
+  initial_stock: number
+  unit?: string
+  threshold?: number
+  food_bank_id?: number | null
+}
+
+export interface InventoryItemUpdatePayload {
+  name?: string
+  category?: string
+  unit?: string
+  threshold?: number
+}
+
+export interface InventoryLotAdjustPayload {
+  quantity?: number
+  damage_quantity?: number
+  expiry_date?: string
+  status?: 'active' | 'wasted'
+  batch_reference?: string | null
+}
+
+export interface GoodsDonationItemPayload {
+  item_name: string
+  quantity: number
+  expiry_date?: string
+}
+
+export interface GoodsDonationCreatePayload {
+  donor_name: string
+  donor_type?: DonationDonorType
+  donor_email: string
+  donor_phone: string
+  food_bank_id?: number | null
+  food_bank_name?: string
+  food_bank_address?: string
+  food_bank_email?: string
+  postcode?: string
+  pickup_date?: string
+  item_condition?: string
+  estimated_quantity?: string
+  notes?: string
+  items: GoodsDonationItemPayload[]
+  status?: GoodsDonationStatus
+}
+
+export interface GoodsDonationUpdatePayload {
+  donor_name?: string
+  donor_type?: DonationDonorType
+  donor_email?: string
+  donor_phone?: string
+  food_bank_id?: number | null
+  food_bank_name?: string | null
+  food_bank_address?: string | null
+  postcode?: string | null
+  pickup_date?: string | null
+  item_condition?: string | null
+  estimated_quantity?: string | null
+  notes?: string | null
+  status?: GoodsDonationStatus
+  items?: GoodsDonationItemPayload[]
+}
+
+export interface CashDonationUpdatePayload {
+  donor_name?: string | null
+  donor_type?: DonationDonorType
+  food_bank_id?: number | null
+  donor_email?: string
+  amount_pence?: number
+  payment_reference?: string | null
+  status?: CashDonationStatus
+}
+
+export type ApplicationRequestItemPayload =
+  | {
+      package_id: number
+      quantity: number
+      inventory_item_id?: never
+    }
+  | {
+      inventory_item_id: number
+      quantity: number
+      package_id?: never
+    }
+
+export interface ApplicationCreatePayload {
+  food_bank_id: number
+  week_start?: string
+  items: ApplicationRequestItemPayload[]
+}
+
+export interface ApplicationUpdatePayload {
+  status?: ApplicationStatus
+  redemption_code?: string
 }
 
 export interface FoodPackageSummaryRecord {
@@ -108,10 +237,13 @@ export interface FoodPackageDetailRecord extends FoodPackageSummaryRecord {
 export interface FoodPackageMutationPayload {
   name?: string
   category?: string
+  stock?: number
   threshold?: number
+  applied_count?: number
   description?: string | null
   image_url?: string | null
   food_bank_id?: number
+  is_active?: boolean
   contents?: Array<{
     item_id: number
     quantity: number
@@ -132,12 +264,6 @@ export interface PackPackageResponse {
     batch_reference?: string | null
   }>
   timestamp: string
-}
-
-export interface GeocodeResponse {
-  lat: number
-  lng: number
-  source: string
 }
 
 export interface AdminApplicationItem {
@@ -168,6 +294,96 @@ export interface AdminApplicationRecord {
 
 export interface AdminApplicationListResponse {
   items: AdminApplicationRecord[]
+  total: number
+  page: number
+  size: number
+  pages: number
+}
+
+export interface UserApplicationRecord {
+  id: string
+  user_id: string
+  food_bank_id: number
+  redemption_code: string
+  status: ApplicationStatus
+  week_start: string
+  total_quantity: number
+  created_at: string
+  updated_at: string
+  redeemed_at?: string | null
+  deleted_at?: string | null
+}
+
+export interface UserApplicationListResponse {
+  items: UserApplicationRecord[]
+  total: number
+  page: number
+  size: number
+  pages: number
+}
+
+export interface DonationStatsSummaryResponse {
+  total_cash_donations: number
+  total_goods_donations: number
+  average_cash_per_donation: number
+  donations_by_week?: Array<{
+    week: string
+    cash: number
+    goods_count: number
+  }>
+}
+
+export interface PackageStatsRecord {
+  package_id: number
+  package_name: string
+  request_count: number
+  total_requested_items: number
+}
+
+export interface StockGapRecord {
+  package_id: number
+  package_name: string
+  stock: number
+  threshold: number
+  gap: number
+}
+
+export interface InventoryLotRecord {
+  id: number
+  inventory_item_id: number
+  item_name: string
+  quantity: number
+  received_date: string
+  expiry_date: string
+  batch_reference?: string | null
+  status: 'active' | 'wasted' | 'expired'
+  deleted_at?: string | null
+}
+
+export interface LowStockRecord {
+  id: number
+  name: string
+  category: string
+  unit: string
+  current_stock: number
+  threshold: number
+  stock_deficit: number
+}
+
+export interface RestockRequestRecord {
+  id: number
+  inventory_item_id: number
+  current_stock: number
+  threshold: number
+  urgency: 'high' | 'medium' | 'low'
+  status: 'open' | 'fulfilled' | 'cancelled'
+  assigned_to_user_id?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RestockRequestListResponse {
+  items: RestockRequestRecord[]
   total: number
   page: number
   size: number
@@ -284,6 +500,33 @@ export interface DashboardAnalyticsResponse {
   }
 }
 
+export const authAPI = {
+  register: (data: {
+    name: string
+    email: string
+    password: string
+  }) => apiClient.post<User>('/api/v1/auth/register', data),
+
+  login: (data: {
+    email: string
+    password: string
+  }) => apiClient.post<AuthTokenResponse>('/api/v1/auth/login', data),
+
+  refreshAccessToken: (refreshToken: string) =>
+    apiClient.post<AuthRefreshResponse>(
+      `/api/v1/auth/refresh?refresh_token=${encodeURIComponent(refreshToken)}`,
+    ),
+
+  forgotPassword: (data: { email: string }) =>
+    apiClient.post<MessageResponse>('/api/v1/auth/forgot-password', data),
+
+  resetPassword: (data: {
+    email: string
+    verification_code: string
+    new_password: string
+  }) => apiClient.post<MessageResponse>('/api/v1/auth/reset-password', data),
+}
+
 export const donationsAPI = {
   donateCash: (data: {
     donor_name?: string
@@ -338,10 +581,21 @@ export const foodBanksAPI = {
       `/api/v1/food-banks/geocode?postcode=${encodeURIComponent(postcode)}`,
     ),
 
+  getExternalFeed: () =>
+    apiClient.get<ExternalFoodBankRecord[]>('/api/v1/food-banks/external-feed'),
+
   getInventoryItems: (foodBankId: number | string) =>
     apiClient.get<InventoryItemListResponse>(
       `/api/v1/food-banks/${foodBankId}/inventory-items`,
     ),
+}
+
+export const packagesAPI = {
+  listFoodBankPackages: (foodBankId: number | string) =>
+    apiClient.get<FoodPackageSummaryRecord[]>(`/api/v1/food-banks/${foodBankId}/packages`),
+
+  getFoodPackageDetail: (id: number | string) =>
+    apiClient.get<FoodPackageDetailRecord>(`/api/v1/packages/${id}`),
 }
 
 export const statsAPI = {
@@ -356,7 +610,7 @@ export const statsAPI = {
 
 export const restockAPI = {
   getRequests: (token: string) =>
-    apiClient.get('/api/v1/restock-requests', token),
+    apiClient.get<RestockRequestListResponse>('/api/v1/restock-requests', token),
 
   submitRequest: (
     data: {
@@ -366,13 +620,13 @@ export const restockAPI = {
       urgency: 'high' | 'medium' | 'low'
     },
     token: string
-  ) => apiClient.post('/api/v1/restock-requests', data, token),
+  ) => apiClient.post<RestockRequestRecord>('/api/v1/restock-requests', data, token),
 
   fulfilRequest: (
     requestId: number | string,
     token: string,
     notes?: string
-  ) => apiClient.post(`/api/v1/restock-requests/${requestId}/fulfil`, { notes }, token),
+  ) => apiClient.post<RestockRequestRecord>(`/api/v1/restock-requests/${requestId}/fulfil`, { notes }, token),
 
   cancelRequest: (
     requestId: number | string,
@@ -382,10 +636,10 @@ export const restockAPI = {
 
 export const adminAPI = {
   getStats: (token: string, _period: 'daily' | 'weekly' | 'monthly' = 'daily') =>
-    apiClient.get('/api/v1/stats/donations', token),
+    apiClient.get<DonationStatsSummaryResponse>('/api/v1/stats/donations', token),
 
   getPackageStats: (token: string) =>
-    apiClient.get('/api/v1/stats/packages', token),
+    apiClient.get<PackageStatsRecord[]>('/api/v1/stats/packages', token),
 
   getDashboardAnalytics: (
     token: string,
@@ -393,7 +647,7 @@ export const adminAPI = {
   ) => apiClient.get<DashboardAnalyticsResponse>(`/api/v1/stats/dashboard?range=${range}`, token),
 
   getStockGap: (token: string) =>
-    apiClient.get('/api/v1/stats/stock-gap', token),
+    apiClient.get<StockGapRecord[]>('/api/v1/stats/stock-gap', token),
 
   listFoodPackages: (
     token: string,
@@ -435,7 +689,7 @@ export const adminAPI = {
     id: number | string,
     data: FoodPackageMutationPayload,
     token: string
-  ) => apiClient.patch(`/api/v1/packages/${id}`, data, token),
+  ) => apiClient.patch<FoodPackageSummaryRecord>(`/api/v1/packages/${id}`, data, token),
 
   deleteFoodPackage: (
     id: number | string,
@@ -465,18 +719,18 @@ export const adminAPI = {
   ),
 
   createInventoryItem: (
-    data: InventoryItemMutationPayload,
+    data: InventoryItemCreatePayload,
     token: string
   ) => apiClient.post<AdminInventoryItemRecord>('/api/v1/inventory', data, token),
 
   getInventoryLots: (token: string, includeInactive = true) =>
-    apiClient.get(`/api/v1/inventory/lots?include_inactive=${includeInactive}`, token),
+    apiClient.get<InventoryLotRecord[]>(`/api/v1/inventory/lots?include_inactive=${includeInactive}`, token),
 
   adjustInventoryLot: (
     lotId: number | string,
-    data: Record<string, unknown>,
+    data: InventoryLotAdjustPayload,
     token: string
-  ) => apiClient.patch(`/api/v1/inventory/lots/${lotId}`, data, token),
+  ) => apiClient.patch<InventoryLotRecord>(`/api/v1/inventory/lots/${lotId}`, data, token),
 
   deleteInventoryLot: (
     lotId: number | string,
@@ -485,9 +739,9 @@ export const adminAPI = {
 
   updateInventoryItem: (
     id: number | string,
-    data: Record<string, unknown>,
+    data: InventoryItemUpdatePayload,
     token: string
-  ) => apiClient.patch(`/api/v1/inventory/${id}`, data, token),
+  ) => apiClient.patch<AdminInventoryItemRecord>(`/api/v1/inventory/${id}`, data, token),
 
   stockInInventoryItem: (
     id: number | string,
@@ -510,7 +764,7 @@ export const adminAPI = {
     const url = threshold === undefined
       ? '/api/v1/inventory/low-stock'
       : `/api/v1/inventory/low-stock?threshold=${threshold}`
-    return apiClient.get(url, token)
+    return apiClient.get<LowStockRecord[]>(url, token)
   },
 
   getDonations: (token: string, type?: 'cash' | 'goods') => {
@@ -519,21 +773,13 @@ export const adminAPI = {
   },
 
   createGoodsDonation: (
-    data: {
-      donor_name: string
-      donor_type?: 'supermarket' | 'individual' | 'organization'
-      donor_email: string
-      donor_phone: string
-      pickup_date?: string
-      items: Array<{ item_name: string; quantity: number; expiry_date?: string }>
-      status?: 'pending' | 'received' | 'rejected'
-    },
+    data: GoodsDonationCreatePayload,
     token: string
   ) => apiClient.post<GoodsDonationResponse>('/api/v1/donations/goods', data, token),
 
   updateGoodsDonation: (
     id: string,
-    data: Record<string, unknown>,
+    data: GoodsDonationUpdatePayload,
     token: string
   ) => apiClient.patch<GoodsDonationResponse>(`/api/v1/donations/goods/${id}`, data, token),
 
@@ -544,7 +790,7 @@ export const adminAPI = {
 
   updateCashDonation: (
     id: string,
-    data: Record<string, unknown>,
+    data: CashDonationUpdatePayload,
     token: string
   ) => apiClient.patch<CashDonationResponse>(`/api/v1/donations/cash/${id}`, data, token),
 
@@ -556,20 +802,16 @@ export const adminAPI = {
 
 export const applicationsAPI = {
   submitApplication: (
-    data: {
-      food_bank_id: number
-      week_start?: string // ISO 8601 date string (YYYY-MM-DD)
-      items: Array<{ package_id: number; quantity: number }>
-    },
+    data: ApplicationCreatePayload,
     token: string
-  ) => apiClient.post('/api/v1/applications', data, token),
+  ) => apiClient.post<UserApplicationRecord>('/api/v1/applications', data, token),
 
   getMyApplications: (token: string) =>
-    apiClient.get('/api/v1/applications/my', token),
+    apiClient.get<UserApplicationListResponse>('/api/v1/applications/my', token),
 
   updateApplicationStatus: (
     id: number | string,
-    data: { status: ApplicationStatus },
+    data: ApplicationUpdatePayload,
     token: string
   ) => apiClient.patch(`/api/v1/applications/${id}`, data, token),
 

@@ -2,21 +2,18 @@ import { useEffect, useState } from 'react'
 
 import { useFoodBankStore } from '@/app/store/foodBankStore'
 import { useAuthStore } from '@/app/store/authStore'
-import { foodBanksAPI } from '@/shared/lib/api'
-import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
+import { adminAPI, foodBanksAPI } from '@/shared/lib/api'
+import {
+  packageCategoryOptions,
+  type PackageCategoryOption,
+} from '@/pages/Admin/adminFoodManagement.constants'
 import { getAdminScopeMeta } from '@/shared/lib/adminScope'
 import Modal from '@/shared/ui/Modal'
 import { AdminModalPrimaryButton, AdminModalSecondaryButton } from './AdminModalPrimitives'
 import { AdminModalField, AdminModalInput, AdminModalSelect } from './AdminModalFields'
 import { AdminModalFormLayout } from './AdminModalLayouts'
 
-const PACKAGE_CATEGORIES = [
-  'Pantry & Spices',
-  'Breakfast',
-  'Lunchbox',
-  'Family Bundle',
-  'Emergency Pack',
-] as const
+const DEFAULT_PACKAGE_CATEGORY: PackageCategoryOption = packageCategoryOptions[0]
 
 interface InventoryItemOption {
   id: number
@@ -141,13 +138,12 @@ interface AddPackageModalProps {
 export default function AddPackageModal({ isOpen, onClose }: AddPackageModalProps) {
   const addPackage = useFoodBankStore((state) => state.addPackage)
   const accessToken = useAuthStore((state) => state.accessToken)
-  const refreshAccessToken = useAuthStore((state) => state.refreshAccessToken)
   const user = useAuthStore((state) => state.user)
   const adminScope = getAdminScopeMeta(user)
   const isPlatformAdmin = adminScope.isPlatformAdmin
 
   const [name, setName] = useState('')
-  const [category, setCategory] = useState<(typeof PACKAGE_CATEGORIES)[number]>('Pantry & Spices')
+  const [category, setCategory] = useState<PackageCategoryOption>(DEFAULT_PACKAGE_CATEGORY)
   const [threshold, setThreshold] = useState('0')
   const [contents, setContents] = useState<ContentRow[]>([createEmptyContentRow()])
   const [foodBankId, setFoodBankId] = useState('')
@@ -220,51 +216,22 @@ export default function AddPackageModal({ isOpen, onClose }: AddPackageModalProp
     const loadInventory = async () => {
       setLoadingItems(true)
       try {
-        const requestWithToken = async (token: string) =>
-          fetch(
-            `${API_BASE_URL}/api/v1/inventory${
-              isPlatformAdmin ? `?food_bank_id=${selectedFoodBankId}` : ''
-            }`,
-            {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            },
-          )
-
-        let response = await requestWithToken(accessToken)
-        if (response.status === 401) {
-          const refreshed = await refreshAccessToken()
-          if (!refreshed) {
-            throw new Error('Session expired, please login again.')
-          }
-          const renewedToken = useAuthStore.getState().accessToken
-          if (!renewedToken) {
-            throw new Error('Session expired, please login again.')
-          }
-          response = await requestWithToken(renewedToken)
-        }
-
-        if (!response.ok) {
-          throw new Error('Failed to load inventory items.')
-        }
-        const data = await response.json()
-        const inventoryItems = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.items)
-            ? data.items
-            : []
+        const response = await adminAPI.getInventoryItems(
+          accessToken,
+          isPlatformAdmin ? { foodBankId: selectedFoodBankId } : undefined,
+        )
+        const inventoryItems = response.items
         const mapped = inventoryItems.map((item: { id: number; name: string }) => ({ id: item.id, name: item.name }))
         setInventoryItems(mapped)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load inventory items.')
       } finally {
-        setLoadingItems(false)
+      setLoadingItems(false)
       }
     }
 
     void loadInventory()
-  }, [isOpen, accessToken, refreshAccessToken, isPlatformAdmin, foodBankId])
+  }, [isOpen, accessToken, isPlatformAdmin, foodBankId])
 
   useEffect(() => {
     if (!isOpen || !isPlatformAdmin) {
@@ -276,7 +243,7 @@ export default function AddPackageModal({ isOpen, onClose }: AddPackageModalProp
 
   const resetAndClose = () => {
     setName('')
-    setCategory('Pantry & Spices')
+    setCategory(DEFAULT_PACKAGE_CATEGORY)
     setThreshold('0')
     setContents([createEmptyContentRow()])
     setError('')
@@ -411,9 +378,9 @@ export default function AddPackageModal({ isOpen, onClose }: AddPackageModalProp
           <AdminModalField label="Category">
             <AdminModalSelect
               value={category}
-              onChange={(event) => setCategory(event.target.value as (typeof PACKAGE_CATEGORIES)[number])}
+              onChange={(event) => setCategory(event.target.value as PackageCategoryOption)}
             >
-              {PACKAGE_CATEGORIES.map((option) => (
+              {packageCategoryOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>

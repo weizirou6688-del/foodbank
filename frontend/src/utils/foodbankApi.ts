@@ -1,21 +1,10 @@
-import { API_BASE_URL } from '@/shared/lib/apiBaseUrl'
+import {
+  foodBanksAPI,
+  type ExternalFoodBankRecord,
+} from '@/shared/lib/api'
 
 const SEARCH_RADIUS_KM = 5
-const DIRECT_POSTCODE_API_URL = 'https://api.postcodes.io/postcodes'
 const FEED_CACHE_TTL_MS = 10 * 60 * 1000
-
-interface GiveFoodBankApiRecord {
-  name: string
-  address: string
-  postcode: string
-  lat?: number | null
-  lng?: number | null
-  latt_long?: string | null
-  phone?: string
-  email?: string
-  url?: string
-  needs?: string[]
-}
 
 export interface NearbyFoodBank {
   name: string
@@ -27,24 +16,13 @@ export interface NearbyFoodBank {
   email?: string
   url?: string
   needs?: string[]
-  hours?: string[]
   distance: number
 }
 
-interface PostcodesIoResponse {
-  status: number
-  result?: {
-    latitude: number
-    longitude: number
-  }
-  error?: string
-}
-
-let cachedFoodbanks: GiveFoodBankApiRecord[] | null = null
+let cachedFoodbanks: ExternalFoodBankRecord[] | null = null
 let cachedFoodbanksAt = 0
-let inFlightFoodbanksRequest: Promise<GiveFoodBankApiRecord[]> | null = null
+let inFlightFoodbanksRequest: Promise<ExternalFoodBankRecord[]> | null = null
 const postcodeCache = new Map<string, { lat: number; lng: number }>()
-const trussellHoursCache = new Map<string, string[]>()
 
 export async function getCoordinatesFromPostcode(postcode: string): Promise<{ lat: number; lng: number }> {
   const normalizedPostcode = postcode.trim()
@@ -53,23 +31,16 @@ export async function getCoordinatesFromPostcode(postcode: string): Promise<{ la
     return cachedCoords
   }
 
-  // `postcodes.io` is the cleanest structured source for UK postcode lookup,
-  // so this function acts as the entry point for distance-based search.
-  const directResponse = await fetch(`${DIRECT_POSTCODE_API_URL}/${encodeURIComponent(normalizedPostcode)}`)
-  const directPayload = await directResponse.json().catch(() => null) as PostcodesIoResponse | null
-  if (directResponse.ok && directPayload?.status === 200 && directPayload.result) {
-    const coords = {
-      lat: directPayload.result.latitude,
-      lng: directPayload.result.longitude,
-    }
-    postcodeCache.set(normalizedPostcode.toUpperCase(), coords)
-    return coords
+  const payload = await foodBanksAPI.geocodePostcode(normalizedPostcode)
+  const coords = {
+    lat: payload.lat,
+    lng: payload.lng,
   }
-
-  throw new Error(directPayload?.error || `Invalid postcode: ${postcode}`)
+  postcodeCache.set(normalizedPostcode.toUpperCase(), coords)
+  return coords
 }
 
-export async function getAllFoodbanks(): Promise<GiveFoodBankApiRecord[]> {
+export async function getAllFoodbanks(): Promise<ExternalFoodBankRecord[]> {
   const now = Date.now()
   if (cachedFoodbanks && now - cachedFoodbanksAt < FEED_CACHE_TTL_MS) {
     return cachedFoodbanks
@@ -82,21 +53,7 @@ export async function getAllFoodbanks(): Promise<GiveFoodBankApiRecord[]> {
   inFlightFoodbanksRequest = (async () => {
     // GiveFood does not expose browser-friendly CORS headers, so this search
     // must flow through our backend proxy.
-    const backendResponse = await fetch(`${API_BASE_URL}/api/v1/food-banks/external-feed`)
-    const backendPayload = await backendResponse.json().catch(() => null) as { detail?: string } | GiveFoodBankApiRecord[] | null
-
-    if (!backendResponse.ok) {
-      const detail =
-        backendPayload
-        && typeof backendPayload === 'object'
-        && 'detail' in backendPayload
-        && typeof backendPayload.detail === 'string'
-          ? backendPayload.detail
-          : 'Food bank lookup service is temporarily unavailable.'
-      throw new Error(detail)
-    }
-
-    const payload = backendPayload as GiveFoodBankApiRecord[]
+    const payload = await foodBanksAPI.getExternalFeed()
     cachedFoodbanks = payload
     cachedFoodbanksAt = Date.now()
     return payload
@@ -107,31 +64,6 @@ export async function getAllFoodbanks(): Promise<GiveFoodBankApiRecord[]> {
   } finally {
     inFlightFoodbanksRequest = null
   }
-}
-
-export async function getTrussellOpeningHours(foodbankUrl?: string): Promise<string[]> {
-  if (!foodbankUrl || !/foodbank\.org\.uk/i.test(foodbankUrl)) {
-    return []
-  }
-
-  const cached = trussellHoursCache.get(foodbankUrl)
-  if (cached) {
-    return cached
-  }
-
-  // Opening-hours enrichment is limited to Trussell-linked sites because that
-  // is the source we currently know how to parse reliably.
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/food-banks/trussell-hours?foodbank_url=${encodeURIComponent(foodbankUrl)}`,
-  )
-  if (!response.ok) {
-    return []
-  }
-
-  const payload = await response.json() as { hours?: string[] }
-  const hours = Array.isArray(payload.hours) ? payload.hours : []
-  trussellHoursCache.set(foodbankUrl, hours)
-  return hours
 }
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -146,7 +78,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return earthRadiusKm * c
 }
 
-function parseCoordinates(foodbank: GiveFoodBankApiRecord): { lat: number; lng: number } | null {
+function parseCoordinates(foodbank: ExternalFoodBankRecord): { lat: number; lng: number } | null {
   if (typeof foodbank.lat === 'number' && typeof foodbank.lng === 'number') {
     return { lat: foodbank.lat, lng: foodbank.lng }
   }
@@ -195,14 +127,5 @@ export async function getRankedFoodbanks(postcode: string): Promise<NearbyFoodBa
 
 export async function getNearbyFoodbanks(postcode: string): Promise<NearbyFoodBank[]> {
   const rankedByDistance = await getRankedFoodbanks(postcode)
-  const withinRadius = rankedByDistance.filter((foodbank) => foodbank.distance <= SEARCH_RADIUS_KM)
-
-  // Hours are fetched only for the already-filtered nearby subset, which keeps
-  // the number of backend enrichment calls reasonable.
-  return Promise.all(
-    withinRadius.map(async (foodbank) => ({
-      ...foodbank,
-      hours: await getTrussellOpeningHours(foodbank.url),
-    })),
-  )
+  return rankedByDistance.filter((foodbank) => foodbank.distance <= SEARCH_RADIUS_KM)
 }
