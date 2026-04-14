@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,8 +13,10 @@ from app.services.stats_distribution_service import (
     _group_distribution_snapshots,
     _package_recipe_units,
 )
+from app.services.stats_input_models import coerce_public_impact_inputs
 from app.services.stats_input_loading_service import _load_public_impact_inputs
 from app.routers.stats_formatters import (
+    StatsRangeKey,
     _absolute_changed_public_metric,
     _changed_public_metric,
     _format_int,
@@ -49,7 +50,7 @@ def _completed_pickup_count(
 
 @router.get("/public-impact", response_model=PublicImpactMetricsOut)
 async def get_public_impact_metrics(
-    range_key: Literal["month", "quarter", "year"] = Query("month", alias="range"),
+    range_key: StatsRangeKey = Query("month", alias="range"),
     db: AsyncSession = Depends(get_db),
 ):
     today, current_start, next_start, previous_start, range_note = _public_range_context(
@@ -57,7 +58,7 @@ async def get_public_impact_metrics(
     )
     current_end = min(today + timedelta(days=1), next_start)
     previous_end = min(previous_start + (current_end - current_start), current_start)
-    goods_donations, packages, applications, distribution_snapshots = (
+    public_inputs = coerce_public_impact_inputs(
         await _load_public_impact_inputs(
             db,
             include_packages=True,
@@ -65,6 +66,10 @@ async def get_public_impact_metrics(
             include_snapshots=True,
         )
     )
+    goods_donations = public_inputs.goods_donations
+    packages = public_inputs.packages
+    applications = public_inputs.applications
+    distribution_snapshots = public_inputs.distribution_snapshots
 
     goods_impact_snapshot = calculate_goods_impact_snapshot(
         goods_donations=goods_donations,

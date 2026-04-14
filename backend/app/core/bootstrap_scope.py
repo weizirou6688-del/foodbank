@@ -1,4 +1,7 @@
-from datetime import date, timedelta, timezone
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
 
@@ -28,31 +31,40 @@ from app.models.food_package import FoodPackage
 from app.models.user import User
 
 
-async def _ensure_demo_scoped_admin_records(
+@dataclass(slots=True)
+class DemoScopeContext:
+    bank: FoodBank
+    public_user: User
+    packages_by_name: dict[str, FoodPackage]
+    changed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ApplicationSeedTimestamps:
+    week_start: date
+    created_at: datetime
+    updated_at: datetime
+    redeemed_at: datetime | None
+
+
+async def _load_demo_scope_context(
     db,
     *,
     admin_email: str,
     bank_name: str,
-    cash_donations: list[dict[str, object]],
-    goods_donations: list[dict[str, object]],
-    applications: list[dict[str, object]],
-) -> bool:
-    changed = False
-
+) -> DemoScopeContext | None:
     bank = await db.scalar(select(FoodBank).where(FoodBank.name == bank_name))
     if bank is None:
-        return changed
+        return None
 
     local_admin = await db.scalar(select(User).where(User.email == admin_email))
-    if local_admin is not None and _sync_model_fields(
-        local_admin,
-        {"food_bank_id": bank.id},
-    ):
+    changed = False
+    if local_admin is not None and _sync_model_fields(local_admin, {"food_bank_id": bank.id}):
         changed = True
 
     public_user = await db.scalar(select(User).where(User.email == "user@example.com"))
     if public_user is None:
-        return changed
+        return None
 
     packages_by_name = {
         package.name: package
@@ -61,114 +73,163 @@ async def _ensure_demo_scoped_admin_records(
             select(FoodPackage).where(FoodPackage.food_bank_id == bank.id),
         )
     }
+    return DemoScopeContext(
+        bank=bank,
+        public_user=public_user,
+        packages_by_name=packages_by_name,
+        changed=changed,
+    )
 
+
+async def _ensure_cash_donations(
+    db,
+    *,
+    context: DemoScopeContext,
+    cash_donations: list[dict[str, object]],
+) -> bool:
+    changed = False
     for cash_seed in cash_donations:
         donation = await db.scalar(
             select(DonationCash).where(
                 DonationCash.payment_reference == cash_seed["payment_reference"]
             )
         )
+        desired_fields = {
+            "donor_name": cash_seed["donor_name"],
+            "donor_email": cash_seed["donor_email"],
+            "amount_pence": cash_seed["amount_pence"],
+            "status": cash_seed["status"],
+            "food_bank_id": context.bank.id,
+        }
         if donation is None:
             db.add(
                 DonationCash(
-                    donor_name=cash_seed["donor_name"],
-                    donor_email=cash_seed["donor_email"],
-                    amount_pence=cash_seed["amount_pence"],
                     payment_reference=cash_seed["payment_reference"],
-                    status=cash_seed["status"],
-                    food_bank_id=bank.id,
+                    **desired_fields,
                 )
             )
             changed = True
-        else:
-            if _sync_model_fields(
-                donation,
-                {
-                    "donor_name": cash_seed["donor_name"],
-                    "donor_email": cash_seed["donor_email"],
-                    "amount_pence": cash_seed["amount_pence"],
-                    "status": cash_seed["status"],
-                    "food_bank_id": bank.id,
-                },
-            ):
-                changed = True
+            continue
+
+        if _sync_model_fields(donation, desired_fields):
+            changed = True
+    return changed
+
+
+async def _sync_goods_donation_items(
+    db,
+    *,
+    donation: DonationGoods,
+    goods_items: list[dict[str, object]],
+) -> bool:
+    existing_items = await _fetch_scalars(
+        db,
+        select(DonationGoodsItem).where(DonationGoodsItem.donation_id == donation.id),
+    )
+    desired_quantities = {
+        item_seed["item_name"]: item_seed["quantity"] for item_seed in goods_items
+    }
+    return await _sync_keyed_quantity_children(
+        db,
+        existing_items=existing_items,
+        desired_quantities=desired_quantities,
+        key_getter=lambda item: item.item_name,
+        build_child=lambda item_name, quantity: DonationGoodsItem(
+            donation_id=donation.id,
+            item_name=item_name,
+            quantity=quantity,
+        ),
+    )
+
+
+async def _ensure_goods_donations(
+    db,
+    *,
+    context: DemoScopeContext,
+    goods_donations: list[dict[str, object]],
+) -> bool:
+    changed = False
 
     for goods_seed in goods_donations:
         donation = await db.scalar(
             select(DonationGoods).where(
-                DonationGoods.food_bank_id == bank.id,
+                DonationGoods.food_bank_id == context.bank.id,
                 DonationGoods.donor_email == goods_seed["donor_email"],
                 DonationGoods.donor_name == goods_seed["donor_name"],
             )
         )
-        pickup_date = format_goods_pickup_date(
-            date.today() + timedelta(days=goods_seed["pickup_date_offset_days"])
-        )
-        donor_phone = normalize_goods_donor_phone(
-            goods_seed["donor_phone"],
-            required=True,
-        )
+        desired_fields = {
+            "food_bank_id": context.bank.id,
+            "food_bank_name": context.bank.name,
+            "food_bank_address": context.bank.address,
+            "donor_phone": normalize_goods_donor_phone(
+                goods_seed["donor_phone"],
+                required=True,
+            ),
+            "postcode": goods_seed["postcode"],
+            "pickup_date": format_goods_pickup_date(
+                date.today() + timedelta(days=goods_seed["pickup_date_offset_days"])
+            ),
+            "item_condition": goods_seed["item_condition"],
+            "estimated_quantity": goods_seed["estimated_quantity"],
+            "notes": goods_seed["notes"],
+            "status": goods_seed["status"],
+        }
+
         if donation is None:
             donation = DonationGoods(
-                food_bank_id=bank.id,
-                food_bank_name=bank.name,
-                food_bank_address=bank.address,
                 donor_name=goods_seed["donor_name"],
                 donor_email=goods_seed["donor_email"],
-                donor_phone=donor_phone,
-                postcode=goods_seed["postcode"],
-                pickup_date=pickup_date,
-                item_condition=goods_seed["item_condition"],
-                estimated_quantity=goods_seed["estimated_quantity"],
-                notes=goods_seed["notes"],
-                status=goods_seed["status"],
+                **desired_fields,
             )
             db.add(donation)
             await db.flush()
             changed = True
-        else:
-            if _sync_model_fields(
-                donation,
-                {
-                    "food_bank_id": bank.id,
-                    "food_bank_name": bank.name,
-                    "food_bank_address": bank.address,
-                    "donor_phone": donor_phone,
-                    "postcode": goods_seed["postcode"],
-                    "pickup_date": pickup_date,
-                    "item_condition": goods_seed["item_condition"],
-                    "estimated_quantity": goods_seed["estimated_quantity"],
-                    "notes": goods_seed["notes"],
-                    "status": goods_seed["status"],
-                },
-            ):
-                changed = True
+        elif _sync_model_fields(donation, desired_fields):
+            changed = True
 
-        existing_items = await _fetch_scalars(
+        if await _sync_goods_donation_items(
             db,
-            select(DonationGoodsItem).where(
-                DonationGoodsItem.donation_id == donation.id
-            ),
-        )
-        desired_quantities = {
-            item_seed["item_name"]: item_seed["quantity"]
-            for item_seed in goods_seed["items"]
-        }
-        if await _sync_keyed_quantity_children(
-            db,
-            existing_items=existing_items,
-            desired_quantities=desired_quantities,
-            key_getter=lambda item: item.item_name,
-            build_child=lambda item_name, quantity: DonationGoodsItem(
-                donation_id=donation.id,
-                item_name=item_name,
-                quantity=quantity,
-            ),
+            donation=donation,
+            goods_items=list(goods_seed["items"]),
         ):
             changed = True
 
+    return changed
+
+
+def _application_seed_timestamps(application_seed: dict[str, object]) -> ApplicationSeedTimestamps:
+    week_start = demo_week_start(application_seed["week_offset"])
+    created_at = demo_application_created_at(
+        week_start,
+        int(application_seed.get("created_day_offset", 0)),
+        int(application_seed.get("created_hour", 10)),
+    )
+    created_at_aware = created_at.replace(tzinfo=timezone.utc)
+    redeemed_at = (
+        created_at_aware + timedelta(days=2)
+        if application_seed["status"] == "collected"
+        else None
+    )
+    updated_at = redeemed_at or (created_at_aware + timedelta(hours=6))
+    return ApplicationSeedTimestamps(
+        week_start=week_start,
+        created_at=created_at,
+        updated_at=updated_at,
+        redeemed_at=redeemed_at,
+    )
+
+
+async def _ensure_application_records(
+    db,
+    *,
+    context: DemoScopeContext,
+    applications: list[dict[str, object]],
+) -> bool:
+    changed = False
+
     for application_seed in applications:
-        package = packages_by_name.get(application_seed["package_name"])
+        package = context.packages_by_name.get(application_seed["package_name"])
         if package is None:
             continue
 
@@ -177,49 +238,29 @@ async def _ensure_demo_scoped_admin_records(
                 Application.redemption_code == application_seed["redemption_code"]
             )
         )
-        week_start = demo_week_start(application_seed["week_offset"])
-        created_at = demo_application_created_at(
-            week_start,
-            int(application_seed.get("created_day_offset", 0)),
-            int(application_seed.get("created_hour", 10)),
-        )
-        created_at_aware = created_at.replace(tzinfo=timezone.utc)
-        redeemed_at = (
-            created_at_aware + timedelta(days=2)
-            if application_seed["status"] == "collected"
-            else None
-        )
-        updated_at = redeemed_at or (created_at_aware + timedelta(hours=6))
+        timestamps = _application_seed_timestamps(application_seed)
+        desired_fields = {
+            "user_id": context.public_user.id,
+            "food_bank_id": context.bank.id,
+            "status": application_seed["status"],
+            "week_start": timestamps.week_start,
+            "total_quantity": application_seed["quantity"],
+            "updated_at": timestamps.updated_at,
+            "redeemed_at": timestamps.redeemed_at,
+            "deleted_at": None,
+        }
+
         if application is None:
             application = Application(
-                user_id=public_user.id,
-                food_bank_id=bank.id,
                 redemption_code=application_seed["redemption_code"],
-                status=application_seed["status"],
-                week_start=week_start,
-                total_quantity=application_seed["quantity"],
-                created_at=created_at,
-                updated_at=updated_at,
-                redeemed_at=redeemed_at,
+                created_at=timestamps.created_at,
+                **desired_fields,
             )
             db.add(application)
             await db.flush()
             changed = True
-        else:
-            if _sync_model_fields(
-                application,
-                {
-                    "user_id": public_user.id,
-                    "food_bank_id": bank.id,
-                    "status": application_seed["status"],
-                    "week_start": week_start,
-                    "total_quantity": application_seed["quantity"],
-                    "updated_at": updated_at,
-                    "redeemed_at": redeemed_at,
-                    "deleted_at": None,
-                },
-            ):
-                changed = True
+        elif _sync_model_fields(application, desired_fields):
+            changed = True
 
         existing_app_items = await _fetch_scalars(
             db,
@@ -237,6 +278,44 @@ async def _ensure_demo_scoped_admin_records(
             changed = True
 
     return changed
+
+
+async def _ensure_demo_scoped_admin_records(
+    db,
+    *,
+    admin_email: str,
+    bank_name: str,
+    cash_donations: list[dict[str, object]],
+    goods_donations: list[dict[str, object]],
+    applications: list[dict[str, object]],
+) -> bool:
+    context = await _load_demo_scope_context(
+        db,
+        admin_email=admin_email,
+        bank_name=bank_name,
+    )
+    if context is None:
+        return False
+
+    section_changes = [
+        context.changed,
+        await _ensure_cash_donations(
+            db,
+            context=context,
+            cash_donations=cash_donations,
+        ),
+        await _ensure_goods_donations(
+            db,
+            context=context,
+            goods_donations=goods_donations,
+        ),
+        await _ensure_application_records(
+            db,
+            context=context,
+            applications=applications,
+        ),
+    ]
+    return any(section_changes)
 
 
 async def ensure_demo_admin_scope_records() -> None:

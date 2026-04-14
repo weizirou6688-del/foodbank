@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from app.core.analytics_utils import (
 )
 from app.routers.stats_formatters import (
     COMPARISON_LABELS,
+    StatsRangeKey,
     _chart,
     _chart_from_counts,
     _chart_from_pairs,
@@ -43,10 +44,14 @@ from app.services.stats_distribution_service import (
     _resolved_redemption_counts,
 )
 from app.services.stats_input_loading_service import _load_dashboard_inputs
+from app.services.stats_input_models import (
+    DashboardInputs,
+    coerce_dashboard_inputs,
+)
 from app.services.stats_input_scope_service import _scope_dashboard_inputs
 
 
-DashboardRange = Literal["month", "quarter", "year"]
+DashboardRange = StatsRangeKey
 
 _DONATION_SOURCE_LABELS = ["Supermarket", "Individual", "Organization", "Unspecified"]
 _DONOR_TYPE_LABELS = ["Regular Donors", "One-Time Donors", "Corporate Partners"]
@@ -57,6 +62,55 @@ _REDEMPTION_BREAKDOWN_LABELS = ["Success", "Invalid", "Expired"]
 _RECENT_VERIFICATION_LIMIT = 8
 _LOW_STOCK_ALERT_LIMIT = 8
 _EXPIRING_LOT_LIMIT = 8
+
+
+@dataclass(slots=True)
+class DashboardWindow:
+    range_key: DashboardRange
+    today: date
+    current_start: date
+    current_period_end: date
+    previous_start: date
+    previous_period_end: date
+    trend_period_end: date
+    comparison_label: str
+    bucket_starts: list[date]
+    bucket_indexes: dict[date, int]
+    bucket_labels: list[str]
+
+
+@dataclass(slots=True)
+class PreparedDashboardInputs:
+    inputs: DashboardInputs
+    distribution_snapshots_by_application_id: dict[object, list[object]]
+    package_recipe_units: dict[int, int]
+    inventory_categories_by_name: dict[str, str]
+
+
+@dataclass(slots=True)
+class DonationSection:
+    analytics: dict[str, object]
+    current_goods_units: int
+    previous_goods_units: int
+
+
+@dataclass(slots=True)
+class InventorySection:
+    analytics: dict[str, object]
+    expiry_analytics: dict[str, object]
+    low_stock_count: int
+    expiring_lot_count: int
+    current_wastage_units: int
+    previous_wastage_units: int
+
+
+@dataclass(slots=True)
+class PackageSection:
+    analytics: dict[str, object]
+    redemption_analytics: dict[str, object]
+    current_package_quantity: int
+    previous_package_quantity: int
+    redemption_rate: float
 
 
 def _today() -> date:
@@ -70,15 +124,49 @@ def _as_int(value: object) -> int:
         return 0
 
 
+def _build_dashboard_window(range_key: DashboardRange) -> DashboardWindow:
+    today = _today()
+    current_start, next_start, previous_start = _period_bounds(range_key, today)
+    bucket_starts, bucket_indexes, bucket_labels = _trend_buckets(
+        range_key,
+        today,
+        current_start,
+        next_start,
+    )
+    return DashboardWindow(
+        range_key=range_key,
+        today=today,
+        current_start=current_start,
+        current_period_end=next_start,
+        previous_start=previous_start,
+        previous_period_end=current_start,
+        trend_period_end=min(today + timedelta(days=1), next_start),
+        comparison_label=COMPARISON_LABELS[range_key],
+        bucket_starts=bucket_starts,
+        bucket_indexes=bucket_indexes,
+        bucket_labels=bucket_labels,
+    )
+
+
+def _prepare_dashboard_inputs(inputs: DashboardInputs) -> PreparedDashboardInputs:
+    return PreparedDashboardInputs(
+        inputs=inputs,
+        distribution_snapshots_by_application_id=_group_distribution_snapshots(
+            inputs.distribution_snapshots
+        ),
+        package_recipe_units=_package_recipe_units(inputs.packages),
+        inventory_categories_by_name=_inventory_name_category_map(inputs.inventory_items),
+    )
+
+
 def _bucket_index_for(
     target: date | None,
-    bucket_indexes: dict[date, int],
-    range_key: DashboardRange,
+    window: DashboardWindow,
 ) -> int | None:
-    bucket_key = _trend_bucket_key(target, range_key)
+    bucket_key = _trend_bucket_key(target, window.range_key)
     if bucket_key is None:
         return None
-    return bucket_indexes.get(bucket_key)
+    return window.bucket_indexes.get(bucket_key)
 
 
 def _goods_donation_date(donation: object) -> date | None:
@@ -170,57 +258,33 @@ def _verification_status(
     return None
 
 
-async def build_dashboard_analytics(
-    *,
-    range_key: DashboardRange,
-    admin_user: dict,
-    db: AsyncSession,
-) -> DashboardAnalyticsOut:
-    today = _today()
-    current_start, next_start, previous_start = _period_bounds(range_key, today)
-    current_period_end = next_start
-    previous_period_end = current_start
-    trend_period_end = min(today + timedelta(days=1), next_start)
-    comparison_label = COMPARISON_LABELS[range_key]
-
-    bucket_starts, bucket_indexes, bucket_labels = _trend_buckets(
-        range_key,
-        today,
-        current_start,
-        next_start,
-    )
-
-    (
-        cash_donations,
-        goods_donations,
-        inventory_items,
-        inventory_lot_rows,
-        packages,
-        applications,
-        distribution_snapshots,
-        waste_events,
-    ) = _scope_dashboard_inputs(await _load_dashboard_inputs(db), admin_user)
-
-    distribution_snapshots_by_application_id = _group_distribution_snapshots(
-        distribution_snapshots
-    )
-    package_recipe_units = _package_recipe_units(packages)
-    inventory_categories_by_name = _inventory_name_category_map(inventory_items)
-
+def _build_donation_analytics(
+    window: DashboardWindow,
+    prepared_inputs: PreparedDashboardInputs,
+) -> DonationSection:
+    inputs = prepared_inputs.inputs
     valid_goods_donations = [
         donation
-        for donation in goods_donations
+        for donation in inputs.goods_donations
         if getattr(donation, "status", None) == "received"
     ]
     current_goods_donations = [
         donation
         for donation in valid_goods_donations
-        if _in_period(_goods_donation_date(donation), current_start, current_period_end)
+        if _in_period(
+            _goods_donation_date(donation),
+            window.current_start,
+            window.current_period_end,
+        )
     ]
     previous_goods_donations = [
         donation
         for donation in valid_goods_donations
-        if _in_period(_goods_donation_date(donation), previous_start, previous_period_end)
+        if _in_period(
+            _goods_donation_date(donation),
+            window.previous_start,
+            window.previous_period_end,
+        )
     ]
 
     donation_source_counts = {label: 0 for label in _DONATION_SOURCE_LABELS}
@@ -228,7 +292,7 @@ async def build_dashboard_analytics(
     donor_frequency: dict[str, dict[str, int | bool]] = defaultdict(
         lambda: {"count": 0, "corporate": False}
     )
-    donation_trend_totals = [0] * len(bucket_starts)
+    donation_trend_totals = [0] * len(window.bucket_starts)
 
     for donation in current_goods_donations:
         donor_label = _normalize_donor_type(getattr(donation, "donor_type", None))
@@ -242,11 +306,7 @@ async def build_dashboard_analytics(
             donor_label,
         )
 
-        bucket_index = _bucket_index_for(
-            _goods_donation_date(donation),
-            bucket_indexes,
-            range_key,
-        )
+        bucket_index = _bucket_index_for(_goods_donation_date(donation), window)
         if bucket_index is not None:
             donation_trend_totals[bucket_index] += 1
 
@@ -254,7 +314,7 @@ async def build_dashboard_analytics(
             donation_category_totals[
                 _resolve_item_category(
                     getattr(item, "item_name", None),
-                    inventory_categories_by_name,
+                    prepared_inputs.inventory_categories_by_name,
                 )
             ] += _as_int(getattr(item, "quantity", 0))
 
@@ -283,18 +343,26 @@ async def build_dashboard_analytics(
 
     valid_cash_donations = [
         donation
-        for donation in cash_donations
+        for donation in inputs.cash_donations
         if getattr(donation, "status", None) == "completed"
     ]
     current_cash_amounts = [
         _as_int(getattr(donation, "amount_pence", 0))
         for donation in valid_cash_donations
-        if _in_period(_cash_donation_date(donation), current_start, current_period_end)
+        if _in_period(
+            _cash_donation_date(donation),
+            window.current_start,
+            window.current_period_end,
+        )
     ]
     previous_cash_amounts = [
         _as_int(getattr(donation, "amount_pence", 0))
         for donation in valid_cash_donations
-        if _in_period(_cash_donation_date(donation), previous_start, previous_period_end)
+        if _in_period(
+            _cash_donation_date(donation),
+            window.previous_start,
+            window.previous_period_end,
+        )
     ]
     current_average_cash_amount = (
         sum(current_cash_amounts) / len(current_cash_amounts)
@@ -307,9 +375,39 @@ async def build_dashboard_analytics(
         else 0.0
     )
 
+    return DonationSection(
+        analytics={
+            "source": _chart_from_counts(
+                _DONATION_SOURCE_LABELS,
+                donation_source_counts,
+            ),
+            "trend": _chart(window.bucket_labels, donation_trend_totals),
+            "category": _chart_from_pairs(_top_pairs(donation_category_totals)),
+            "donorType": _chart_from_counts(_DONOR_TYPE_LABELS, donor_type_counts),
+            "averageValue": _display_card(
+                "Average Donation Value",
+                _format_currency_from_pence(current_average_cash_amount),
+                "Per completed cash donation",
+                _format_change(
+                    current_average_cash_amount,
+                    previous_average_cash_amount,
+                    window.comparison_label,
+                ),
+            ),
+        },
+        current_goods_units=current_goods_units,
+        previous_goods_units=previous_goods_units,
+    )
+
+
+def _build_inventory_analytics(
+    window: DashboardWindow,
+    prepared_inputs: PreparedDashboardInputs,
+) -> InventorySection:
+    inputs = prepared_inputs.inputs
     active_inventory_lot_rows = _active_inventory_lot_rows(
-        inventory_lot_rows,
-        today=today,
+        inputs.inventory_lot_rows,
+        today=window.today,
     )
     current_stock_by_item_id: dict[int, int] = defaultdict(int)
     for lot, _inventory_item in active_inventory_lot_rows:
@@ -321,8 +419,9 @@ async def build_dashboard_analytics(
     stock_by_category: dict[str, int] = defaultdict(int)
     low_stock_alerts: list[DashboardLowStockAlertOut] = []
 
-    for inventory_item in inventory_items:
-        current_stock = current_stock_by_item_id.get(_as_int(getattr(inventory_item, "id", 0)), 0)
+    for inventory_item in inputs.inventory_items:
+        inventory_item_id = _as_int(getattr(inventory_item, "id", 0))
+        current_stock = current_stock_by_item_id.get(inventory_item_id, 0)
         threshold = _as_int(getattr(inventory_item, "threshold", 0))
         category = getattr(inventory_item, "category", None) or "Uncategorized"
         if current_stock <= 0:
@@ -359,7 +458,7 @@ async def build_dashboard_analytics(
     expiry_distribution_counts = {label: 0 for label in _EXPIRY_DISTRIBUTION_LABELS}
     expiring_lot_rows: list[DashboardExpiringLotOut] = []
     for lot, inventory_item in active_inventory_lot_rows:
-        days_until_expiry = (getattr(lot, "expiry_date") - today).days
+        days_until_expiry = (getattr(lot, "expiry_date") - window.today).days
         if days_until_expiry < 0:
             continue
         if days_until_expiry <= 30:
@@ -390,21 +489,58 @@ async def build_dashboard_analytics(
         key=lambda row: (row.days_until_expiry, row.remaining_stock, row.item_name.lower())
     )
 
-    wastage_trend_totals = [0] * len(bucket_starts)
+    wastage_trend_totals = [0] * len(window.bucket_starts)
     current_wastage_units = 0
     previous_wastage_units = 0
-    for waste_event in waste_events:
+    for waste_event in inputs.waste_events:
         waste_date = _event_date(getattr(waste_event, "occurred_at", None))
         waste_quantity = _as_int(getattr(waste_event, "quantity", 0))
-        if _in_period(waste_date, current_start, current_period_end):
+        if _in_period(waste_date, window.current_start, window.current_period_end):
             current_wastage_units += waste_quantity
-            bucket_index = _bucket_index_for(waste_date, bucket_indexes, range_key)
+            bucket_index = _bucket_index_for(waste_date, window)
             if bucket_index is not None:
                 wastage_trend_totals[bucket_index] += waste_quantity
-        if _in_period(waste_date, previous_start, previous_period_end):
+        if _in_period(waste_date, window.previous_start, window.previous_period_end):
             previous_wastage_units += waste_quantity
 
-    package_trend_totals = [0] * len(bucket_starts)
+    return InventorySection(
+        analytics={
+            "health": _chart_from_counts(
+                _INVENTORY_HEALTH_LABELS,
+                inventory_health_counts,
+            ),
+            "category": _chart_from_pairs(_top_pairs(stock_by_category)),
+            "lowStockAlerts": low_stock_alerts[:_LOW_STOCK_ALERT_LIMIT],
+        },
+        expiry_analytics={
+            "distribution": _chart_from_counts(
+                _EXPIRY_DISTRIBUTION_LABELS,
+                expiry_distribution_counts,
+            ),
+            "wastage": DashboardExpiryChartOut(
+                labels=window.bucket_labels or ["No data"],
+                data=(
+                    [float(value) for value in wastage_trend_totals]
+                    if window.bucket_labels
+                    else [0.0]
+                ),
+                label="Wasted Units",
+            ),
+            "expiringLots": expiring_lot_rows[:_EXPIRING_LOT_LIMIT],
+        },
+        low_stock_count=len(low_stock_alerts),
+        expiring_lot_count=len(expiring_lot_rows),
+        current_wastage_units=current_wastage_units,
+        previous_wastage_units=previous_wastage_units,
+    )
+
+
+def _build_package_analytics(
+    window: DashboardWindow,
+    prepared_inputs: PreparedDashboardInputs,
+) -> PackageSection:
+    inputs = prepared_inputs.inputs
+    package_trend_totals = [0] * len(window.bucket_starts)
     package_type_totals: dict[str, int] = defaultdict(int)
     package_redemption_counts = {label: 0 for label in _PACKAGE_REDEMPTION_LABELS}
     redemption_breakdown_counts = {label: 0 for label in _REDEMPTION_BREAKDOWN_LABELS}
@@ -415,10 +551,10 @@ async def build_dashboard_analytics(
     current_package_quantity = 0
     previous_package_quantity = 0
 
-    for application in applications:
+    for application in inputs.applications:
         deleted_at = getattr(application, "deleted_at", None)
         application_created = _event_date(getattr(application, "created_at", None))
-        application_snapshots = distribution_snapshots_by_application_id.get(
+        application_snapshots = prepared_inputs.distribution_snapshots_by_application_id.get(
             getattr(application, "id", None),
             [],
         )
@@ -431,22 +567,26 @@ async def build_dashboard_analytics(
         ) = _application_distribution_summary(
             application,
             application_snapshots,
-            package_recipe_units,
+            prepared_inputs.package_recipe_units,
             use_snapshot_packages=True,
         )
 
         if deleted_at is None:
-            if _in_period(application_created, current_start, current_period_end):
+            if _in_period(
+                application_created,
+                window.current_start,
+                window.current_period_end,
+            ):
                 current_package_quantity += package_quantity
-                bucket_index = _bucket_index_for(
-                    application_created,
-                    bucket_indexes,
-                    range_key,
-                )
+                bucket_index = _bucket_index_for(application_created, window)
                 if bucket_index is not None:
                     package_trend_totals[bucket_index] += package_quantity
 
-            if _in_period(application_created, previous_start, previous_period_end):
+            if _in_period(
+                application_created,
+                window.previous_start,
+                window.previous_period_end,
+            ):
                 previous_package_quantity += package_quantity
 
             if package_quantity > 0:
@@ -456,13 +596,16 @@ async def build_dashboard_analytics(
                 if snapshot_package_quantity_total > 0:
                     distributed_package_units_total += (
                         snapshot_package_units_total
-                        or _application_package_units(application, package_recipe_units)
+                        or _application_package_units(
+                            application,
+                            prepared_inputs.package_recipe_units,
+                        )
                     )
                     distributed_package_quantity_total += snapshot_package_quantity_total
                 else:
                     distributed_package_units_total += _application_package_units(
                         application,
-                        package_recipe_units,
+                        prepared_inputs.package_recipe_units,
                     )
                     distributed_package_quantity_total += package_quantity
 
@@ -497,20 +640,20 @@ async def build_dashboard_analytics(
         )
 
     current_resolved_count, current_success_count = _resolved_redemption_counts(
-        applications,
-        current_start,
-        current_period_end,
+        inputs.applications,
+        window.current_start,
+        window.current_period_end,
     )
     redemption_rate_value = _success_rate(current_success_count, current_resolved_count)
 
-    resolved_by_bucket = [0] * len(bucket_starts)
-    success_by_bucket = [0] * len(bucket_starts)
-    for application in applications:
+    resolved_by_bucket = [0] * len(window.bucket_starts)
+    success_by_bucket = [0] * len(window.bucket_starts)
+    for application in inputs.applications:
         application_created = _event_date(getattr(application, "created_at", None))
-        if not _in_period(application_created, current_start, trend_period_end):
+        if not _in_period(application_created, window.current_start, window.trend_period_end):
             continue
 
-        bucket_index = _bucket_index_for(application_created, bucket_indexes, range_key)
+        bucket_index = _bucket_index_for(application_created, window)
         if bucket_index is None:
             continue
 
@@ -535,59 +678,9 @@ async def build_dashboard_analytics(
 
     verification_records.sort(key=lambda row: row[0], reverse=True)
 
-    return DashboardAnalyticsOut(
-        kpi={
-            "totalDonation": current_goods_units,
-            "totalSku": len(inventory_items),
-            "totalPackageDistributed": current_package_quantity,
-            "lowStockCount": len(low_stock_alerts),
-            "expiringLotCount": len(expiring_lot_rows),
-            "redemptionRate": redemption_rate_value,
-            "trends": {
-                "donation": _format_change(
-                    current_goods_units,
-                    previous_goods_units,
-                    comparison_label,
-                ),
-                "package": _format_change(
-                    current_package_quantity,
-                    previous_package_quantity,
-                    comparison_label,
-                ),
-                "lowStock": f"{len(low_stock_alerts)} live inventory alert(s)",
-                "wastage": _format_change(
-                    current_wastage_units,
-                    previous_wastage_units,
-                    comparison_label,
-                ),
-            },
-        },
-        donation={
-            "source": _chart_from_counts(_DONATION_SOURCE_LABELS, donation_source_counts),
-            "trend": _chart(bucket_labels, donation_trend_totals),
-            "category": _chart_from_pairs(_top_pairs(donation_category_totals)),
-            "donorType": _chart_from_counts(_DONOR_TYPE_LABELS, donor_type_counts),
-            "averageValue": _display_card(
-                "Average Donation Value",
-                _format_currency_from_pence(current_average_cash_amount),
-                "Per completed cash donation",
-                _format_change(
-                    current_average_cash_amount,
-                    previous_average_cash_amount,
-                    comparison_label,
-                ),
-            ),
-        },
-        inventory={
-            "health": _chart_from_counts(
-                _INVENTORY_HEALTH_LABELS,
-                inventory_health_counts,
-            ),
-            "category": _chart_from_pairs(_top_pairs(stock_by_category)),
-            "lowStockAlerts": low_stock_alerts[:_LOW_STOCK_ALERT_LIMIT],
-        },
-        package={
-            "trend": _chart(bucket_labels, package_trend_totals),
+    return PackageSection(
+        analytics={
+            "trend": _chart(window.bucket_labels, package_trend_totals),
             "redemption": _chart_from_counts(
                 _PACKAGE_REDEMPTION_LABELS,
                 package_redemption_counts,
@@ -604,25 +697,9 @@ async def build_dashboard_analytics(
                 "Average ingredient units per distributed package",
             ),
         },
-        expiry={
-            "distribution": _chart_from_counts(
-                _EXPIRY_DISTRIBUTION_LABELS,
-                expiry_distribution_counts,
-            ),
-            "wastage": DashboardExpiryChartOut(
-                labels=bucket_labels or ["No data"],
-                data=(
-                    [float(value) for value in wastage_trend_totals]
-                    if bucket_labels
-                    else [0.0]
-                ),
-                label="Wasted Units",
-            ),
-            "expiringLots": expiring_lot_rows[:_EXPIRING_LOT_LIMIT],
-        },
-        redemption={
+        redemption_analytics={
             "rateTrend": _chart(
-                bucket_labels,
+                window.bucket_labels,
                 [
                     _success_rate(success, resolved)
                     for success, resolved in zip(success_by_bucket, resolved_by_bucket)
@@ -637,4 +714,73 @@ async def build_dashboard_analytics(
                 for _, record in verification_records[:_RECENT_VERIFICATION_LIMIT]
             ],
         },
+        current_package_quantity=current_package_quantity,
+        previous_package_quantity=previous_package_quantity,
+        redemption_rate=redemption_rate_value,
+    )
+
+
+def _build_dashboard_kpi(
+    prepared_inputs: PreparedDashboardInputs,
+    donation_section: DonationSection,
+    inventory_section: InventorySection,
+    package_section: PackageSection,
+    comparison_label: str,
+) -> dict[str, object]:
+    return {
+        "totalDonation": donation_section.current_goods_units,
+        "totalSku": len(prepared_inputs.inputs.inventory_items),
+        "totalPackageDistributed": package_section.current_package_quantity,
+        "lowStockCount": inventory_section.low_stock_count,
+        "expiringLotCount": inventory_section.expiring_lot_count,
+        "redemptionRate": package_section.redemption_rate,
+        "trends": {
+            "donation": _format_change(
+                donation_section.current_goods_units,
+                donation_section.previous_goods_units,
+                comparison_label,
+            ),
+            "package": _format_change(
+                package_section.current_package_quantity,
+                package_section.previous_package_quantity,
+                comparison_label,
+            ),
+            "lowStock": f"{inventory_section.low_stock_count} live inventory alert(s)",
+            "wastage": _format_change(
+                inventory_section.current_wastage_units,
+                inventory_section.previous_wastage_units,
+                comparison_label,
+            ),
+        },
+    }
+
+
+async def build_dashboard_analytics(
+    *,
+    range_key: DashboardRange,
+    admin_user: dict,
+    db: AsyncSession,
+) -> DashboardAnalyticsOut:
+    window = _build_dashboard_window(range_key)
+    scoped_inputs = coerce_dashboard_inputs(
+        _scope_dashboard_inputs(await _load_dashboard_inputs(db), admin_user)
+    )
+    prepared_inputs = _prepare_dashboard_inputs(scoped_inputs)
+    donation_section = _build_donation_analytics(window, prepared_inputs)
+    inventory_section = _build_inventory_analytics(window, prepared_inputs)
+    package_section = _build_package_analytics(window, prepared_inputs)
+
+    return DashboardAnalyticsOut(
+        kpi=_build_dashboard_kpi(
+            prepared_inputs,
+            donation_section,
+            inventory_section,
+            package_section,
+            window.comparison_label,
+        ),
+        donation=donation_section.analytics,
+        inventory=inventory_section.analytics,
+        package=package_section.analytics,
+        expiry=inventory_section.expiry_analytics,
+        redemption=package_section.redemption_analytics,
     )

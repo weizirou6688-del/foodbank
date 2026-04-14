@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.security import enforce_admin_food_bank_scope, get_admin_food_bank_id
 from app.core.db_utils import fetch_scalars
+from app.core.security import enforce_admin_food_bank_scope, get_admin_food_bank_id
 from app.models.donation_cash import DonationCash
 from app.models.donation_goods import DonationGoods
 from app.models.food_bank import FoodBank
@@ -17,9 +18,69 @@ from app.schemas.donation_goods import DonationGoodsCreate
 
 GOODS_DONATION_OPTIONS = (selectinload(DonationGoods.items),)
 
+_EXACT_NAME_SCORE = 4
+_PARTIAL_NAME_SCORE = 2
+_EXACT_ADDRESS_SCORE = 3
+_PARTIAL_ADDRESS_SCORE = 1
+
+
+@dataclass(frozen=True, slots=True)
+class FoodBankMetadataMatch:
+    bank: FoodBank
+    score: int
+
 
 def normalize_food_bank_match_text(value: str | None) -> str:
     return " ".join((value or "").strip().lower().split())
+
+
+def _match_score(
+    *,
+    normalized_name: str,
+    normalized_address: str,
+    bank: FoodBank,
+) -> int:
+    bank_name = normalize_food_bank_match_text(bank.name)
+    bank_address = normalize_food_bank_match_text(bank.address)
+    score = 0
+
+    if normalized_name:
+        if bank_name == normalized_name:
+            score += _EXACT_NAME_SCORE
+        elif bank_name in normalized_name or normalized_name in bank_name:
+            score += _PARTIAL_NAME_SCORE
+
+    if normalized_address:
+        if bank_address == normalized_address:
+            score += _EXACT_ADDRESS_SCORE
+        elif bank_address in normalized_address or normalized_address in bank_address:
+            score += _PARTIAL_ADDRESS_SCORE
+
+    return score
+
+
+def _best_metadata_match(
+    *,
+    banks: list[FoodBank],
+    normalized_name: str,
+    normalized_address: str,
+) -> FoodBank | None:
+    matches = [
+        FoodBankMetadataMatch(
+            bank=bank,
+            score=_match_score(
+                normalized_name=normalized_name,
+                normalized_address=normalized_address,
+                bank=bank,
+            ),
+        )
+        for bank in banks
+    ]
+    matches.sort(key=lambda match: match.score, reverse=True)
+    best_match = matches[0] if matches else None
+    if best_match is None or best_match.score <= 0:
+        return None
+    return best_match.bank
 
 
 async def resolve_food_bank_from_metadata(
@@ -35,31 +96,11 @@ async def resolve_food_bank_from_metadata(
         return None
 
     banks = await fetch_scalars(db, select(FoodBank))
-    best_match: FoodBank | None = None
-    best_score = 0
-
-    for bank in banks:
-        bank_name = normalize_food_bank_match_text(bank.name)
-        bank_address = normalize_food_bank_match_text(bank.address)
-        score = 0
-
-        if normalized_name:
-            if bank_name == normalized_name:
-                score += 4
-            elif bank_name in normalized_name or normalized_name in bank_name:
-                score += 2
-
-        if normalized_address:
-            if bank_address == normalized_address:
-                score += 3
-            elif bank_address in normalized_address or normalized_address in bank_address:
-                score += 1
-
-        if score > best_score:
-            best_match = bank
-            best_score = score
-
-    return best_match
+    return _best_metadata_match(
+        banks=banks,
+        normalized_name=normalized_name,
+        normalized_address=normalized_address,
+    )
 
 
 async def resolve_food_bank(food_bank_id: int, db: AsyncSession) -> FoodBank:

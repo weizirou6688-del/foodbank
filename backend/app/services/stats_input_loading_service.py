@@ -16,7 +16,48 @@ from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.models.inventory_waste_event import InventoryWasteEvent
 from app.models.package_item import PackageItem
+from app.services.stats_input_models import DashboardInputs, PublicImpactInputs
 from app.services.stats_input_scope_service import _filter_bank_scoped_records
+
+
+_GOODS_DONATION_ITEM_OPTIONS = (selectinload(DonationGoods.items),)
+_PACKAGE_ITEM_OPTIONS = (
+    selectinload(FoodPackage.package_items).selectinload(PackageItem.inventory_item),
+)
+_APPLICATION_ITEM_OPTIONS = (
+    selectinload(Application.items).selectinload(ApplicationItem.package),
+    selectinload(Application.items).selectinload(ApplicationItem.inventory_item),
+)
+
+
+def _goods_donations_query():
+    return (
+        select(DonationGoods)
+        .options(*_GOODS_DONATION_ITEM_OPTIONS)
+        .order_by(DonationGoods.created_at.asc())
+    )
+
+
+def _packages_query():
+    return (
+        select(FoodPackage)
+        .options(*_PACKAGE_ITEM_OPTIONS)
+        .order_by(FoodPackage.name.asc())
+    )
+
+
+def _applications_query(*, include_items: bool = True):
+    query = select(Application).order_by(Application.created_at.asc())
+    if include_items:
+        query = query.options(*_APPLICATION_ITEM_OPTIONS)
+    return query
+
+
+def _distribution_snapshots_query():
+    return select(ApplicationDistributionSnapshot).order_by(
+        ApplicationDistributionSnapshot.created_at.asc(),
+        ApplicationDistributionSnapshot.id.asc(),
+    )
 
 
 async def _load_public_impact_inputs(
@@ -26,100 +67,54 @@ async def _load_public_impact_inputs(
     include_application_items: bool = False,
     include_snapshots: bool = False,
 ):
-    application_query = select(Application).order_by(Application.created_at.asc())
-    if include_application_items:
-        application_query = application_query.options(
-            selectinload(Application.items).selectinload(ApplicationItem.package),
-            selectinload(Application.items).selectinload(ApplicationItem.inventory_item),
-        )
-
-    results: list[object] = []
-    results.append(
-        _filter_bank_scoped_records(
-            await _fetch_scalars(
-                db,
-                select(DonationGoods)
-                .options(selectinload(DonationGoods.items))
-                .order_by(DonationGoods.created_at.asc()),
-            )
+    goods_donations = _filter_bank_scoped_records(
+        await _fetch_scalars(db, _goods_donations_query())
+    )
+    packages = (
+        _filter_bank_scoped_records(await _fetch_scalars(db, _packages_query()))
+        if include_packages
+        else []
+    )
+    applications = _filter_bank_scoped_records(
+        await _fetch_scalars(
+            db,
+            _applications_query(include_items=include_application_items),
         )
     )
-    if include_packages:
-        results.append(
-            _filter_bank_scoped_records(
-                await _fetch_scalars(
-                    db,
-                    select(FoodPackage)
-                    .options(selectinload(FoodPackage.package_items))
-                    .order_by(FoodPackage.name.asc()),
-                )
-            )
-        )
-    results.append(_filter_bank_scoped_records(await _fetch_scalars(db, application_query)))
-    if include_snapshots:
-        results.append(
-            await _fetch_scalars(
-                db,
-                select(ApplicationDistributionSnapshot).order_by(
-                    ApplicationDistributionSnapshot.created_at.asc(),
-                    ApplicationDistributionSnapshot.id.asc(),
-                ),
-            )
-        )
-    return tuple(results)
+    distribution_snapshots = (
+        await _fetch_scalars(db, _distribution_snapshots_query())
+        if include_snapshots
+        else []
+    )
+    return PublicImpactInputs(
+        goods_donations=goods_donations,
+        packages=packages,
+        applications=applications,
+        distribution_snapshots=distribution_snapshots,
+    )
 
 
 async def _load_dashboard_inputs(db: AsyncSession):
-    return (
-        await _fetch_scalars(
+    return DashboardInputs(
+        cash_donations=await _fetch_scalars(
             db,
             select(DonationCash).order_by(DonationCash.created_at.asc()),
         ),
-        await _fetch_scalars(
-            db,
-            select(DonationGoods)
-            .options(selectinload(DonationGoods.items))
-            .order_by(DonationGoods.created_at.asc()),
-        ),
-        await _fetch_scalars(
+        goods_donations=await _fetch_scalars(db, _goods_donations_query()),
+        inventory_items=await _fetch_scalars(
             db,
             select(InventoryItem).order_by(InventoryItem.name.asc()),
         ),
-        await _fetch_rows(
+        inventory_lot_rows=await _fetch_rows(
             db,
             select(InventoryLot, InventoryItem)
             .join(InventoryItem, InventoryItem.id == InventoryLot.inventory_item_id)
             .order_by(InventoryLot.expiry_date.asc(), InventoryLot.id.asc()),
         ),
-        await _fetch_scalars(
-            db,
-            select(FoodPackage)
-            .options(
-                selectinload(FoodPackage.package_items).selectinload(
-                    PackageItem.inventory_item
-                )
-            )
-            .order_by(FoodPackage.name.asc()),
-        ),
-        await _fetch_scalars(
-            db,
-            select(Application)
-            .options(
-                selectinload(Application.items).selectinload(ApplicationItem.package),
-                selectinload(Application.items).selectinload(
-                    ApplicationItem.inventory_item
-                ),
-            )
-            .order_by(Application.created_at.asc()),
-        ),
-        await _fetch_scalars(
-            db,
-            select(ApplicationDistributionSnapshot).order_by(
-                ApplicationDistributionSnapshot.created_at.asc(),
-                ApplicationDistributionSnapshot.id.asc(),
-            ),
-        ),
-        await _fetch_scalars(
+        packages=await _fetch_scalars(db, _packages_query()),
+        applications=await _fetch_scalars(db, _applications_query()),
+        distribution_snapshots=await _fetch_scalars(db, _distribution_snapshots_query()),
+        waste_events=await _fetch_scalars(
             db,
             select(InventoryWasteEvent).order_by(
                 InventoryWasteEvent.occurred_at.asc(),
