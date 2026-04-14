@@ -1,0 +1,1675 @@
+{
+  "demo_users": [
+    {
+      "name": "Admin User",
+      "email": "admin@foodbank.com",
+      "password": "admin123",
+      "role": "admin"
+    },
+    {
+      "name": "Supermarket User",
+      "email": "supermarket@foodbank.com",
+      "password": "supermarket123",
+      "role": "supermarket"
+    },
+    {
+      "name": "Public User",
+      "email": "user@example.com",
+      "password": "user12345",
+      "role": "public"
+    },
+    {
+      "name": "Local Food Bank Admin",
+      "email": "localadmin@foodbank.com",
+      "password": "localadmin123",
+      "role": "admin",
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Westside Local Admin",
+      "email": "local1admin@foodbank.com",
+      "password": "local1admin123",
+      "role": "admin",
+      "food_bank_name": "Westside Food Support Centre"
+    }
+  ],
+  "demo_food_banks": [
+    {
+      "name": "Downtown Community Food Bank",
+      "address": "123 Main Street, London, SW1A 1AA",
+      "lat": 51.5074,
+      "lng": -0.1278,
+      "notification_email": "localadmin@foodbank.com"
+    },
+    {
+      "name": "Westside Food Support Centre",
+      "address": "88 King Street, London, W1K 1AA",
+      "lat": 51.513,
+      "lng": -0.145,
+      "notification_email": "westside@foodbank.com"
+    },
+    {
+      "name": "Southbank Foodbank Hub",
+      "address": "45 Borough Road, London, SE1 1JG",
+      "lat": 51.5017,
+      "lng": -0.104,
+      "notification_email": "southbank@foodbank.com"
+    }
+  ],
+  "demo_inventory_items": [
+    {
+      "name": "Rice (2kg)",
+      "category": "Grains & Pasta",
+      "unit": "bags",
+      "threshold": 20,
+      "quantity": 240,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Pasta (500g)",
+      "category": "Grains & Pasta",
+      "unit": "packs",
+      "threshold": 18,
+      "quantity": 240,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Canned Beans",
+      "category": "Canned Goods",
+      "unit": "cans",
+      "threshold": 24,
+      "quantity": 360,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "UHT Milk (1L)",
+      "category": "Dairy",
+      "unit": "cartons",
+      "threshold": 18,
+      "quantity": 180,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Wholemeal Bread",
+      "category": "Grains & Pasta",
+      "unit": "loaves",
+      "threshold": 12,
+      "quantity": 120,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Mixed Vegetables (frozen)",
+      "category": "Vegetables",
+      "unit": "bags",
+      "threshold": 12,
+      "quantity": 120,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Tomato Soup (400g)",
+      "category": "Canned Goods",
+      "unit": "cans",
+      "threshold": 18,
+      "quantity": 220,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Cornflakes Cereal",
+      "category": "Grains & Pasta",
+      "unit": "boxes",
+      "threshold": 15,
+      "quantity": 150,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Canned Tuna",
+      "category": "Proteins & Meat",
+      "unit": "cans",
+      "threshold": 18,
+      "quantity": 180,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Chicken Breast (canned)",
+      "category": "Proteins & Meat",
+      "unit": "cans",
+      "threshold": 16,
+      "quantity": 160,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Lentils (500g)",
+      "category": "Grains & Pasta",
+      "unit": "packs",
+      "threshold": 18,
+      "quantity": 180,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Eggs (6-pack)",
+      "category": "Dairy",
+      "unit": "cartons",
+      "threshold": 12,
+      "quantity": 120,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Potatoes (1kg)",
+      "category": "Vegetables",
+      "unit": "bags",
+      "threshold": 16,
+      "quantity": 180,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Carrots (500g)",
+      "category": "Vegetables",
+      "unit": "bags",
+      "threshold": 16,
+      "quantity": 180,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Onions (500g)",
+      "category": "Vegetables",
+      "unit": "bags",
+      "threshold": 16,
+      "quantity": 180,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Canned Tomatoes",
+      "category": "Canned Goods",
+      "unit": "cans",
+      "threshold": 18,
+      "quantity": 220,
+      "food_bank_name": "Downtown Community Food Bank"
+    },
+    {
+      "name": "Rice (2kg)",
+      "category": "Grains & Pasta",
+      "unit": "bags",
+      "threshold": 20,
+      "quantity": 240,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Pasta (500g)",
+      "category": "Grains & Pasta",
+      "unit": "packs",
+      "threshold": 18,
+      "quantity": 240,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Canned Beans",
+      "category": "Canned Goods",
+      "unit": "cans",
+      "threshold": 24,
+      "quantity": 360,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "UHT Milk (1L)",
+      "category": "Dairy",
+      "unit": "cartons",
+      "threshold": 18,
+      "quantity": 180,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Wholemeal Bread",
+      "category": "Grains & Pasta",
+      "unit": "loaves",
+      "threshold": 12,
+      "quantity": 120,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Mixed Vegetables (frozen)",
+      "category": "Vegetables",
+      "unit": "bags",
+      "threshold": 12,
+      "quantity": 120,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Tomato Soup (400g)",
+      "category": "Canned Goods",
+      "unit": "cans",
+      "threshold": 18,
+      "quantity": 220,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Cornflakes Cereal",
+      "category": "Grains & Pasta",
+      "unit": "boxes",
+      "threshold": 15,
+      "quantity": 150,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Canned Tuna",
+      "category": "Proteins & Meat",
+      "unit": "cans",
+      "threshold": 18,
+      "quantity": 180,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Chicken Breast (canned)",
+      "category": "Proteins & Meat",
+      "unit": "cans",
+      "threshold": 16,
+      "quantity": 160,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Lentils (500g)",
+      "category": "Grains & Pasta",
+      "unit": "packs",
+      "threshold": 18,
+      "quantity": 180,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Eggs (6-pack)",
+      "category": "Dairy",
+      "unit": "cartons",
+      "threshold": 12,
+      "quantity": 120,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Potatoes (1kg)",
+      "category": "Vegetables",
+      "unit": "bags",
+      "threshold": 16,
+      "quantity": 180,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Carrots (500g)",
+      "category": "Vegetables",
+      "unit": "bags",
+      "threshold": 16,
+      "quantity": 180,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Onions (500g)",
+      "category": "Vegetables",
+      "unit": "bags",
+      "threshold": 16,
+      "quantity": 180,
+      "food_bank_name": "Westside Food Support Centre"
+    },
+    {
+      "name": "Canned Tomatoes",
+      "category": "Canned Goods",
+      "unit": "cans",
+      "threshold": 18,
+      "quantity": 220,
+      "food_bank_name": "Westside Food Support Centre"
+    }
+  ],
+  "demo_scoped_inventory_items": [
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Downtown Ready Meal Tray",
+      "category": "Snacks",
+      "unit": "trays",
+      "threshold": 14,
+      "quantity": 5,
+      "expiry_days": 18
+    },
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Downtown Kids Snack Box",
+      "category": "Snacks",
+      "unit": "boxes",
+      "threshold": 12,
+      "quantity": 4,
+      "expiry_days": 35
+    },
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Downtown Fruit Cup",
+      "category": "Fruits",
+      "unit": "cups",
+      "threshold": 15,
+      "quantity": 6,
+      "expiry_days": 12
+    },
+    {
+      "food_bank_name": "Westside Food Support Centre",
+      "name": "Westside Student Meal Kit",
+      "category": "Grains & Pasta",
+      "unit": "kits",
+      "threshold": 18,
+      "quantity": 6,
+      "expiry_days": 25
+    },
+    {
+      "food_bank_name": "Westside Food Support Centre",
+      "name": "Westside Baby Formula",
+      "category": "Baby Food",
+      "unit": "tins",
+      "threshold": 12,
+      "quantity": 4,
+      "expiry_days": 120
+    },
+    {
+      "food_bank_name": "Westside Food Support Centre",
+      "name": "Westside Fruit Puree",
+      "category": "Baby Food",
+      "unit": "pouches",
+      "threshold": 16,
+      "quantity": 7,
+      "expiry_days": 60
+    },
+    {
+      "food_bank_name": "Westside Food Support Centre",
+      "name": "Westside Oat Cups",
+      "category": "Grains & Pasta",
+      "unit": "cups",
+      "threshold": 14,
+      "quantity": 9,
+      "expiry_days": 45
+    }
+  ],
+  "demo_inventory_item_names": [
+    "Canned Beans",
+    "Canned Tomatoes",
+    "Canned Tuna",
+    "Carrots (500g)",
+    "Chicken Breast (canned)",
+    "Cornflakes Cereal",
+    "Downtown Fruit Cup",
+    "Downtown Kids Snack Box",
+    "Downtown Ready Meal Tray",
+    "Eggs (6-pack)",
+    "Lentils (500g)",
+    "Mixed Vegetables (frozen)",
+    "Onions (500g)",
+    "Pasta (500g)",
+    "Potatoes (1kg)",
+    "Rice (2kg)",
+    "Tomato Soup (400g)",
+    "UHT Milk (1L)",
+    "Westside Baby Formula",
+    "Westside Fruit Puree",
+    "Westside Oat Cups",
+    "Westside Student Meal Kit",
+    "Wholemeal Bread"
+  ],
+  "demo_packages": [
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Basic Essentials Package",
+      "category": "Emergency Pack",
+      "description": "Core staples for individuals or couples.",
+      "stock": 18,
+      "threshold": 5,
+      "image_url": "https://images.unsplash.com/photo-1559837957-bab8edc53c85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Rice (2kg)",
+          "quantity": 1
+        },
+        {
+          "item_name": "Pasta (500g)",
+          "quantity": 2
+        },
+        {
+          "item_name": "Canned Beans",
+          "quantity": 2
+        },
+        {
+          "item_name": "UHT Milk (1L)",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Family Support Package",
+      "category": "Family Bundle",
+      "description": "Balanced nutrition for families of 3-5.",
+      "stock": 12,
+      "threshold": 5,
+      "image_url": "https://images.unsplash.com/photo-1714224247661-ee250f55a842?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Wholemeal Bread",
+          "quantity": 2
+        },
+        {
+          "item_name": "Mixed Vegetables (frozen)",
+          "quantity": 1
+        },
+        {
+          "item_name": "Tomato Soup (400g)",
+          "quantity": 3
+        },
+        {
+          "item_name": "Cornflakes Cereal",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Protein & Meat Package",
+      "category": "Pantry & Spices",
+      "description": "High-protein items including canned meats.",
+      "stock": 4,
+      "threshold": 5,
+      "image_url": "https://images.unsplash.com/photo-1653174577821-9ab410d92d44?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Canned Tuna",
+          "quantity": 3
+        },
+        {
+          "item_name": "Chicken Breast (canned)",
+          "quantity": 2
+        },
+        {
+          "item_name": "Lentils (500g)",
+          "quantity": 1
+        },
+        {
+          "item_name": "Eggs (6-pack)",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Fresh Veg & Staples Package",
+      "category": "Lunchbox",
+      "description": "Fresh and dried produce for a healthy diet.",
+      "stock": 9,
+      "threshold": 5,
+      "image_url": "https://images.unsplash.com/photo-1599297914860-1ccd36987a52?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Potatoes (1kg)",
+          "quantity": 1
+        },
+        {
+          "item_name": "Carrots (500g)",
+          "quantity": 1
+        },
+        {
+          "item_name": "Onions (500g)",
+          "quantity": 1
+        },
+        {
+          "item_name": "Canned Tomatoes",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Downtown Quick Lunch Pack",
+      "category": "Lunchbox",
+      "description": "Compact midday support with ready meals and snacks.",
+      "stock": 3,
+      "threshold": 4,
+      "image_url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Downtown Ready Meal Tray",
+          "quantity": 2
+        },
+        {
+          "item_name": "Downtown Kids Snack Box",
+          "quantity": 1
+        },
+        {
+          "item_name": "UHT Milk (1L)",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "food_bank_name": "Downtown Community Food Bank",
+      "name": "Downtown Fresh Start Pack",
+      "category": "Breakfast",
+      "description": "Breakfast-focused support with fruit and shelf-stable items.",
+      "stock": 2,
+      "threshold": 4,
+      "image_url": "https://images.unsplash.com/photo-1484723091739-30a097e8f929?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Downtown Fruit Cup",
+          "quantity": 3
+        },
+        {
+          "item_name": "Cornflakes Cereal",
+          "quantity": 1
+        },
+        {
+          "item_name": "UHT Milk (1L)",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "food_bank_name": "Westside Food Support Centre",
+      "name": "Westside Student Essentials Pack",
+      "category": "Emergency Pack",
+      "description": "Compact staples for students and single-adult pickups.",
+      "stock": 2,
+      "threshold": 4,
+      "image_url": "https://images.unsplash.com/photo-1542838132-92c53300491e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Westside Student Meal Kit",
+          "quantity": 1
+        },
+        {
+          "item_name": "Tomato Soup (400g)",
+          "quantity": 2
+        },
+        {
+          "item_name": "UHT Milk (1L)",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "food_bank_name": "Westside Food Support Centre",
+      "name": "Westside Baby Support Pack",
+      "category": "Family Bundle",
+      "description": "High-priority supplies for families with infants.",
+      "stock": 3,
+      "threshold": 4,
+      "image_url": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Westside Baby Formula",
+          "quantity": 1
+        },
+        {
+          "item_name": "Westside Fruit Puree",
+          "quantity": 4
+        },
+        {
+          "item_name": "UHT Milk (1L)",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "food_bank_name": "Westside Food Support Centre",
+      "name": "Westside Breakfast Booster Pack",
+      "category": "Breakfast",
+      "description": "Breakfast-focused support package for recurring pickups.",
+      "stock": 6,
+      "threshold": 4,
+      "image_url": "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "contents": [
+        {
+          "item_name": "Westside Oat Cups",
+          "quantity": 4
+        },
+        {
+          "item_name": "Cornflakes Cereal",
+          "quantity": 1
+        },
+        {
+          "item_name": "UHT Milk (1L)",
+          "quantity": 2
+        }
+      ]
+    }
+  ],
+  "demo_scoped_cash_payment_references": [
+    "DEMO-LOCAL-CASH-001",
+    "DEMO-WESTSIDE-CASH-001",
+    "DEMO-WESTSIDE-CASH-002"
+  ],
+  "demo_scoped_cash_donor_emails": [
+    "mary.network.donor@example.com",
+    "westside.family.circle@example.com",
+    "westside.students.union@example.com"
+  ],
+  "demo_scoped_goods_donor_emails": [
+    "ahmed.goods.donor@example.com",
+    "downtown.school.pantry@example.com",
+    "westside.baby.network@example.com",
+    "westside.campus.pantry@example.com"
+  ],
+  "demo_scoped_admin_seeds": [
+    {
+      "admin_email": "localadmin@foodbank.com",
+      "bank_name": "Downtown Community Food Bank",
+      "cash_donations": [
+        {
+          "payment_reference": "DEMO-LOCAL-CASH-001",
+          "donor_name": "Mary Network Donor",
+          "donor_email": "mary.network.donor@example.com",
+          "amount_pence": 2500,
+          "status": "completed"
+        }
+      ],
+      "goods_donations": [
+        {
+          "donor_name": "Ahmed Goods Donor",
+          "donor_email": "ahmed.goods.donor@example.com",
+          "donor_phone": "07123456789",
+          "postcode": "SW1A 1AA",
+          "pickup_date_offset_days": 2,
+          "item_condition": "New or unopened",
+          "estimated_quantity": "3 boxes",
+          "status": "pending",
+          "notes": "Demo local admin goods donation",
+          "items": [
+            {
+              "item_name": "Rice (2kg)",
+              "quantity": 4
+            },
+            {
+              "item_name": "Canned Beans",
+              "quantity": 8
+            }
+          ]
+        },
+        {
+          "donor_name": "Downtown School Pantry",
+          "donor_email": "downtown.school.pantry@example.com",
+          "donor_phone": "07111222333",
+          "postcode": "SW1A 1AA",
+          "pickup_date_offset_days": 1,
+          "item_condition": "New or unopened",
+          "estimated_quantity": "2 trolleys",
+          "status": "received",
+          "notes": "Downtown received snack support donation",
+          "items": [
+            {
+              "item_name": "Downtown Ready Meal Tray",
+              "quantity": 4
+            },
+            {
+              "item_name": "Downtown Kids Snack Box",
+              "quantity": 6
+            }
+          ]
+        }
+      ],
+      "applications": [
+        {
+          "redemption_code": "LFB1-0001",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -15,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0002",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -15,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0003",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -15,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0004",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -15,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0005",
+          "package_name": "Basic Essentials Package",
+          "status": "pending",
+          "week_offset": -14,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0006",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -14,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0007",
+          "package_name": "Protein & Meat Package",
+          "status": "expired",
+          "week_offset": -14,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0008",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -14,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0009",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -13,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0010",
+          "package_name": "Family Support Package",
+          "status": "pending",
+          "week_offset": -13,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0011",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -13,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0012",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -13,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0013",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -12,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0014",
+          "package_name": "Family Support Package",
+          "status": "expired",
+          "week_offset": -12,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0015",
+          "package_name": "Protein & Meat Package",
+          "status": "pending",
+          "week_offset": -12,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0016",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -12,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0017",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -11,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0018",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -11,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0019",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -11,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0020",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "pending",
+          "week_offset": -11,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0021",
+          "package_name": "Basic Essentials Package",
+          "status": "expired",
+          "week_offset": -10,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0022",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -10,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0023",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -10,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0024",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -10,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0025",
+          "package_name": "Basic Essentials Package",
+          "status": "pending",
+          "week_offset": -9,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0026",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -9,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0027",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -9,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0028",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "expired",
+          "week_offset": -9,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0029",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -8,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0030",
+          "package_name": "Family Support Package",
+          "status": "pending",
+          "week_offset": -8,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0031",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -8,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0032",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -8,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0033",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -7,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0034",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -7,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0035",
+          "package_name": "Protein & Meat Package",
+          "status": "expired",
+          "week_offset": -7,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0036",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -7,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0037",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -6,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0038",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -6,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0039",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -6,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0040",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "pending",
+          "week_offset": -6,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0041",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -5,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0042",
+          "package_name": "Family Support Package",
+          "status": "expired",
+          "week_offset": -5,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0043",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -5,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0044",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -5,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0045",
+          "package_name": "Basic Essentials Package",
+          "status": "pending",
+          "week_offset": -4,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0046",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -4,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0047",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -4,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0048",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -4,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0049",
+          "package_name": "Basic Essentials Package",
+          "status": "expired",
+          "week_offset": -3,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0050",
+          "package_name": "Family Support Package",
+          "status": "pending",
+          "week_offset": -3,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0051",
+          "package_name": "Protein & Meat Package",
+          "status": "collected",
+          "week_offset": -3,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0052",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -3,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0053",
+          "package_name": "Basic Essentials Package",
+          "status": "collected",
+          "week_offset": -2,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0054",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -2,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0055",
+          "package_name": "Protein & Meat Package",
+          "status": "pending",
+          "week_offset": -2,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0056",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "expired",
+          "week_offset": -2,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0057",
+          "package_name": "Basic Essentials Package",
+          "status": "pending",
+          "week_offset": -1,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB1-0058",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": -1,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB1-0059",
+          "package_name": "Protein & Meat Package",
+          "status": "pending",
+          "week_offset": -1,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB1-0060",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": -1,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB1-0061",
+          "package_name": "Basic Essentials Package",
+          "status": "pending",
+          "week_offset": 0,
+          "quantity": 2,
+          "created_day_offset": 0,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB1-0062",
+          "package_name": "Family Support Package",
+          "status": "collected",
+          "week_offset": 0,
+          "quantity": 2,
+          "created_day_offset": 1,
+          "created_hour": 15
+        },
+        {
+          "redemption_code": "LFB1-0063",
+          "package_name": "Protein & Meat Package",
+          "status": "pending",
+          "week_offset": 0,
+          "quantity": 2,
+          "created_day_offset": 2,
+          "created_hour": 9
+        },
+        {
+          "redemption_code": "LFB1-0064",
+          "package_name": "Fresh Veg & Staples Package",
+          "status": "collected",
+          "week_offset": 0,
+          "quantity": 2,
+          "created_day_offset": 3,
+          "created_hour": 10
+        }
+      ]
+    },
+    {
+      "admin_email": "local1admin@foodbank.com",
+      "bank_name": "Westside Food Support Centre",
+      "cash_donations": [
+        {
+          "payment_reference": "DEMO-WESTSIDE-CASH-001",
+          "donor_name": "Westside Student Union",
+          "donor_email": "westside.students.union@example.com",
+          "amount_pence": 4200,
+          "status": "completed"
+        },
+        {
+          "payment_reference": "DEMO-WESTSIDE-CASH-002",
+          "donor_name": "Westside Family Circle",
+          "donor_email": "westside.family.circle@example.com",
+          "amount_pence": 1800,
+          "status": "completed"
+        }
+      ],
+      "goods_donations": [
+        {
+          "donor_name": "Westside Campus Pantry",
+          "donor_email": "westside.campus.pantry@example.com",
+          "donor_phone": "07234567890",
+          "postcode": "W1K 1AA",
+          "pickup_date_offset_days": 3,
+          "item_condition": "New or unopened",
+          "estimated_quantity": "5 crates",
+          "status": "pending",
+          "notes": "Westside pending student meal stock donation",
+          "items": [
+            {
+              "item_name": "Westside Student Meal Kit",
+              "quantity": 5
+            },
+            {
+              "item_name": "Westside Oat Cups",
+              "quantity": 10
+            }
+          ]
+        },
+        {
+          "donor_name": "Westside Baby Network",
+          "donor_email": "westside.baby.network@example.com",
+          "donor_phone": "07345678901",
+          "postcode": "W1K 1AA",
+          "pickup_date_offset_days": 1,
+          "item_condition": "New or unopened",
+          "estimated_quantity": "2 trolleys",
+          "status": "received",
+          "notes": "Westside received infant support donation",
+          "items": [
+            {
+              "item_name": "Westside Baby Formula",
+              "quantity": 3
+            },
+            {
+              "item_name": "Westside Fruit Puree",
+              "quantity": 12
+            }
+          ]
+        }
+      ],
+      "applications": [
+        {
+          "redemption_code": "LFB2-0001",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "collected",
+          "week_offset": -11,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB2-0002",
+          "package_name": "Westside Baby Support Pack",
+          "status": "collected",
+          "week_offset": -11,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB2-0003",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "collected",
+          "week_offset": -11,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB2-0004",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "pending",
+          "week_offset": -10,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB2-0005",
+          "package_name": "Westside Baby Support Pack",
+          "status": "expired",
+          "week_offset": -10,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB2-0006",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "collected",
+          "week_offset": -10,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB2-0007",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "collected",
+          "week_offset": -9,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB2-0008",
+          "package_name": "Westside Baby Support Pack",
+          "status": "pending",
+          "week_offset": -9,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB2-0009",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "collected",
+          "week_offset": -9,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB2-0010",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "collected",
+          "week_offset": -8,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB2-0011",
+          "package_name": "Westside Baby Support Pack",
+          "status": "expired",
+          "week_offset": -8,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB2-0012",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "pending",
+          "week_offset": -8,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB2-0013",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "collected",
+          "week_offset": -7,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB2-0014",
+          "package_name": "Westside Baby Support Pack",
+          "status": "collected",
+          "week_offset": -7,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB2-0015",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "collected",
+          "week_offset": -7,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB2-0016",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "pending",
+          "week_offset": -6,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB2-0017",
+          "package_name": "Westside Baby Support Pack",
+          "status": "expired",
+          "week_offset": -6,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB2-0018",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "collected",
+          "week_offset": -6,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB2-0019",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "collected",
+          "week_offset": -5,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB2-0020",
+          "package_name": "Westside Baby Support Pack",
+          "status": "pending",
+          "week_offset": -5,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB2-0021",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "collected",
+          "week_offset": -5,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB2-0022",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "collected",
+          "week_offset": -4,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB2-0023",
+          "package_name": "Westside Baby Support Pack",
+          "status": "expired",
+          "week_offset": -4,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB2-0024",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "pending",
+          "week_offset": -4,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB2-0025",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "collected",
+          "week_offset": -3,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB2-0026",
+          "package_name": "Westside Baby Support Pack",
+          "status": "collected",
+          "week_offset": -3,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB2-0027",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "collected",
+          "week_offset": -3,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB2-0028",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "pending",
+          "week_offset": -2,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB2-0029",
+          "package_name": "Westside Baby Support Pack",
+          "status": "expired",
+          "week_offset": -2,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB2-0030",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "collected",
+          "week_offset": -2,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB2-0031",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "pending",
+          "week_offset": -1,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 11
+        },
+        {
+          "redemption_code": "LFB2-0032",
+          "package_name": "Westside Baby Support Pack",
+          "status": "collected",
+          "week_offset": -1,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 12
+        },
+        {
+          "redemption_code": "LFB2-0033",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "pending",
+          "week_offset": -1,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 13
+        },
+        {
+          "redemption_code": "LFB2-0034",
+          "package_name": "Westside Student Essentials Pack",
+          "status": "pending",
+          "week_offset": 0,
+          "quantity": 1,
+          "created_day_offset": 1,
+          "created_hour": 14
+        },
+        {
+          "redemption_code": "LFB2-0035",
+          "package_name": "Westside Baby Support Pack",
+          "status": "collected",
+          "week_offset": 0,
+          "quantity": 1,
+          "created_day_offset": 2,
+          "created_hour": 10
+        },
+        {
+          "redemption_code": "LFB2-0036",
+          "package_name": "Westside Breakfast Booster Pack",
+          "status": "pending",
+          "week_offset": 0,
+          "quantity": 1,
+          "created_day_offset": 3,
+          "created_hour": 11
+        }
+      ]
+    }
+  ]
+}

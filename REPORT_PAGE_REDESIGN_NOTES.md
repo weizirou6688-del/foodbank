@@ -42,14 +42,13 @@ The finished flow now works across several layers:
 ### Frontend State / Data Flow
 
 - `foodBankStore.ts` is the central client-side state layer for food bank search, selected food bank, package loading, and application submission
-- `foodbankApi.ts` contains the external search helpers for postcode lookup, GiveFood feed retrieval, radius filtering, and Trussell opening-hours enrichment
+- `foodbankApi.ts` contains the external search helpers for postcode lookup, GiveFood feed retrieval, normalization, and radius filtering
 
 ### Backend Integration
 
-- `backend/app/modules/food_banks/router.py` now exposes helper endpoints that make the public page usable from the browser:
+- `backend/app/routers/food_banks.py` exposes helper endpoints that make the public page usable from the browser:
   - postcode geocoding
   - GiveFood feed proxy
-  - Trussell opening-hours scraping proxy
 
 ### Database Integration
 
@@ -69,7 +68,7 @@ The food bank cards now expose more useful information in one place:
 
 - address
 - distance
-- opening-hours row when available
+- online-application availability status
 - phone or email
 - package entry button
 - official website link
@@ -116,9 +115,9 @@ Users often expect “nearby” to behave more flexibly than strict radius math.
 
 The external food bank feed and the project database do not share a single guaranteed identifier. Matching had to be done using normalized names and addresses, which is useful but imperfect. This is one of the most important system limitations to mention in a report.
 
-### 5.5 Opening-Hours Extraction
+### 5.5 External Metadata Constraints
 
-Opening hours were not consistently available in a clean JSON API format. For Trussell-linked locations, the system had to fetch and parse HTML from official `foodbank.org.uk` pages. This worked, but it is more fragile than consuming a structured API.
+External locator sources did not provide one perfectly aligned schema for all useful public metadata. The practical solution was to constrain the result cards to fields the app could retrieve reliably, instead of depending on brittle enrichment logic for additional details.
 
 ### 5.6 UI Layering Issues
 
@@ -137,7 +136,7 @@ Leaflet map controls use their own stacking behavior, which caused the map to ap
 ## 7. What Is Not Ideal
 
 - External and internal food bank data are still joined heuristically rather than by a stable shared ID
-- Some opening-hours data depends on HTML scraping, which is less robust than a formal API
+- External locator metadata is still inconsistent across sources
 - The locator page now combines several responsibilities, so future refactoring may be needed
 - Build output still shows a chunk-size warning, which suggests future frontend optimization work
 - The project worktree contains unrelated local changes outside this page-redesign scope, which is a maintenance risk if not cleaned later
@@ -180,7 +179,7 @@ This reduced browser-side problems such as:
 ## 10. Suggested Future Improvements
 
 - Add a persistent mapping table between external food bank sources and internal food bank records
-- Cache Trussell opening hours server-side with expiry
+- Only add opening-hours support in the future if the project adopts a stable managed data source for it
 - Add filter controls such as “has packages available” or “open today”
 - Add loading skeletons and more explicit failure states on the locator page
 - Split the current large locator/store logic into smaller hooks or service modules

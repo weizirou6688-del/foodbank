@@ -1,14 +1,6 @@
 from pydantic import BaseModel
 
 
-class StockGapPackageOut(BaseModel):
-    package_id: int
-    package_name: str
-    stock: int
-    threshold: int
-    gap: int
-
-
 class DashboardChartOut(BaseModel):
     labels: list[str]
     data: list[float]
@@ -126,11 +118,11 @@ class DashboardRedemptionAnalyticsOut(BaseModel):
 
 
 class DashboardAnalyticsOut(BaseModel):
-    impactMetrics: list[DashboardImpactMetricOut]
     kpi: DashboardKpiOut
     donation: DashboardDonationAnalyticsOut
     inventory: DashboardInventoryAnalyticsOut
     package: DashboardPackageAnalyticsOut
     expiry: DashboardExpiryAnalyticsOut
     redemption: DashboardRedemptionAnalyticsOut
+
 

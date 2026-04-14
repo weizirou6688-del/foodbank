@@ -1,19 +1,15 @@
-"""
-PackageItem model representing the junction between packages and inventory items.
-
-From spec section 1 for the `package_items` junction table:
-PackageItem is a many-to-many junction entity that defines the composition of
-food packages. Each record links an inventory item to a package with a
-specified quantity. One inventory item can appear in multiple packages, and
-one package may contain multiple inventory items.
-"""
-
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .food_package import FoodPackage
+    from .inventory_item import InventoryItem
 
 
 class PackageItem(Base):
@@ -32,10 +28,8 @@ class PackageItem(Base):
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
 
-    # food_packages -> package_items is one-to-many.
     package: Mapped["FoodPackage"] = relationship(back_populates="package_items")
 
-    # inventory_items -> package_items is one-to-many.
     inventory_item: Mapped["InventoryItem"] = relationship(back_populates="package_items")
 
     @property

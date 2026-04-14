@@ -3,7 +3,9 @@ import { useFoodBankStore } from '@/app/store/foodBankStore'
 import { useAuthStore } from '@/app/store/authStore'
 import { WEEKLY_COLLECTION_LIMIT } from '@/shared/config/businessRules'
 import { ImageWithFallback } from '@/shared/ui/ImageWithFallback'
+import PublicPageShell from '@/shared/ui/PublicPageShell'
 import styles from './FoodPackages.module.css'
+
 const DEFAULT_PKG_IMAGES = [
   'https://images.unsplash.com/photo-1559837957-bab8edc53c85?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80',
   'https://images.unsplash.com/photo-1714224247661-ee250f55a842?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80',
@@ -152,11 +154,12 @@ export default function FoodPackages() {
     if (errorMsg && !showSuccess) {
       setErrorMsg('')
     }
-  }, [pkgQty, foodSel])
+  }, [pkgQty, foodSel, errorMsg, showSuccess])
 
   const foodBank = selectedFoodBank
   const displayPackages = packages
   const categories = ['All', ...Array.from(new Set(availableItems.map((item) => item.category)))]
+
   const totalPkgs = Object.values(pkgQty).reduce((s, q) => s + q, 0)
   const remaining = remainingPackageSlots
   const totalFoods = Object.keys(foodSel).length
@@ -184,25 +187,26 @@ export default function FoodPackages() {
 
   if (isBootstrapping && !foodBank) {
     return (
-      <div className={styles.pageWrap}>
-        <div style={{ maxWidth: 720, margin: '5rem auto', background: '#F2F4F3', borderRadius: '0.75rem', padding: '2rem', textAlign: 'center' }}>
-          <h2 style={{ fontFamily: FONT, fontSize: '1.5rem', fontWeight: 700, color: '#1A1A1A', marginBottom: '0.5rem' }}>Loading Food Support Options</h2>
-          <p style={{ fontSize: '1rem', color: '#6B7280' }}>Connecting this page to the live backend and database.</p>
+      <PublicPageShell>
+        <div className={styles.emptyState}>
+          <h2>Loading Food Support Options</h2>
+          <p>Connecting this page to the live backend and database.</p>
         </div>
-      </div>
+      </PublicPageShell>
     )
   }
 
   if (!foodBank) {
     return (
-      <div className={styles.pageWrap}>
-        <div style={{ maxWidth: 720, margin: '5rem auto', background: '#F2F4F3', borderRadius: '0.75rem', padding: '2rem', textAlign: 'center' }}>
-          <h2 style={{ fontFamily: FONT, fontSize: '1.5rem', fontWeight: 700, color: '#1A1A1A', marginBottom: '0.5rem' }}>No Connected Food Bank Available</h2>
-          <p style={{ fontSize: '1rem', color: '#6B7280' }}>The backend did not return a food bank for online applications.</p>
+      <PublicPageShell>
+        <div className={styles.emptyState}>
+          <h2>No Connected Food Bank Available</h2>
+          <p>The backend did not return a food bank for online applications.</p>
         </div>
-      </div>
+      </PublicPageShell>
     )
   }
+
   const changePkgQty = (id: number, delta: number, maxStock: number) => {
     if (interactionsDisabled) {
       return
@@ -276,6 +280,7 @@ export default function FoodPackages() {
     setShowSuccess(false); setRedemptionCode(''); setPkgQty({}); setFoodSel({}); setErrorMsg('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
   let summaryTxt = ''
   if (totalPkgs > 0) summaryTxt += `${totalPkgs} package${totalPkgs > 1 ? 's' : ''}`
   if (totalPkgs > 0 && totalFoods > 0) summaryTxt += ' + '
@@ -287,62 +292,61 @@ export default function FoodPackages() {
   }
 
   return (
-    <div className={styles.pageWrap}>
-      <main className="flex-1 px-6 py-12 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-5xl font-bold mb-4" style={{ color: '#1A1A1A', fontFamily: FONT }}>{`Your Gift Feeds Families`}</h2>
-            <p className="text-lg mb-8 max-w-3xl mx-auto" style={{ color: '#6B7280' }}>
+    <PublicPageShell mainClassName={styles.pageWrap}>
+      <div className={styles.page}>
+        <div className={styles.main}>
+          <div className={styles.hero}>
+            <h2 className={styles.heroTitle}>Your Gift Feeds Families</h2>
+            <p className={styles.heroSub}>
               Every request helps us provide food directly to local families in need. No admin fees, 100 percent impact.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-8 mb-8">
+            <div className={styles.keyPoints}>
               {[
                 `Up to ${WEEKLY_COLLECTION_LIMIT} packages per week`,
                 `Up to ${MAX_INDIVIDUAL} individual items weekly`,
                 '100 percent goes to families in need',
               ].map(txt => (
-                <div key={txt} className="flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                  <span className="text-sm" style={{ color: '#1A1A1A' }}>{txt}</span>
+                <div key={txt} className={styles.keyPoint}>
+                  <span>{txt}</span>
                 </div>
               ))}
             </div>
-            <div className="flex justify-center gap-3">
-              <button className="px-6 py-3 rounded-lg font-medium transition-colors" style={{ backgroundColor: '#F5A623', color: '#1A1A1A', fontSize: 14 }}
+            <div className={styles.tabButtons}>
+              <button className={styles.tabBtn}
                 onMouseOver={e => (e.currentTarget.style.backgroundColor = '#D4870A')} onMouseOut={e => (e.currentTarget.style.backgroundColor = '#F5A623')}
                 onClick={() => document.getElementById('section-packages')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
               >Food Packages</button>
-              <button className="px-6 py-3 rounded-lg font-medium transition-colors" style={{ backgroundColor: '#F5A623', color: '#1A1A1A', fontSize: 14 }}
+              <button className={styles.tabBtn}
                 onMouseOver={e => (e.currentTarget.style.backgroundColor = '#D4870A')} onMouseOut={e => (e.currentTarget.style.backgroundColor = '#F5A623')}
                 onClick={() => document.getElementById('section-items')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
               >Individual Food Items</button>
             </div>
           </div>
-          <div className="rounded-xl p-5 mb-6 flex items-center justify-between" style={{ backgroundColor: '#F2F4F3' }}>
+          <div className={styles.infoCard}>
             <div>
-              <h3 className="text-lg font-bold mb-1" style={{ color: '#1A1A1A', fontFamily: FONT }}>{foodBank.name}</h3>
-              <p className="text-xs" style={{ color: '#6B7280' }}>{foodBank.address}</p>
+              <h3 className={styles.fbName}>{foodBank.name}</h3>
+              <p className={styles.fbAddr}>{foodBank.address}</p>
             </div>
-            <div className="px-5 py-3 rounded-lg text-center" style={{ backgroundColor: '#F5A623', minWidth: 100 }}>
-              <div className="text-2xl font-bold" style={{ color: '#1A1A1A' }}>{remaining}</div>
-              <div className="text-xs uppercase tracking-wide mt-0.5" style={{ color: '#1A1A1A' }}>Remaining</div>
+            <div className={styles.remainingBadge}>
+              <div className={styles.remainingNum}>{remaining}</div>
+              <div className={styles.remainingLabel}>Remaining</div>
             </div>
           </div>
-          <div className="rounded-lg p-3 mb-8 text-sm border" style={{ backgroundColor: '#F2F4F3', color: '#1A1A1A', borderColor: '#E5E7EB' }}>
-            Maximum <strong>{WEEKLY_COLLECTION_LIMIT} packages</strong> per week. This week: <strong style={{ color: '#F5A623' }}>{weeklyCollected}/{WEEKLY_COLLECTION_LIMIT}</strong> used, with <strong>{remainingPackageSlots}</strong> package slot{remainingPackageSlots === 1 ? '' : 's'} left.
+          <div className={styles.infoBanner}>
+            Maximum <strong>{WEEKLY_COLLECTION_LIMIT} packages</strong> per week. This week: <strong className={styles.accentText}>{weeklyCollected}/{WEEKLY_COLLECTION_LIMIT}</strong> used, with <strong>{remainingPackageSlots}</strong> package slot{remainingPackageSlots === 1 ? '' : 's'} left.
           </div>
 
           {errorMsg && (
-            <div className="rounded-lg p-3 mb-4 text-sm border" style={{ backgroundColor: '#FEF2F2', color: '#DC2626', borderColor: '#FECACA' }}>{errorMsg}</div>
+            <div className={styles.errorBanner}>{errorMsg}</div>
           )}
-          <div id="section-packages" className="mb-12" style={{ scrollMarginTop: '1.5rem' }}>
-            <div className="mb-5">
-              <h3 className="text-2xl font-bold mb-1" style={{ color: '#1A1A1A', fontFamily: FONT }}>Food Packages</h3>
-              <p className="text-sm" style={{ color: '#6B7280' }}>Pre-made packages with essential items. You can request up to {remainingPackageSlots} more package{remainingPackageSlots === 1 ? '' : 's'} this week.</p>
+          <div id="section-packages" className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <h3 className={styles.sectionTitle}>Food Packages</h3>
+              <p className={styles.sectionDesc}>Pre-made packages with essential items. You can request up to {remainingPackageSlots} more package{remainingPackageSlots === 1 ? '' : 's'} this week.</p>
             </div>
 
             {packageLimitReached && (
-              <div className="rounded-lg border p-3 mb-4 text-sm" style={{ borderColor: '#FDE68A', backgroundColor: '#FEF3C7', color: '#92400E' }}>
+              <div className={`${styles.infoBanner} ${styles.warningBanner}`}>
                 You have already used this week&apos;s package allowance. You can still request individual food items below.
               </div>
             )}
@@ -384,7 +388,7 @@ export default function FoodPackages() {
                         {pkg.items.map(item => (
                           <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.2rem' }}>
                             <span style={{ color: '#1A1A1A' }}>{item.name}</span>
-                            <span style={{ color: '#6B7280' }}>脳{item.qty}</span>
+                            <span style={{ color: '#6B7280' }}>x{item.qty}</span>
                           </div>
                         ))}
                       </div>
@@ -439,27 +443,21 @@ export default function FoodPackages() {
               </div>
             )}
           </div>
-          <div id="section-items" className="mb-8" style={{ scrollMarginTop: '1.5rem' }}>
-            <div className="mb-5">
-              <h3 className="text-2xl font-bold mb-1" style={{ color: '#1A1A1A', fontFamily: FONT }}>Individual Food Items</h3>
-              <p className="text-sm mb-4" style={{ color: '#6B7280' }}>
+          <div id="section-items" className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <h3 className={styles.sectionTitle}>Individual Food Items</h3>
+              <p className={styles.sectionDesc}>
                 Select specific items based on your needs. Maximum {MAX_INDIVIDUAL} different items per week.
               </p>
-              <div className="rounded-lg p-3 mb-4 flex items-center justify-between border text-sm"
-                style={{
-                  backgroundColor: atFoodLimit ? '#FEF3C7' : '#F2F4F3',
-                  borderColor: atFoodLimit ? '#F5A623' : '#E5E7EB',
-                  color: '#1A1A1A',
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <span><strong style={{ color: '#F5A623' }}>{totalFoods}/{MAX_INDIVIDUAL}</strong> items selected</span>
+              <div className={`${styles.statusBar} ${atFoodLimit ? styles.statusBarLimit : ''}`}>
+                <div className={styles.statusLeft}>
+                  <span><strong className={styles.accentText}>{totalFoods}/{MAX_INDIVIDUAL}</strong> items selected</span>
                   {atFoodLimit && (
-                    <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: '#F5A623', color: '#1A1A1A' }}>LIMIT REACHED</span>
+                    <span className={styles.limitBadge}>LIMIT REACHED</span>
                   )}
                 </div>
                 {atFoodLimit && (
-                  <span className="text-xs hidden md:block" style={{ color: '#6B7280' }}>
+                  <span className={styles.statusNote}>
                     You have reached the weekly limit. Unselect items to choose different ones.
                   </span>
                 )}
@@ -625,18 +623,18 @@ export default function FoodPackages() {
             )}
           </div>
           {showSuccess && (
-            <div ref={successRef} className="mb-8">
-              <div className="rounded-xl p-6 border" style={{ backgroundColor: '#F2F4F3', borderColor: '#E5E7EB' }}>
+            <div ref={successRef} className={styles.successSection}>
+              <div className={styles.successCard}>
                 <div className="mb-5">
-                  <h3 className="text-lg font-bold mb-1" style={{ color: '#1A1A1A', fontFamily: FONT }}>Application Successful</h3>
-                  <p className="text-sm" style={{ color: '#6B7280' }}>
+                  <h3 className={styles.successTitle}>Application Successful</h3>
+                  <p className={styles.successDesc}>
                     Your food package application has been approved. Please present this code at the collection point.
                   </p>
                 </div>
-                <div className="mb-5 pb-5 border-b" style={{ borderColor: '#E5E7EB' }}>
-                  <div className="text-xs uppercase tracking-wide mb-2" style={{ color: '#6B7280' }}>Redemption Code</div>
-                  <div className="text-3xl font-bold mb-1" style={{ color: '#F5A623' }}>{redemptionCode}</div>
-                  <div className="text-xs" style={{ color: '#6B7280' }}>Valid for 7 days</div>
+                <div className={styles.successCodeBlock}>
+                  <div className={styles.successCodeLabel}>Redemption Code</div>
+                  <div className={styles.successCode}>{redemptionCode}</div>
+                  <div className={styles.successCodeHint}>Valid for 7 days</div>
                 </div>
                 <div className="space-y-2">
                   {totalPkgs > 0 && (
@@ -666,47 +664,32 @@ export default function FoodPackages() {
             </div>
           )}
           {showSuccess ? (
-            <div className="flex items-center justify-center py-2">
-              <button className="px-8 py-3 rounded-lg font-medium transition-all"
-                style={{ backgroundColor: '#F5A623', color: '#1A1A1A' }}
-                onMouseOver={e => { e.currentTarget.style.backgroundColor = '#D4870A' }}
-                onMouseOut={e => { e.currentTarget.style.backgroundColor = '#F5A623' }}
-                onClick={handleNewApplication}
-              >New Application</button>
+            <div className={styles.sectionActions}>
+              <button className={styles.newAppBtn} onClick={handleNewApplication}>New Application</button>
             </div>
           ) : (
-            <div className="flex items-center justify-between p-5 rounded-xl"
-              style={{ backgroundColor: '#F2F4F3', position: 'sticky', bottom: '1.5rem', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}
-            >
+            <div className={styles.actionBar}>
               <div>
                 {!hasAny ? (
-                  <p style={{ color: '#6B7280' }}>No items selected</p>
+                  <p className={styles.actionMuted}>No items selected</p>
                 ) : (
                   <>
-                    <p style={{ fontWeight: 700, color: '#1A1A1A', marginBottom: '0.125rem' }}>{summaryTxt}</p>
-                    <p style={{ fontSize: '0.875rem', color: '#6B7280' }}>Ready to apply</p>
+                    <p className={styles.actionBold}>{summaryTxt}</p>
+                    <p className={styles.actionMuted}>Ready to apply</p>
                   </>
                 )}
               </div>
               <button
                 onClick={handleApply}
                 disabled={!hasAny || loading || isBootstrapping}
-                className="px-8 py-3 rounded-lg font-medium transition-all"
-                style={{
-                  backgroundColor: hasAny ? '#F5A623' : '#E5E7EB',
-                  color: '#1A1A1A',
-                  cursor: hasAny && !loading && !isBootstrapping ? 'pointer' : 'not-allowed',
-                  opacity: !hasAny || loading || isBootstrapping ? 0.3 : 1,
-                }}
-                onMouseOver={e => { if (hasAny && !loading && !isBootstrapping) e.currentTarget.style.backgroundColor = '#D4870A' }}
-                onMouseOut={e => { if (hasAny && !loading && !isBootstrapping) e.currentTarget.style.backgroundColor = '#F5A623' }}
+                className={`${styles.submitBtn} ${hasAny && !loading && !isBootstrapping ? styles.submitBtnActive : ''}`}
               >{isBootstrapping ? 'Loading Availability...' : loading ? 'Submitting...' : 'Submit Application'}</button>
             </div>
           )}
 
         </div>
-      </main>
-    </div>
+      </div>
+    </PublicPageShell>
   )
 }
 

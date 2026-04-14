@@ -1,24 +1,19 @@
-"""
-Application model representing user applications for food packages.
-
-From spec section 1 for the `applications` table:
-Application records track requests from public users to receive food packages
-from a specific food bank during a given weekly period. Each application is
-assigned a unique redemption code for in-person pickup verification. Status
-tracks lifecycle from pending through collection to expiry. Weekly period
-enforces the business rule limiting three packages per user per week.
-"""
-
 from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .application_item import ApplicationItem
+    from .food_bank import FoodBank
+    from .user import User
 
 
 class Application(Base):
@@ -76,13 +71,10 @@ class Application(Base):
         index=True,
     )
 
-    # users -> applications is one-to-many.
     user: Mapped["User"] = relationship(back_populates="applications")
 
-    # applications reference a specific food bank.
     food_bank: Mapped["FoodBank"] = relationship(back_populates="applications")
 
-    # applications -> application_items is one-to-many.
     items: Mapped[list["ApplicationItem"]] = relationship(
         back_populates="application",
         cascade="all, delete-orphan",

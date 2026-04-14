@@ -1,0 +1,1 @@
+export type { FormNotice as SubmitFeedback, GivingMode as DonationMode, CardForm as CashFormData, InfoCardCopy as SimpleCopyBlock, GallerySlide as GalleryItem, DonorQuote as Testimonial } from './model'

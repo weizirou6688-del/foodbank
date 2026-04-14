@@ -1,27 +1,19 @@
-"""
-Preview or remove synthetic analytics data created by generate_analytics_data.py.
-
-By default this script runs in preview mode and reports what would be removed.
-Pass --apply to execute the cleanup transaction.
-"""
-
 from __future__ import annotations
 
 import argparse
 import asyncio
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import delete, func, or_, select
 
-BACKEND_ROOT = Path(__file__).resolve().parents[1]
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
+from _bootstrap import ensure_backend_on_path
+
+ensure_backend_on_path()
 
 from app.core.bootstrap import DEMO_PACKAGES  # noqa: E402
 from app.core.database import AsyncSessionLocal  # noqa: E402
+from app.core.db_utils import fetch_rows, fetch_scalars  # noqa: E402
 from app.models.application import Application  # noqa: E402
 from app.models.application_item import ApplicationItem  # noqa: E402
 from app.models.donation_cash import DonationCash  # noqa: E402
@@ -40,7 +32,6 @@ ANALYTICS_GOODS_EMAIL_PATTERN = "%.goods%@example.com"
 class CleanupSummary:
     analytics_user_ids: list[UUID]
     analytics_user_emails: list[str]
-    analytics_user_count: int
     cash_donation_count: int
     goods_donation_count: int
     application_count: int
@@ -64,19 +55,44 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _goods_filters(analytics_user_ids: list[UUID]) -> list:
+    filters = [DonationGoods.donor_email.like(ANALYTICS_GOODS_EMAIL_PATTERN)]
+    if analytics_user_ids:
+        filters.append(DonationGoods.donor_user_id.in_(analytics_user_ids))
+    return filters
+
+
+async def _bank_ids_by_name(db) -> dict[str, int]:
+    return {
+        name: int(bank_id)
+        for bank_id, name in await fetch_rows(db, select(FoodBank.id, FoodBank.name))
+    }
+
+
+def _packages_by_key(packages: list[FoodPackage]) -> dict[tuple[int, str], FoodPackage]:
+    return {
+        (int(package.food_bank_id), package.name): package
+        for package in packages
+        if package.food_bank_id is not None
+    }
+
+
 def print_summary(summary: CleanupSummary, apply: bool) -> None:
     mode = "APPLY" if apply else "PREVIEW"
     print(f"[{mode}] Synthetic analytics cleanup summary")
-    print(f"- Analytics public users: {summary.analytics_user_count}")
+    print(f"- Analytics public users: {len(summary.analytics_user_ids)}")
     if summary.analytics_user_emails:
         preview_emails = ", ".join(summary.analytics_user_emails[:5])
         if len(summary.analytics_user_emails) > 5:
             preview_emails = f"{preview_emails}, ..."
         print(f"  Sample users: {preview_emails}")
-    print(f"- Cash donations to remove: {summary.cash_donation_count}")
-    print(f"- Goods donations to remove: {summary.goods_donation_count}")
-    print(f"- Applications to remove: {summary.application_count}")
-    print(f"- Demo package stock resets: {len(summary.demo_package_stock_resets)}")
+    for label, value in [
+        ("Cash donations to remove", summary.cash_donation_count),
+        ("Goods donations to remove", summary.goods_donation_count),
+        ("Applications to remove", summary.application_count),
+        ("Demo package stock resets", len(summary.demo_package_stock_resets)),
+    ]:
+        print(f"- {label}: {value}")
     if summary.demo_package_stock_resets:
         print(f"  Packages: {', '.join(summary.demo_package_stock_resets)}")
     if not apply:
@@ -85,13 +101,12 @@ def print_summary(summary: CleanupSummary, apply: bool) -> None:
 
 async def collect_summary(preserve_demo_package_stock: bool) -> CleanupSummary:
     async with AsyncSessionLocal() as db:
-        analytics_users = (
-            await db.execute(
-                select(User.id, User.email)
-                .where(User.email.like(ANALYTICS_USER_PATTERN))
-                .order_by(User.email)
-            )
-        ).all()
+        analytics_users = await fetch_rows(
+            db,
+            select(User.id, User.email)
+            .where(User.email.like(ANALYTICS_USER_PATTERN))
+            .order_by(User.email),
+        )
         analytics_user_ids = [row[0] for row in analytics_users]
         analytics_user_emails = [row[1] for row in analytics_users]
 
@@ -103,12 +118,9 @@ async def collect_summary(preserve_demo_package_stock: bool) -> CleanupSummary:
             )) or 0
         )
 
-        goods_filters = [DonationGoods.donor_email.like(ANALYTICS_GOODS_EMAIL_PATTERN)]
-        if analytics_user_ids:
-            goods_filters.append(DonationGoods.donor_user_id.in_(analytics_user_ids))
         goods_donation_count = int(
             (await db.scalar(
-                select(func.count()).select_from(DonationGoods).where(or_(*goods_filters))
+                select(func.count()).select_from(DonationGoods).where(or_(*_goods_filters(analytics_user_ids)))
             )) or 0
         )
 
@@ -124,80 +136,24 @@ async def collect_summary(preserve_demo_package_stock: bool) -> CleanupSummary:
 
         demo_package_stock_resets: list[str] = []
         if not preserve_demo_package_stock:
-            banks = (
-                await db.execute(select(FoodBank.id, FoodBank.name))
-            ).all()
-            bank_ids_by_name = {row[1]: int(row[0]) for row in banks}
+            bank_ids_by_name = await _bank_ids_by_name(db)
+            packages_by_key = _packages_by_key(await fetch_scalars(db, select(FoodPackage)))
             for package_data in DEMO_PACKAGES:
                 bank_id = bank_ids_by_name.get(package_data["food_bank_name"])
                 if bank_id is None:
                     continue
-                package = await db.scalar(
-                    select(FoodPackage).where(
-                        FoodPackage.name == package_data["name"],
-                        FoodPackage.food_bank_id == bank_id,
-                    )
-                )
+                package = packages_by_key.get((bank_id, package_data["name"]))
                 if package is not None and int(package.stock or 0) != int(package_data["stock"]):
                     demo_package_stock_resets.append(package_data["name"])
 
         return CleanupSummary(
             analytics_user_ids=analytics_user_ids,
             analytics_user_emails=analytics_user_emails,
-            analytics_user_count=len(analytics_user_ids),
             cash_donation_count=cash_donation_count,
             goods_donation_count=goods_donation_count,
             application_count=application_count,
             demo_package_stock_resets=demo_package_stock_resets,
         )
-
-
-async def recompute_package_applied_counts() -> None:
-    async with AsyncSessionLocal() as db:
-        package_totals = {
-            int(package_id): int(total_quantity or 0)
-            for package_id, total_quantity in (
-                await db.execute(
-                    select(
-                        ApplicationItem.package_id,
-                        func.coalesce(func.sum(ApplicationItem.quantity), 0),
-                    )
-                    .where(ApplicationItem.package_id.is_not(None))
-                    .group_by(ApplicationItem.package_id)
-                )
-            ).all()
-            if package_id is not None
-        }
-
-        packages = (await db.execute(select(FoodPackage))).scalars().all()
-        for package in packages:
-            package.applied_count = package_totals.get(int(package.id), 0)
-
-        await db.commit()
-
-
-async def restore_demo_package_stock() -> None:
-    async with AsyncSessionLocal() as db:
-        banks = (await db.execute(select(FoodBank.id, FoodBank.name))).all()
-        bank_ids_by_name = {row[1]: int(row[0]) for row in banks}
-
-        for package_data in DEMO_PACKAGES:
-            bank_id = bank_ids_by_name.get(package_data["food_bank_name"])
-            if bank_id is None:
-                continue
-
-            package = await db.scalar(
-                select(FoodPackage).where(
-                    FoodPackage.name == package_data["name"],
-                    FoodPackage.food_bank_id == bank_id,
-                )
-            )
-            if package is None:
-                continue
-
-            package.stock = int(package_data["stock"])
-
-        await db.commit()
 
 
 async def apply_cleanup(summary: CleanupSummary, preserve_demo_package_stock: bool) -> None:
@@ -214,22 +170,45 @@ async def apply_cleanup(summary: CleanupSummary, preserve_demo_package_stock: bo
                 )
             )
 
-        goods_filters = [DonationGoods.donor_email.like(ANALYTICS_GOODS_EMAIL_PATTERN)]
-        if summary.analytics_user_ids:
-            goods_filters.append(DonationGoods.donor_user_id.in_(summary.analytics_user_ids))
         if summary.goods_donation_count > 0:
-            await db.execute(delete(DonationGoods).where(or_(*goods_filters)))
+            await db.execute(
+                delete(DonationGoods).where(or_(*_goods_filters(summary.analytics_user_ids)))
+            )
 
-        if summary.analytics_user_count > 0:
+        if summary.analytics_user_ids:
             await db.execute(
                 delete(User).where(User.email.like(ANALYTICS_USER_PATTERN))
             )
 
-        await db.commit()
+        package_totals = {
+            int(package_id): int(total_quantity or 0)
+            for package_id, total_quantity in (
+                await fetch_rows(
+                    db,
+                    select(
+                        ApplicationItem.package_id,
+                        func.coalesce(func.sum(ApplicationItem.quantity), 0),
+                    )
+                    .where(ApplicationItem.package_id.is_not(None))
+                    .group_by(ApplicationItem.package_id)
+                )
+            )
+            if package_id is not None
+        }
+        packages = await fetch_scalars(db, select(FoodPackage))
+        for package in packages:
+            package.applied_count = package_totals.get(int(package.id), 0)
 
-    await recompute_package_applied_counts()
-    if not preserve_demo_package_stock:
-        await restore_demo_package_stock()
+        if not preserve_demo_package_stock:
+            bank_ids_by_name = await _bank_ids_by_name(db)
+            packages_by_key = _packages_by_key(packages)
+            for package_data in DEMO_PACKAGES:
+                bank_id = bank_ids_by_name.get(package_data["food_bank_name"])
+                package = packages_by_key.get((bank_id, package_data["name"])) if bank_id is not None else None
+                if package is not None:
+                    package.stock = int(package_data["stock"])
+
+        await db.commit()
 
 
 async def main() -> None:

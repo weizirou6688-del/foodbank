@@ -1,4 +1,3 @@
-import { useAuthStore } from '@/app/store/authStore'
 import { API_BASE_URL } from './apiBaseUrl'
 
 interface ApiValidationError {
@@ -32,8 +31,7 @@ const normalizeHeaders = (headers?: HeadersInit): HeadersInit | undefined => {
     : headers
 }
 
-const resolveToken = (token?: string) =>
-  token ? (useAuthStore.getState().accessToken ?? token) : undefined
+const resolveToken = (token?: string) => token ?? undefined
 
 const parseErrorPayload = async (response: Response): Promise<ApiErrorPayload> =>
   response.json().catch(() => ({ detail: REQUEST_FAILED_MESSAGE }))
@@ -46,7 +44,7 @@ const getValidationMessage = (errors?: ApiValidationError[]) =>
         .join(' ')
     : ''
 
-export class ApiClient {
+class ApiClient {
   constructor(private readonly baseURL: string) {}
 
   private buildHeaders(headers?: HeadersInit) {
@@ -63,31 +61,14 @@ export class ApiClient {
     })
   }
 
-  private async retryWithFreshToken(
-    url: string,
-    init: RequestInit,
-    initialHeaders: Headers,
-    response: Response,
-  ) {
-    if (response.status !== 401 || !initialHeaders.has('Authorization')) {
-      return response
+  private handleUnauthorizedResponse(response: Response, requestHeaders: Headers) {
+    if (response.status === 401 && requestHeaders.has('Authorization')) {
+      void import('@/app/store/authStore')
+        .then(({ useAuthStore }) => {
+          useAuthStore.getState().logout()
+        })
+        .catch(() => undefined)
     }
-
-    const refreshed = await useAuthStore.getState().refreshAccessToken()
-    if (!refreshed) {
-      useAuthStore.getState().logout()
-      return response
-    }
-
-    const renewedToken = useAuthStore.getState().accessToken
-    if (!renewedToken) {
-      useAuthStore.getState().logout()
-      return response
-    }
-
-    const retryHeaders = this.buildHeaders(init.headers)
-    retryHeaders.set('Authorization', `Bearer ${renewedToken}`)
-    return this.performRequest(url, init, retryHeaders)
   }
 
   private async request<T>(
@@ -114,8 +95,8 @@ export class ApiClient {
       body: body === undefined ? undefined : JSON.stringify(body),
     }
 
-    let response = await this.performRequest(url, init, requestHeaders)
-    response = await this.retryWithFreshToken(url, init, requestHeaders, response)
+    const response = await this.performRequest(url, init, requestHeaders)
+    this.handleUnauthorizedResponse(response, requestHeaders)
 
     if (!response.ok) {
       const error = await parseErrorPayload(response)
@@ -140,6 +121,15 @@ export class ApiClient {
 
   post<T>(endpoint: string, body?: unknown, token?: string) {
     return this.request<T>(endpoint, { method: 'POST', body, token })
+  }
+
+  postNoContent(endpoint: string, body?: unknown, token?: string) {
+    return this.request<void>(endpoint, {
+      method: 'POST',
+      body,
+      token,
+      expectJson: false,
+    })
   }
 
   patch<T>(endpoint: string, body?: unknown, token?: string) {

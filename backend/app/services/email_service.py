@@ -1,5 +1,3 @@
-"""Email helpers for donor receipts and goods donation notifications."""
-
 import logging
 import os
 from email.message import EmailMessage
@@ -13,7 +11,6 @@ from email_validator import EmailNotValidError, validate_email
 
 logger = logging.getLogger("uvicorn.error")
 
-# Ensure backend/.env values are available for SMTP configuration.
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
@@ -110,16 +107,6 @@ async def _send_email_message(
 
 
 async def send_thank_you_email(to_email: str, donation_type: str, details: Any) -> None:
-    """
-    Send a donation thank-you email through SMTP.
-
-    Environment variables:
-    - SMTP_USERNAME (required)
-    - SMTP_PASSWORD (required)
-    - SMTP_FROM_EMAIL (optional, falls back to SMTP_USERNAME)
-    - SMTP_HOST (optional, default: smtp.gmail.com)
-    - SMTP_PORT (optional, default: 587)
-    """
     logger.info("Email task started for recipient=%s donation_type=%s", to_email, donation_type)
 
     recipient = _normalize_recipient(to_email)
@@ -181,6 +168,49 @@ async def send_goods_donation_notification(
         f"Preferred Pickup Date: {pickup_date or 'Not provided'}\n"
         f"Notes: {notes or 'None'}\n\n"
         "Please contact the donor to arrange collection or drop-off."
+    )
+
+    await _send_email_message(message)
+
+
+async def send_cash_donation_notification(
+    *,
+    notification_email: str | None,
+    food_bank_name: str | None,
+    donor_name: str | None,
+    donor_email: str,
+    amount_pence: int,
+    donation_frequency: str,
+    payment_reference: str,
+    subscription_reference: str | None = None,
+    next_charge_date: str | None = None,
+) -> None:
+    recipient = _normalize_recipient(notification_email) or _normalize_recipient(
+        _operations_fallback_email()
+    )
+    if recipient is None:
+        logger.warning("No valid notification email configured for cash donation alert")
+        return
+
+    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
+    donation_scope = food_bank_name or "Platform operations"
+    amount_gbp = amount_pence / 100
+    frequency_label = "Monthly" if donation_frequency == "monthly" else "One-off"
+
+    message = EmailMessage()
+    message["From"] = smtp_from_email
+    message["To"] = recipient
+    message["Subject"] = "New Cash Donation | ABC Community Food Bank"
+    message.set_content(
+        "A new cash donation has been submitted.\n\n"
+        f"Donation Route: {donation_scope}\n"
+        f"Donor Name: {donor_name or 'Anonymous'}\n"
+        f"Donor Email: {donor_email}\n"
+        f"Amount: GBP {amount_gbp:.2f}\n"
+        f"Frequency: {frequency_label}\n"
+        f"Payment Reference: {payment_reference}\n"
+        f"Subscription Reference: {subscription_reference or 'Not applicable'}\n"
+        f"Next Charge Date: {next_charge_date or 'Not applicable'}\n"
     )
 
     await _send_email_message(message)

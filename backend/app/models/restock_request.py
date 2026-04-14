@@ -1,23 +1,18 @@
-"""
-RestockRequest model representing requests to replenish inventory.
-
-From spec section 1 for the `restock_requests` table:
-restock request records are generated automatically or manually when an
-inventory item's stock falls below its threshold. Admins review requests,
-prioritize by urgency, and assign them to staff. Status tracks lifecycle:
-open (pending action), fulfilled (stock replenished), or cancelled (obsolete).
-"""
-
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .inventory_item import InventoryItem
+    from .user import User
 
 
 class RestockRequest(Base):

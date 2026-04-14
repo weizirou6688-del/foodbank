@@ -1,10 +1,9 @@
-import {
-  foodBanksAPI,
-  type ExternalFoodBankRecord,
-} from '@/shared/lib/api'
+import { foodBanksAPI, type ExternalFoodBankRecord } from '@/shared/lib/api/foodBanks'
 
 const SEARCH_RADIUS_KM = 5
 const FEED_CACHE_TTL_MS = 10 * 60 * 1000
+
+export const BACKEND_API_UNAVAILABLE_MESSAGE = 'Food bank lookup service is temporarily unavailable.'
 
 export interface NearbyFoodBank {
   name: string
@@ -24,6 +23,55 @@ let cachedFoodbanksAt = 0
 let inFlightFoodbanksRequest: Promise<ExternalFoodBankRecord[]> | null = null
 const postcodeCache = new Map<string, { lat: number; lng: number }>()
 
+function extractErrorMessage(error: unknown) {
+  if (typeof error === 'string') {
+    return error.trim()
+  }
+
+  if (error instanceof Error) {
+    return error.message.trim()
+  }
+
+  if (error && typeof error === 'object') {
+    if ('message' in error && typeof error.message === 'string') {
+      return error.message.trim()
+    }
+
+    if ('detail' in error && typeof error.detail === 'string') {
+      return error.detail.trim()
+    }
+  }
+
+  return ''
+}
+
+export function getFoodBankLookupErrorMessage(
+  error: unknown,
+  backendUnavailableMessage = BACKEND_API_UNAVAILABLE_MESSAGE,
+) {
+  const message = extractErrorMessage(error)
+  if (!message) {
+    return backendUnavailableMessage
+  }
+
+  const normalizedMessage = message.toLowerCase()
+
+  if (
+    normalizedMessage.includes('temporarily unavailable')
+    || normalizedMessage.includes('failed to fetch')
+    || normalizedMessage.includes('network error')
+    || normalizedMessage.includes('network request failed')
+  ) {
+    return backendUnavailableMessage
+  }
+
+  if (normalizedMessage.includes('invalid postcode')) {
+    return 'We could not find that postcode. Please check it and try again.'
+  }
+
+  return message
+}
+
 export async function getCoordinatesFromPostcode(postcode: string): Promise<{ lat: number; lng: number }> {
   const normalizedPostcode = postcode.trim()
   const cachedCoords = postcodeCache.get(normalizedPostcode.toUpperCase())
@@ -40,7 +88,7 @@ export async function getCoordinatesFromPostcode(postcode: string): Promise<{ la
   return coords
 }
 
-export async function getAllFoodbanks(): Promise<ExternalFoodBankRecord[]> {
+async function getAllFoodbanks(): Promise<ExternalFoodBankRecord[]> {
   const now = Date.now()
   if (cachedFoodbanks && now - cachedFoodbanksAt < FEED_CACHE_TTL_MS) {
     return cachedFoodbanks
@@ -92,7 +140,6 @@ function parseCoordinates(foodbank: ExternalFoodBankRecord): { lat: number; lng:
   const [latStr, lngStr] = foodbank.latt_long.split(',')
   const lat = Number(latStr)
   const lng = Number(lngStr)
-
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return null
   }

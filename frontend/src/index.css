@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @layer base {
   :root {
     /* Primary yellow palette */
@@ -9,7 +8,6 @@
     --yellow-mid: #FDE047;
     --yellow-dark: #EAB308;
     --yellow-deep: #CA8A04;
-
     /* Neutrals */
     --black: #111111;
     --navy: #1A1A1A;
@@ -19,21 +17,17 @@
     --gray-600: #525252;
     --gray-800: #262626;
     --white: #FFFFFF;
-
     /* Keep for errors */
     --danger: #DC2626;
   }
-
   * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
   }
-
   html {
     scroll-behavior: smooth;
   }
-
   body {
     font-family: 'DM Sans', system-ui, sans-serif;
     background-color: #FFFFFF;
@@ -41,18 +35,15 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-
   h1, h2, h3, h4 {
     font-family: 'Playfair Display', Georgia, serif;
   }
 }
-
 @layer utilities {
   .font-display {
     font-family: 'Playfair Display', Georgia, serif;
   }
 }
-
 .public-page-font,
 .public-page-font h1,
 .public-page-font h2,
@@ -66,7 +57,6 @@
 .public-page-font input {
   font-family: 'Inter', system-ui, sans-serif;
 }
-
 /* Fade-in animation used by Admin sections */
 .fade-in {
   animation: fadeIn 0.3s ease-in-out;
@@ -75,13 +65,11 @@
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: none; }
 }
-
 ._modalOverlay_fmbrn_179 {
   background: rgba(17, 17, 17, 0.38);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
-
 .leaflet-container,
 .leaflet-pane,
 .leaflet-top,

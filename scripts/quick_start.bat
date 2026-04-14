@@ -68,7 +68,7 @@ exit /b 0
 :check_prerequisites
 if not exist "%BACKEND_ENV_FILE%" (
     echo   - Missing backend\.env file
-    echo   - Run: cd backend ^&^& copy .env.example .env
+    echo   - Create backend\.env manually, then retry quick_start.bat
     exit /b 1
 )
 

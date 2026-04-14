@@ -1,68 +1,11 @@
-"""
-Initial schema creation for ABC Community Food Bank system.
+"""Create the initial application schema.
 
-Revision ID: 20260324_0001
-Revises: (none - this is the base migration)
-Create Date: 2026-03-24 00:00:00.000000
-
-=== TABLE CREATION STRATEGY ===
-
-Tables are created in dependency order to respect foreign keys:
-
-1. INDEPENDENT TABLES (no foreign keys):
-   - users: Base entity for all role-based actors (public, supermarket, admin).
-   - food_banks: Physical locations in the network.
-   - inventory_items: Atomic food units tracked in inventory.
-   - donations_cash: Cash donation records (no user FK, allows anonymous).
-
-2. DEPENDS ON food_banks:
-   - food_bank_hours: Operating hours for each location (FK -> food_banks).
-   - food_packages: Pre-configured packages (FK -> food_banks, nullable).
-
-3. DEPENDS ON users AND food_banks:
-   - applications: User requests for packages (FK -> users, food_banks).
-   - donations_goods: Goods donations with optional user link (FK -> users, nullable).
-
-4. JUNCTIONS (depends on parent tables):
-   - package_items: Maps inventory items to packages (FK -> food_packages, inventory_items).
-   - application_items: Details packages in applications (FK -> applications, food_packages).
-   - donation_goods_items: Details items in goods donations (FK -> donations_goods).
-   - restock_requests: Restock alerts (FK -> inventory_items, users nullable).
-
-=== KEY DESIGN DECISIONS ===
-
-• pgcrypto extension: Required for gen_random_uuid() UUID generation.
-• UUID vs Integer PKs: UUIDs used for user-facing entities (users, applications, donations)
-  for security/privacy. Integer autoincrement for internal/inventory tables for efficiency.
-• Cascade policies:
-  - CASCADE: Child records deleted when parent deleted (e.g., application_items with application).
-  - SET NULL: Foreign keys nullified when parent deleted (e.g., donor_user_id for anonymous preservation).
-  - RESTRICT: Prevents parent deletion (e.g., food_bank deletion if applications exist).
-• Status/Enum columns: Implemented as VARCHAR with CHECK constraints (no separate enum tables
-  at this stage; Pydantic schemas handle validation).
-• Indexes: Added on frequently queried columns (status, weekly_period, food_bank_id, email, etc.)
-  but NOT on UNIQUE columns (which auto-create indexes).
-• Server defaults: ALL timestamps use server-side NOW() for consistency and server time reliability.
-  Stock/threshold columns default to safe/sensible values (0 for stock, 10/5 for thresholds).
-
-=== FROM SPECIFICATION REFERENCE ===
-
-This migration implements all entities from Technical Specification:
-- § 1 Data Model: All 11 tables (users, food_banks, food_bank_hours, inventory_items,
-  food_packages, package_items, applications, application_items, donations_cash,
-  donations_goods, donation_goods_items, restock_requests).
-- § 2 Relationships: All one-to-many, many-to-many, and nullable relationships.
-- § 3 Business Rules: CHECK constraints enforce role, status, and urgency enums.
-
-Password hashing (bcrypt), weekly application limits, and atomic stock deduction
-are handled in application service layer, not at schema level.
+This is the base Alembic revision for the project.
 """
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
-
-
 
 # revision identifiers, used by Alembic.
 revision = "20260324_0001"
@@ -72,8 +15,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Enable pgcrypto extension for UUID generation (gen_random_uuid requires it).
-    # IF NOT EXISTS prevents errors if already enabled.
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 
     op.create_table(
@@ -182,7 +123,6 @@ def upgrade() -> None:
     op.create_index(op.f("ix_applications_status"), "applications", ["status"], unique=False)
     op.create_index(op.f("ix_applications_user_id"), "applications", ["user_id"], unique=False)
     op.create_index(op.f("ix_applications_weekly_period"), "applications", ["weekly_period"], unique=False)
-    # Composite index for weekly limit query: SELECT SUM(total_quantity) WHERE user_id=? AND weekly_period=?
     op.create_index("ix_applications_user_weekly_period", "applications", ["user_id", "weekly_period"], unique=False)
 
     op.create_table(
