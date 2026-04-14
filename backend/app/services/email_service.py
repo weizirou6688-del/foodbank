@@ -1,25 +1,22 @@
 import logging
-import os
 from email.message import EmailMessage
-from pathlib import Path
 from typing import Any
 
 import aiosmtplib
-from dotenv import load_dotenv
 from email_validator import EmailNotValidError, validate_email
+
+from app.core.config import settings
 
 
 logger = logging.getLogger("uvicorn.error")
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-
 
 def _load_smtp_settings() -> dict[str, str | int | None]:
-    smtp_username = os.getenv("SMTP_USERNAME")
-    smtp_password = os.getenv("SMTP_PASSWORD")
-    smtp_from_email = os.getenv("SMTP_FROM_EMAIL") or smtp_username
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = settings.smtp_username
+    smtp_password = settings.smtp_password
+    smtp_from_email = settings.smtp_sender_email
+    smtp_host = settings.smtp_host
+    smtp_port = settings.smtp_port
 
     if smtp_password:
         smtp_password = smtp_password.replace(" ", "")
@@ -46,12 +43,18 @@ def _normalize_recipient(to_email: str | None) -> str | None:
 
 
 def _operations_fallback_email() -> str | None:
-    return (
-        os.getenv("PLATFORM_OPERATIONS_EMAIL")
-        or os.getenv("OPERATIONS_NOTIFICATION_EMAIL")
-        or os.getenv("SMTP_FROM_EMAIL")
-        or os.getenv("SMTP_USERNAME")
-    )
+    return settings.operations_fallback_email
+
+
+def _get_sender_email(*, raise_on_failure: bool = False) -> str | None:
+    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
+    if smtp_from_email:
+        return smtp_from_email
+
+    logger.warning("SMTP sender email missing; skip email send")
+    if raise_on_failure:
+        raise RuntimeError("SMTP config missing")
+    return None
 
 
 def is_smtp_configured() -> bool:
@@ -115,7 +118,9 @@ async def send_thank_you_email(to_email: str, donation_type: str, details: Any) 
         return
 
     donation_label = "Cash" if donation_type == "cash" else "Goods"
-    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
+    smtp_from_email = _get_sender_email()
+    if smtp_from_email is None:
+        return
 
     message = EmailMessage()
     message["From"] = smtp_from_email
@@ -151,7 +156,9 @@ async def send_goods_donation_notification(
         logger.warning("No valid notification email configured for goods donation alert")
         return
 
-    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
+    smtp_from_email = _get_sender_email()
+    if smtp_from_email is None:
+        return
 
     message = EmailMessage()
     message["From"] = smtp_from_email
@@ -192,7 +199,9 @@ async def send_cash_donation_notification(
         logger.warning("No valid notification email configured for cash donation alert")
         return
 
-    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
+    smtp_from_email = _get_sender_email()
+    if smtp_from_email is None:
+        return
     donation_scope = food_bank_name or "Platform operations"
     amount_gbp = amount_pence / 100
     frequency_label = "Monthly" if donation_frequency == "monthly" else "One-off"
@@ -226,7 +235,7 @@ async def send_password_reset_email(
     if recipient is None:
         raise ValueError("Recipient email is empty or invalid")
 
-    smtp_from_email = _load_smtp_settings()["smtp_from_email"]
+    smtp_from_email = _get_sender_email(raise_on_failure=True)
 
     message = EmailMessage()
     message["From"] = smtp_from_email

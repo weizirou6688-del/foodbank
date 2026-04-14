@@ -32,12 +32,10 @@ class PasswordResetToken(Base):
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         nullable=False,
-        index=True,
     )
     used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=False),
         nullable=True,
-        index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),

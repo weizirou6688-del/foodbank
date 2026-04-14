@@ -21,13 +21,6 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def _build_default_cors_origins() -> List[str]:
     frontend_start = _env_int("FRONTEND_PORT", 5173)
     frontend_end = _env_int("FRONTEND_FALLBACK_PORT_END", frontend_start)
@@ -73,10 +66,6 @@ class Settings(BaseSettings):
     frontend_preview_port: int = Field(
         default=_env_int("FRONTEND_PREVIEW_PORT", 4173),
         description="Vite preview port for local development",
-    )
-    seed_demo_data: bool = Field(
-        default=_env_bool("SEED_DEMO_DATA", True),
-        description="Whether quick-start tooling should explicitly seed demo data",
     )
 
     secret_key: str = Field(
@@ -136,6 +125,26 @@ class Settings(BaseSettings):
         default=None,
         description="From email address for SMTP messages",
     )
+    platform_operations_email: str | None = Field(
+        default=None,
+        description="Primary operations mailbox for platform-level notifications",
+    )
+    operations_notification_email: str | None = Field(
+        default=None,
+        description="Legacy fallback operations mailbox for notifications",
+    )
+
+    @property
+    def smtp_sender_email(self) -> str | None:
+        return self.smtp_from_email or self.smtp_username
+
+    @property
+    def operations_fallback_email(self) -> str | None:
+        return (
+            self.platform_operations_email
+            or self.operations_notification_email
+            or self.smtp_sender_email
+        )
 
     model_config = {
         "env_file_encoding": "utf-8",

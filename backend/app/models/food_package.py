@@ -3,7 +3,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -21,6 +31,17 @@ class FoodPackage(Base):
             "category IN ('Pantry & Spices','Breakfast','Lunchbox','Family Bundle','Emergency Pack')",
             name="ck_food_packages_category",
         ),
+        Index(
+            "idx_food_packages_active",
+            "id",
+            postgresql_where=text("(is_active = true) AND (deleted_at IS NULL)"),
+        ),
+        Index(
+            "idx_food_packages_active_stock",
+            "food_bank_id",
+            postgresql_where=text("(is_active = true) AND (deleted_at IS NULL)"),
+        ),
+        Index("idx_food_packages_deleted_at", "deleted_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -46,6 +67,16 @@ class FoodPackage(Base):
         DateTime(timezone=False),
         nullable=False,
         server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        server_default=text("now()"),
+        onupdate=text("now()"),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     food_bank: Mapped["FoodBank | None"] = relationship(back_populates="packages")

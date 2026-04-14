@@ -5,13 +5,14 @@ import asyncio
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 
 from _bootstrap import ensure_backend_on_path
 
 ensure_backend_on_path()
 
 from app.core.bootstrap import DEMO_PACKAGES  # noqa: E402
+from app.core.bootstrap_seed import DEMO_SCOPED_GOODS_DONOR_EMAILS  # noqa: E402
 from app.core.database import AsyncSessionLocal  # noqa: E402
 from app.core.db_utils import fetch_rows, fetch_scalars  # noqa: E402
 from app.models.application import Application  # noqa: E402
@@ -56,7 +57,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def _goods_filters(analytics_user_ids: list[UUID]) -> list:
-    filters = [DonationGoods.donor_email.like(ANALYTICS_GOODS_EMAIL_PATTERN)]
+    filters = [
+        and_(
+            DonationGoods.donor_email.like(ANALYTICS_GOODS_EMAIL_PATTERN),
+            DonationGoods.donor_email.not_in(DEMO_SCOPED_GOODS_DONOR_EMAILS),
+        )
+    ]
     if analytics_user_ids:
         filters.append(DonationGoods.donor_user_id.in_(analytics_user_ids))
     return filters

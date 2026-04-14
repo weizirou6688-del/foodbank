@@ -9,6 +9,7 @@ from _bootstrap import ensure_backend_on_path
 ensure_backend_on_path()
 
 from app.core.config import settings  # noqa: E402
+from app.core.database_urls import to_plain_postgres_dsn  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,7 +26,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    dsn = settings.database_url.replace("+asyncpg", "")
+    dsn = to_plain_postgres_dsn(settings.database_url)
 
     try:
         with psycopg2.connect(dsn, connect_timeout=3) as conn:
