@@ -20,6 +20,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.core.config import settings
+from app.core.database_urls import to_sync_sqlalchemy_url
 from app.models import Base
 
 
@@ -30,15 +31,6 @@ config = context.config
 # Interpret the config file for Python logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
-
-def get_sync_database_url(database_url: str) -> str:
-    """Convert async PostgreSQL URL to sync URL for Alembic."""
-    return database_url.replace(
-        "postgresql+asyncpg://",
-        "postgresql+psycopg2://",
-    )
-
 
 def get_online_migration_config() -> dict[str, str]:
     """Return a mutable config mapping for online migrations."""
@@ -66,7 +58,7 @@ def configure_online_context(connection) -> None:
 
 
 # Set the SQLAlchemy URL from settings (converted to sync)
-sync_database_url = get_sync_database_url(settings.database_url)
+sync_database_url = to_sync_sqlalchemy_url(settings.database_url)
 config.set_main_option("sqlalchemy.url", sync_database_url)
 
 # Model's MetaData object for 'autogenerate' support

@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,14 @@ class Application(Base):
             "status IN ('pending','collected','expired')",
             name="ck_applications_status",
         ),
+        Index(
+            "idx_applications_active",
+            "id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("idx_applications_deleted_at", "deleted_at"),
+        Index("idx_applications_status", "status"),
+        Index("idx_applications_user_week", "user_id", "week_start"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -49,7 +57,7 @@ class Application(Base):
         server_default=text("'pending'"),
         index=True,
     )
-    week_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
     total_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
@@ -68,7 +76,6 @@ class Application(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        index=True,
     )
 
     user: Mapped["User"] = relationship(back_populates="applications")

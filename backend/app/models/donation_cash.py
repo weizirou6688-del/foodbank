@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,6 +22,12 @@ class DonationCash(Base):
             "donation_frequency IN ('one_time','monthly')",
             name="ck_donations_cash_frequency",
         ),
+        Index(
+            "idx_donations_cash_active",
+            "id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("idx_donations_cash_deleted_at", "deleted_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -66,4 +72,14 @@ class DonationCash(Base):
         DateTime(timezone=False),
         nullable=False,
         server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        server_default=text("now()"),
+        onupdate=text("now()"),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )

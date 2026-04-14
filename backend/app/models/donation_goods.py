@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +37,13 @@ class DonationGoods(Base):
             """,
             name="ck_donations_goods_pickup_date_format",
         ),
+        Index(
+            "idx_donations_goods_active",
+            "id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("idx_donations_goods_deleted_at", "deleted_at"),
+        Index("idx_donations_goods_status", "status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -86,6 +93,16 @@ class DonationGoods(Base):
         DateTime(timezone=False),
         nullable=False,
         server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        server_default=text("now()"),
+        onupdate=text("now()"),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     donor_user: Mapped["User | None"] = relationship(back_populates="goods_donations")

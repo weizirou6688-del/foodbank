@@ -19,7 +19,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
 from app.core.bootstrap import (
     ensure_canonical_redemption_codes,
-    ensure_full_demo_data,
 )
 from app.core.database import check_database_connection, close_db
 from app.core.database_errors import DATABASE_UNAVAILABLE_DETAIL
@@ -46,9 +45,6 @@ async def lifespan(app: FastAPI):
         db_ready, db_error = await check_database_connection()
         if not db_ready:
             raise RuntimeError(db_error or "Database connection check failed")
-
-        if settings.seed_demo_data:
-            await ensure_full_demo_data()
 
         await ensure_canonical_redemption_codes()
         await ensure_dashboard_history()

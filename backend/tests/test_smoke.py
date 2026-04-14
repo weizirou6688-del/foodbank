@@ -23,7 +23,6 @@ def client(monkeypatch) -> Iterator[TestClient]:
         return None
 
     monkeypatch.setattr(main_module, "check_database_connection", _healthy_connection)
-    monkeypatch.setattr(main_module, "ensure_full_demo_data", _noop)
     monkeypatch.setattr(main_module, "ensure_canonical_redemption_codes", _noop)
     monkeypatch.setattr(main_module, "ensure_dashboard_history", _noop)
     monkeypatch.setattr(main_module, "close_db", _noop)

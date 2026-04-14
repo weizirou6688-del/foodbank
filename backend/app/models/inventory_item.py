@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -23,6 +23,12 @@ class InventoryItem(Base):
             "category IN ('Proteins & Meat','Vegetables','Fruits','Dairy','Canned Goods','Grains & Pasta','Snacks','Beverages','Baby Food')",
             name="ck_inventory_items_category",
         ),
+        Index(
+            "idx_inventory_items_active",
+            "id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("idx_inventory_items_deleted_at", "deleted_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -39,11 +45,20 @@ class InventoryItem(Base):
         nullable=True,
         index=True,
     )
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        server_default=text("now()"),
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
         nullable=False,
         server_default=text("now()"),
         onupdate=text("now()"),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     food_bank: Mapped["FoodBank | None"] = relationship(back_populates="inventory_items")

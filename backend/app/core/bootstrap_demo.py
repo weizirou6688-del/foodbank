@@ -1,8 +1,8 @@
-import os
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import or_, select
 
+from app.core.config import settings
 from app.core.bootstrap_seed import (
     DEMO_FOOD_BANKS,
     DEMO_INVENTORY_ITEMS,
@@ -33,12 +33,7 @@ from app.models.user import User
 
 
 def _resolve_demo_notification_email(default_email: str | None) -> str | None:
-    configured_operations_email = (
-        os.getenv("PLATFORM_OPERATIONS_EMAIL")
-        or os.getenv("OPERATIONS_NOTIFICATION_EMAIL")
-        or os.getenv("SMTP_FROM_EMAIL")
-        or os.getenv("SMTP_USERNAME")
-    )
+    configured_operations_email = settings.operations_fallback_email
     normalized_default = (default_email or "").strip()
     normalized_lower = normalized_default.lower()
 

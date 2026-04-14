@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,13 @@ class RestockRequest(Base):
             "status IN ('open','fulfilled','cancelled')",
             name="ck_restock_requests_status",
         ),
+        Index(
+            "idx_restock_requests_active",
+            "id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("idx_restock_requests_assignment", "status", "assigned_to_user_id"),
+        Index("idx_restock_requests_deleted_at", "deleted_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -59,6 +66,16 @@ class RestockRequest(Base):
         DateTime(timezone=False),
         nullable=False,
         server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        server_default=text("now()"),
+        onupdate=text("now()"),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     inventory_item: Mapped["InventoryItem"] = relationship(
