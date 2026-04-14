@@ -1,16 +1,14 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import ProtectedRoute from '@/features/auth/components/ProtectedRoute'
+import RouteErrorPage from './RouteErrorPage'
 
-const Layout = lazy(() => import('@/app/layout/Layout'))
+const Workspace = lazy(() => import('@/pages/Admin/Admin'))
 const Home = lazy(() => import('@/pages/Home/Home'))
 const FindFoodBank = lazy(() => import('@/pages/FindFoodBank/FindFoodBank'))
 const FoodPackages = lazy(() => import('@/pages/FoodPackages/FoodPackages'))
-const ApplicationForm = lazy(() => import('@/pages/ApplicationForm/ApplicationForm'))
 const DonateCash = lazy(() => import('@/pages/DonateCash/DonateCash'))
 const DonateGoods = lazy(() => import('@/pages/DonateGoods/DonateGoods'))
-const Admin = lazy(() => import('@/pages/Admin/Admin'))
-const Supermarket = lazy(() => import('@/pages/Supermarket/Supermarket'))
 
 function RouteFallback() {
   return (
@@ -24,62 +22,67 @@ function withSuspense(node: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{node}</Suspense>
 }
 
+function RouterRoot() {
+  return <Outlet />
+}
+
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/home" replace /> },
-  {
-    path: '/admin-statistics',
-    element: withSuspense(
-      <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
-        <Navigate to="/admin?section=statistics" replace />
-      </ProtectedRoute>,
-    ),
-  },
-  { path: '/home', element: withSuspense(<Home />) },
-  { path: '/donate/cash', element: withSuspense(<DonateCash />) },
-  { path: '/donate/goods', element: withSuspense(<DonateGoods />) },
-  {
-    path: '/admin-food-management',
-    element: withSuspense(
-      <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
-        <Navigate to="/admin?section=food" replace />
-      </ProtectedRoute>,
-    ),
-  },
-  {
-    path: '/supermarket',
-    element: withSuspense(
-      <ProtectedRoute allowedRole="supermarket" showFooterWhenBlocked>
-        <Supermarket />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: '/admin',
-    element: withSuspense(
-      <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
-        <Admin />
-      </ProtectedRoute>
-    ),
-  },
   {
     path: '/',
-    element: withSuspense(<Layout />),
+    element: <RouterRoot />,
+    errorElement: <RouteErrorPage />,
     children: [
+      { index: true, element: <Navigate to="/home" replace /> },
+      {
+        path: 'workspace',
+        element: withSuspense(
+          <ProtectedRoute allowedRole={['admin', 'supermarket']} showFooterWhenBlocked>
+            <Workspace />
+          </ProtectedRoute>,
+        ),
+      },
+      {
+        path: 'admin-statistics',
+        element: withSuspense(
+          <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
+            <Navigate to="/workspace?section=statistics" replace />
+          </ProtectedRoute>,
+        ),
+      },
+      { path: 'home', element: withSuspense(<Home />) },
       { path: 'find-foodbank', element: withSuspense(<FindFoodBank />) },
       {
         path: 'food-packages',
         element: withSuspense(
           <ProtectedRoute>
             <FoodPackages />
-          </ProtectedRoute>
+          </ProtectedRoute>,
+        ),
+      },
+      { path: 'donate/cash', element: withSuspense(<DonateCash />) },
+      { path: 'donate/goods', element: withSuspense(<DonateGoods />) },
+      {
+        path: 'admin-food-management',
+        element: withSuspense(
+          <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
+            <Navigate to="/workspace?section=food" replace />
+          </ProtectedRoute>,
         ),
       },
       {
-        path: 'application',
+        path: 'supermarket',
         element: withSuspense(
-          <ProtectedRoute>
-            <ApplicationForm />
-          </ProtectedRoute>
+          <ProtectedRoute allowedRole="supermarket" showFooterWhenBlocked>
+            <Navigate to="/workspace?section=restock" replace />
+          </ProtectedRoute>,
+        ),
+      },
+      {
+        path: 'admin',
+        element: withSuspense(
+          <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
+            <Navigate to="/workspace?section=food" replace />
+          </ProtectedRoute>,
         ),
       },
       { path: '*', element: <Navigate to="/home" replace /> },

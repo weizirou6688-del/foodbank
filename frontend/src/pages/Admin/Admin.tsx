@@ -1,21 +1,18 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Suspense, useEffect } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '@/app/store/authStore'
 import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
-
-const AdminDataDashboardPreview = lazy(() => import('./AdminDataDashboardPreview'))
-const AdminFoodManagementPreview = lazy(() => import('./AdminFoodManagementPreview'))
-const AdminStatistics = lazy(() => import('./AdminStatistics'))
-const AdminFoodManagement = lazy(() => import('./AdminFoodManagement'))
-
-type Section = 'statistics' | 'food'
-type RenderMode = 'preview' | 'react'
+import {
+  getPrefetchTab,
+  makeWorkspaceUrl,
+  pickActiveTab,
+} from './workspaceTabs'
 
 type IdleWindow = Window &
   typeof globalThis & {
     requestIdleCallback?: (callback: () => void) => number
     cancelIdleCallback?: (handle: number) => void
   }
-
 function AdminSectionFallback() {
   return (
     <>
@@ -26,63 +23,32 @@ function AdminSectionFallback() {
     </>
   )
 }
-
 export default function Admin() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
-  const [section, setSection] = useState<Section>('food')
-  const [renderMode, setRenderMode] = useState<RenderMode>('preview')
+  const userRole = useAuthStore((state) => state.user?.role)
+  const sectionParam = searchParams.get('section')
+  const activeSection = pickActiveTab(userRole, sectionParam)
+  const ActiveSectionComponent = activeSection.component
 
   useEffect(() => {
-    const s = searchParams.get('section')
-    const render = searchParams.get('render')
-
-    if (render === 'react') {
-      setRenderMode('react')
-    } else {
-      setRenderMode('preview')
-    }
-
-    if (s === 'food') {
-      setSection('food')
+    if (sectionParam === activeSection.key) {
       return
     }
-
-    if (s === 'statistics') {
-      setSection('statistics')
-      return
-    }
-
-    setSection('food')
-    const nextParams = new URLSearchParams(searchParams)
-    nextParams.set('section', 'food')
-    if (render === 'react') {
-      nextParams.set('render', 'react')
-    } else {
-      nextParams.delete('render')
-    }
-    navigate(`/admin?${nextParams.toString()}`, { replace: true })
-  }, [navigate, searchParams])
+    navigate(makeWorkspaceUrl(activeSection.key, location.pathname), { replace: true })
+  }, [activeSection.key, location.pathname, navigate, sectionParam])
 
   useEffect(() => {
     const idleWindow = window as IdleWindow
+    const preloadTarget = getPrefetchTab(activeSection.key, userRole)
+
+    if (!preloadTarget) {
+      return
+    }
+
     const preload = () => {
-      if (renderMode === 'react') {
-        if (section === 'food') {
-          void import('./AdminStatistics')
-          return
-        }
-
-        void import('./AdminFoodManagement')
-        return
-      }
-
-      if (section === 'food') {
-        void import('./AdminDataDashboardPreview')
-        return
-      }
-
-      void import('./AdminFoodManagementPreview')
+      void preloadTarget.preload()
     }
 
     if (typeof idleWindow.requestIdleCallback === 'function') {
@@ -93,20 +59,13 @@ export default function Admin() {
         }
       }
     }
-
     const timeoutHandle = window.setTimeout(preload, 300)
     return () => window.clearTimeout(timeoutHandle)
-  }, [renderMode, section])
+  }, [activeSection.key, userRole])
 
   return (
     <Suspense fallback={<AdminSectionFallback />}>
-      {renderMode === 'react'
-        ? section === 'food'
-          ? <AdminFoodManagement onSwitch={setSection} />
-          : <AdminStatistics onSwitch={setSection} />
-        : section === 'food'
-          ? <AdminFoodManagementPreview onSwitch={setSection} />
-          : <AdminDataDashboardPreview />}
+      <ActiveSectionComponent />
     </Suspense>
   )
 }

@@ -275,12 +275,17 @@
   border: 1px solid #FFE8A3;
   border-radius: 10px;
   background-color: #FFF8E1;
+  font-family: inherit;
 }
 
 .demoTitle {
   margin: 0 0 0.75rem;
-  font-size: 1rem;
+  color: #4B4B4B;
+  font-family: inherit;
+  font-size: 0.95rem;
   font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .demoList {
@@ -292,6 +297,7 @@
 .demoItem {
   margin-bottom: 0.35rem;
   color: #78350F;
+  font-family: inherit;
   font-size: 0.95rem;
   line-height: 1.5;
   overflow-wrap: anywhere;

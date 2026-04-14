@@ -1,21 +1,20 @@
-"""
-FoodBank model representing physical food bank locations.
-
-From spec section 1 for the `food_banks` table:
-FoodBank entities represent separate physical locations in the ABC Community
-Food Bank network. Each location has an address, coordinates for mapping, and
-operating hours. Food packages are associated with specific food banks.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Numeric, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .application import Application
+    from .donation_goods import DonationGoods
+    from .food_package import FoodPackage
+    from .inventory_item import InventoryItem
+    from .user import User
 
 
 class FoodBank(Base):
@@ -33,13 +32,6 @@ class FoodBank(Base):
         server_default=text("now()"),
     )
 
-    # food_banks -> food_bank_hours is one-to-many.
-    hours: Mapped[list["FoodBankHour"]] = relationship(
-        back_populates="food_bank",
-        cascade="all, delete-orphan",
-    )
-
-    # food_banks -> food_packages is one-to-many.
     packages: Mapped[list["FoodPackage"]] = relationship(
         back_populates="food_bank",
     )
@@ -48,10 +40,8 @@ class FoodBank(Base):
         back_populates="food_bank",
     )
 
-    # food_banks -> applications is one-to-many.
     applications: Mapped[list["Application"]] = relationship(back_populates="food_bank")
 
-    # food_banks -> donations_goods is one-to-many.
     goods_donations: Mapped[list["DonationGoods"]] = relationship(
         back_populates="food_bank",
     )

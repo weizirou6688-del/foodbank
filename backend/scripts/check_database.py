@@ -1,18 +1,12 @@
-"""
-Validate backend database connectivity for local startup scripts.
-"""
-
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
 import psycopg2
 
-BACKEND_ROOT = Path(__file__).resolve().parents[1]
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
+from _bootstrap import ensure_backend_on_path
+
+ensure_backend_on_path()
 
 from app.core.config import settings  # noqa: E402
 
@@ -36,8 +30,8 @@ def main() -> int:
     try:
         with psycopg2.connect(dsn, connect_timeout=3) as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT current_database(), current_user, 1")
-                database_name, database_user, _ = cur.fetchone()
+                cur.execute("SELECT current_database(), current_user")
+                database_name, database_user = cur.fetchone()
     except Exception as exc:
         print(f"Database check failed: {exc}")
         return 1

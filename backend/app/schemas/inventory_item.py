@@ -1,15 +1,3 @@
-"""
-Pydantic schemas for InventoryItem entity validation and serialization.
-
-These schemas handle:
-- InventoryItemCreate: Specifies name, category, stock, unit, threshold.
-- InventoryItemUpdate: Allows updates to any field (all optional).
-- InventoryItemOut: Response includes ID and updated_at timestamp.
-
-Stock and threshold are non-negative integers.
-Category and name are used for filtering/searching inventory.
-"""
-
 from datetime import date, datetime
 from typing import Literal
 
@@ -36,10 +24,6 @@ class InventoryItemBase(BaseModel):
     threshold: int = Field(default=10, ge=0)
 
 
-class InventoryItemCreate(InventoryItemBase):
-    stock: int = Field(default=0, ge=0)
-
-
 class InventoryItemCreateRequest(BaseModel):
     food_bank_id: int | None = Field(default=None, gt=0)
     name: str = Field(min_length=1, max_length=200)
@@ -52,7 +36,6 @@ class InventoryItemCreateRequest(BaseModel):
 class InventoryItemUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     category: InventoryCategory | None = None
-    stock: int | None = Field(default=None, ge=0)
     unit: str | None = Field(default=None, min_length=1, max_length=50)
     threshold: int | None = Field(default=None, ge=0)
 
@@ -61,14 +44,10 @@ class InventoryItemOut(InventoryItemBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-
-    # Compatibility field for the existing frontend. Routes should populate
-    # this from active lot totals instead of a model column.
     stock: int = 0
 
     food_bank_id: int | None = None
 
-    # Aggregated from active, non-expired inventory lots.
     total_stock: int = 0
 
     updated_at: datetime

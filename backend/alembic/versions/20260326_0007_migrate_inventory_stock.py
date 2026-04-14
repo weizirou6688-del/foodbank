@@ -8,7 +8,6 @@ Strategy: Convert existing stock into inventory_lots records with far-future exp
 then optionally mark stock column as deprecated (retain for backward compatibility during transition).
 """
 from alembic import op
-import sqlalchemy as sa
 
 
 revision = '20260326_0007'

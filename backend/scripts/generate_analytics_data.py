@@ -1,33 +1,21 @@
-"""
-Generate synthetic analytics data for local PostgreSQL environments.
-
-This script is designed for coursework/demo usage. It keeps the generated
-dataset modest by default and can be tuned with CLI arguments.
-"""
-
 from __future__ import annotations
 
 import argparse
 import asyncio
 import random
 import re
-import sys
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from pathlib import Path
 
 from sqlalchemy import select
 
-BACKEND_ROOT = Path(__file__).resolve().parents[1]
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
+from _bootstrap import ensure_backend_on_path
 
-from app.core.bootstrap import (  # noqa: E402
-    ensure_demo_food_banks,
-    ensure_demo_inventory_and_packages,
-    ensure_demo_users,
-)
+ensure_backend_on_path()
+
+from app.core.bootstrap import ensure_base_demo_data  # noqa: E402
 from app.core.database import AsyncSessionLocal  # noqa: E402
+from app.core.db_utils import fetch_scalars as _fetch_scalars  # noqa: E402
 from app.core.redemption_codes import normalize_redemption_code  # noqa: E402
 from app.core.security import get_password_hash  # noqa: E402
 from app.models.application import Application  # noqa: E402
@@ -37,7 +25,6 @@ from app.models.donation_goods import DonationGoods  # noqa: E402
 from app.models.donation_goods_item import DonationGoodsItem  # noqa: E402
 from app.models.food_bank import FoodBank  # noqa: E402
 from app.models.food_package import FoodPackage  # noqa: E402
-from app.models.inventory_item import InventoryItem  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 
@@ -97,32 +84,15 @@ def parse_args() -> GenerationConfig:
     parser = argparse.ArgumentParser(
         description="Generate synthetic local analytics data for the foodbank project.",
     )
-    parser.add_argument("--days", type=int, default=180, help="How many past days to generate.")
-    parser.add_argument(
-        "--public-users",
-        type=int,
-        default=24,
-        help="How many additional synthetic public users to create.",
-    )
-    parser.add_argument(
-        "--cash-per-day",
-        type=int,
-        default=3,
-        help="Average number of cash donations per day.",
-    )
-    parser.add_argument(
-        "--goods-per-day",
-        type=int,
-        default=2,
-        help="Average number of goods donations per day.",
-    )
-    parser.add_argument(
-        "--applications-per-week",
-        type=int,
-        default=14,
-        help="Average number of applications per week.",
-    )
-    parser.add_argument("--seed", type=int, default=20260329, help="Random seed.")
+    for flag, default, help_text in [
+        ("--days", 180, "How many past days to generate."),
+        ("--public-users", 24, "How many additional synthetic public users to create."),
+        ("--cash-per-day", 3, "Average number of cash donations per day."),
+        ("--goods-per-day", 2, "Average number of goods donations per day."),
+        ("--applications-per-week", 14, "Average number of applications per week."),
+        ("--seed", 20260329, "Random seed."),
+    ]:
+        parser.add_argument(flag, type=int, default=default, help=help_text)
     args = parser.parse_args()
     return GenerationConfig(
         days=max(args.days, 1),
@@ -164,16 +134,16 @@ def extract_postcode_from_address(address: str) -> str | None:
         return None
     return match.group(1).upper()
 
-
 async def ensure_public_users(
     db,
     count: int,
     rng: random.Random,
 ) -> list[User]:
     users: list[User] = []
-    existing = (
-        await db.execute(select(User).where(User.email.like("analytics.user.%@example.com")))
-    ).scalars().all()
+    existing = await _fetch_scalars(
+        db,
+        select(User).where(User.email.like("analytics.user.%@example.com")),
+    )
     existing_by_email = {user.email: user for user in existing}
 
     for index in range(1, count + 1):
@@ -304,7 +274,7 @@ async def generate_applications(
     for week_offset in range(total_weeks):
         week_start = monday_of_week(date.today() - timedelta(days=week_offset * 7))
         count = max(0, int(round(config.applications_per_week + rng.choice([-2, -1, 0, 1, 2]))))
-        for app_index in range(count):
+        for _ in range(count):
             bank = rng.choice(available_food_banks)
             bank_packages = packages_by_bank.get(bank.id, [])
             if not bank_packages:
@@ -389,19 +359,15 @@ async def main() -> None:
     config = parse_args()
     rng = random.Random(config.seed)
 
-    await ensure_demo_users()
-    await ensure_demo_food_banks()
-    await ensure_demo_inventory_and_packages()
+    await ensure_base_demo_data()
 
     async with AsyncSessionLocal() as db:
         public_users = await ensure_public_users(db, config.public_users, rng)
-        food_banks = (await db.execute(select(FoodBank).order_by(FoodBank.id))).scalars().all()
-        packages = (
-            await db.execute(
-                select(FoodPackage).where(FoodPackage.is_active.is_(True)).order_by(FoodPackage.id)
-            )
-        ).scalars().all()
-        _ = (await db.execute(select(InventoryItem).order_by(InventoryItem.id))).scalars().all()
+        food_banks = await _fetch_scalars(db, select(FoodBank).order_by(FoodBank.id))
+        packages = await _fetch_scalars(
+            db,
+            select(FoodPackage).where(FoodPackage.is_active.is_(True)).order_by(FoodPackage.id),
+        )
 
         cash_count = await generate_cash_donations(db, rng, config)
         goods_count = await generate_goods_donations(db, rng, config, public_users, food_banks)
@@ -418,12 +384,15 @@ async def main() -> None:
         await db.commit()
 
     print("Synthetic analytics data generation complete.")
-    print(f"Days covered: {config.days}")
-    print(f"Synthetic public users ensured: {config.public_users}")
-    print(f"Cash donations created: {cash_count}")
-    print(f"Goods donations created: {goods_count}")
-    print(f"Applications created: {application_count}")
-    print(f"Packages forced below threshold for stock-gap analysis: {low_stock_packages}")
+    for label, value in [
+        ("Days covered", config.days),
+        ("Synthetic public users ensured", config.public_users),
+        ("Cash donations created", cash_count),
+        ("Goods donations created", goods_count),
+        ("Applications created", application_count),
+        ("Packages forced below threshold for stock-gap analysis", low_stock_packages),
+    ]:
+        print(f"{label}: {value}")
 
 
 if __name__ == "__main__":

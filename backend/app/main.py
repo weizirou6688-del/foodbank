@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import app.routers.applications as applications
 import app.routers.auth as auth
@@ -7,7 +8,7 @@ import app.routers.food_packages as food_packages
 import app.routers.inventory as inventory
 import app.routers.restock as restock
 import app.routers.stats as stats
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, status
 from fastapi.exceptions import RequestValidationError
@@ -22,7 +23,11 @@ from app.core.bootstrap import (
 )
 from app.core.database import check_database_connection, close_db
 from app.core.database_errors import DATABASE_UNAVAILABLE_DETAIL
-from app.services.dashboard_history_service import ensure_dashboard_history
+from app.services.application_expiry_service import (
+    run_application_expiry_loop,
+    run_application_expiry_pass,
+)
+from app.services.dashboard_history_backfill_service import ensure_dashboard_history
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +40,7 @@ def _json_response(http_status: int, **content) -> JSONResponse:
 async def lifespan(app: FastAPI):
     db_ready = False
     db_error: str | None = None
+    application_expiry_task: asyncio.Task[None] | None = None
 
     try:
         db_ready, db_error = await check_database_connection()
@@ -46,6 +52,15 @@ async def lifespan(app: FastAPI):
 
         await ensure_canonical_redemption_codes()
         await ensure_dashboard_history()
+        try:
+            await run_application_expiry_pass()
+        except Exception as exc:
+            logger.warning("Initial application expiry pass skipped: %s", exc)
+
+        application_expiry_task = asyncio.create_task(
+            run_application_expiry_loop(),
+            name="application-expiry-loop",
+        )
         print("Database connected")
     except Exception as exc:
         db_error = str(exc)
@@ -56,6 +71,11 @@ async def lifespan(app: FastAPI):
     app.state.db_error = db_error
 
     yield
+
+    if application_expiry_task is not None:
+        application_expiry_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await application_expiry_task
 
     await close_db()
     print("Database connections closed")
@@ -139,42 +159,33 @@ async def general_exception_handler(request, exc: Exception):
 
 @app.get("/", tags=["Health"])
 async def root():
-    return {"message": "ABC Community Food Bank API", "status": "running", "version": "1.0.0"}
+    return {
+        "message": settings.app_name,
+        "status": "running",
+        "version": "1.0.0",
+    }
 
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     if getattr(app.state, "db_ready", False):
         return {"status": "ok", "database": "connected"}
-
     return _json_response(
         status.HTTP_503_SERVICE_UNAVAILABLE,
         status="degraded",
         database="unavailable",
-        detail=getattr(app.state, "db_error", None) or DATABASE_UNAVAILABLE_DETAIL,
+        detail=getattr(app.state, "db_error", DATABASE_UNAVAILABLE_DETAIL),
     )
 
-API_ROUTERS = (
-    (auth.router, "/api/v1/auth", ["Auth"]),
+
+for router, prefix, tags in (
+    (auth.router, "/api/v1/auth", ["Authentication"]),
     (food_banks.router, "/api/v1/food-banks", ["Food Banks"]),
-    (food_packages.router, "/api/v1", ["Food Packages"]),
     (applications.router, "/api/v1/applications", ["Applications"]),
     (donations.router, "/api/v1/donations", ["Donations"]),
     (inventory.router, "/api/v1/inventory", ["Inventory"]),
-    (restock.router, "/api/v1/restock-requests", ["Restock Requests"]),
-    (stats.router, "/api/v1/stats", ["Statistics"]),
-)
-
-for router, prefix, tags in API_ROUTERS:
+    (food_packages.router, "/api/v1", ["Food Packages"]),
+    (restock.router, "/api/v1/restock", ["Restock"]),
+    (stats.router, "/api/v1/stats", ["Stats"]),
+):
     app.include_router(router, prefix=prefix, tags=tags)
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=settings.backend_port,
-        reload=settings.debug,
-    )

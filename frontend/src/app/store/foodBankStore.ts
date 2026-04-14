@@ -1,32 +1,22 @@
 import { create } from 'zustand'
-import type { FoodBank, FoodPackage, InventoryItem } from '@/shared/types/common'
+import type { FoodBank } from '@/shared/types/foodBanks'
+import type { InventoryItem } from '@/shared/types/inventory'
+import type { FoodPackage } from '@/shared/types/packages'
+import { adminAPI, type InventoryItemCreatePayload, type InventoryItemUpdatePayload } from '@/shared/lib/api/admin'
+import { applicationsAPI, type ApplicationCreatePayload } from '@/shared/lib/api/applications'
+import { foodBanksAPI } from '@/shared/lib/api/foodBanks'
+import { packagesAPI } from '@/shared/lib/api/packages'
+import { buildFoodBankDisplayAddress, findInternalFoodBankMatch } from '@/shared/lib/foodBankAddress'
 import {
-  adminAPI,
-  applicationsAPI,
-  foodBanksAPI,
-  packagesAPI,
-  type ApplicationCreatePayload,
-  type InventoryItemUpdatePayload,
-  type InventoryItemCreatePayload,
-} from '@/shared/lib/api'
-import { buildFoodBankDisplayAddress } from '@/shared/lib/foodBankAddress'
-import { getAdminScopeMeta } from '@/shared/lib/adminScope'
+  getAdminScopeMeta,
+  isAdminFoodBankSelectionRequired,
+  resolveAdminTargetFoodBankId,
+} from '@/shared/lib/adminScope'
 import { useAuthStore } from './authStore'
 import { getCoordinatesFromPostcode, getNearbyFoodbanks, getRankedFoodbanks } from '@/utils/foodbankApi'
-
-interface InternalFoodBankRecord {
-  id: number
-  name: string
-  address: string
-  lat?: number
-  lng?: number
-  systemMatched?: boolean
-}
-
 interface SearchableInternalFoodBank extends FoodBank {
   packageCount: number
 }
-
 const normalizeFoodBank = (bank: {
   id: number | string
   name: string
@@ -48,7 +38,6 @@ const normalizeFoodBank = (bank: {
   url: bank.url,
   systemMatched: bank.systemMatched,
 })
-
 const normalizeInventoryItem = (item: {
   id: number | string
   name: string
@@ -67,13 +56,11 @@ const normalizeInventoryItem = (item: {
   threshold: Number(item.threshold ?? 0),
   foodBankId: item.food_bank_id == null ? undefined : Number(item.food_bank_id),
 })
-
 const replaceInventoryItem = (
   inventory: InventoryItem[],
   itemId: number,
   nextItem: InventoryItem,
 ): InventoryItem[] => inventory.map((item) => (item.id === itemId ? nextItem : item))
-
 type RawPackage = {
   id: number | string
   name: string
@@ -88,12 +75,10 @@ type RawPackage = {
   image_url?: string | null
   image?: string | null
 }
-
 type UserApplicationSummary = {
   week_start?: string
   total_quantity?: number
 }
-
 const normalizeNamedPackageItems = (
   items: RawPackage['items'],
 ): FoodPackage['items'] => (
@@ -104,7 +89,6 @@ const normalizeNamedPackageItems = (
       }))
     : []
 )
-
 const normalizePackageContents = (
   contents: RawPackage['contents'],
 ): FoodPackage['items'] => (
@@ -115,13 +99,11 @@ const normalizePackageContents = (
       }))
     : []
 )
-
 const normalizePackage = (
   pkg: RawPackage,
   itemsOverride?: FoodPackage['items'],
 ): FoodPackage => {
   const namedItems = normalizeNamedPackageItems(pkg.items)
-
   return {
     id: Number(pkg.id),
     name: pkg.name,
@@ -134,7 +116,6 @@ const normalizePackage = (
     image: pkg.image_url ?? pkg.image ?? '',
   }
 }
-
 const getRequiredAccessToken = (): string => {
   const token = useAuthStore.getState().accessToken
   if (!token) {
@@ -164,30 +145,6 @@ const resolveSelectedFoodBank = async (
   set({ selectedFoodBank: fallbackBank })
   return fallbackBank
 }
-
-const normalizeText = (value: string): string =>
-  value.trim().toLowerCase().replace(/\s+/g, ' ')
-
-const findInternalFoodBankMatch = (
-  candidate: { name: string; address: string },
-  internalBanks: InternalFoodBankRecord[],
-): InternalFoodBankRecord | null => {
-  // There is no universal external/internal id bridge, so matching is
-  // currently heuristic: normalized name and address comparisons.
-  const normalizedName = normalizeText(candidate.name)
-  const normalizedAddress = normalizeText(candidate.address)
-
-  return internalBanks.find((bank) => {
-    const bankName = normalizeText(bank.name)
-    const bankAddress = normalizeText(bank.address)
-
-    return bankName === normalizedName
-      || bankAddress === normalizedAddress
-      || (bankName.includes(normalizedName) || normalizedName.includes(bankName))
-      || (bankAddress.includes(normalizedAddress) || normalizedAddress.includes(bankAddress))
-  }) ?? null
-}
-
 const getCurrentWeekMonday = (): string => {
   const today = new Date()
   const date = new Date(today)
@@ -196,7 +153,6 @@ const getCurrentWeekMonday = (): string => {
   date.setDate(diff)
   return date.toISOString().split('T')[0]
 }
-
 const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const earthRadiusKm = 6371
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -208,7 +164,6 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return earthRadiusKm * c
 }
-
 interface FoodBankState {
   searchPostcode: string
   searchResults: FoodBank[]
@@ -217,12 +172,10 @@ interface FoodBankState {
   isSearching: boolean
   searchError: string | null
   selectedFoodBank: FoodBank | null
-
   packages: FoodPackage[]
   inventory: InventoryItem[]
   availableItems: InventoryItem[]
   weeklyCollected: number
-
   setSearchPostcode: (postcode: string) => void
   searchFoodBanks: (postcode: string) => Promise<void>
   selectFoodBank: (fb: FoodBank) => void
@@ -251,7 +204,6 @@ interface FoodBankState {
   }) => Promise<void>
   updatePackage: (packageId: number, data: Partial<Pick<FoodPackage, 'name' | 'category' | 'description' | 'stock' | 'threshold' | 'appliedCount'>>) => Promise<void>
 }
-
 export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   searchPostcode: '',
   searchResults: [],
@@ -264,9 +216,7 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
   inventory: [],
   availableItems: [],
   weeklyCollected: 0,
-
   setSearchPostcode: (postcode) => set({ searchPostcode: postcode }),
-
   loadPackages: async () => {
     try {
       const foodBank = await resolveSelectedFoodBank(get, set)
@@ -274,10 +224,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         set({ packages: [] })
         return
       }
-
       const packages = await packagesAPI.listFoodBankPackages(foodBank.id)
       const detailItemsById = new Map<number, Array<{ name: string; qty: number }>>()
-
       if (packages.length > 0) {
         await Promise.all(
           packages.map(async (pkg) => {
@@ -285,7 +233,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
             if (!Number.isFinite(packageId) || packageId <= 0) {
               return
             }
-
             try {
               const detail = await packagesAPI.getFoodPackageDetail(packageId)
               const detailItems = Array.isArray(detail.package_items)
@@ -298,7 +245,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
                     qty: Number(entry.quantity ?? 0),
                   }))
                 : []
-
               detailItemsById.set(packageId, detailItems)
             } catch {
               // Keep list loading resilient even if a detail request fails.
@@ -306,7 +252,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           }),
         )
       }
-
       const normalizedPackages: FoodPackage[] = packages.map((pkg) =>
         normalizePackage(pkg, detailItemsById.get(Number(pkg.id))),
       )
@@ -316,7 +261,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       throw error instanceof Error ? error : new Error('Failed to load packages')
     }
   },
-
   loadAvailableItems: async () => {
     try {
       const foodBank = await resolveSelectedFoodBank(get, set)
@@ -324,10 +268,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         set({ availableItems: [] })
         return
       }
-
       const response = await foodBanksAPI.getInventoryItems(foodBank.id)
       const items = response.items
-
       set({
         availableItems: items.map(normalizeInventoryItem),
       })
@@ -336,29 +278,23 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       throw error instanceof Error ? error : new Error('Failed to load individual food items')
     }
   },
-
   loadInventory: async () => {
     try {
       const inventoryResponse = await adminAPI.getInventoryItems(getRequiredAccessToken())
       const inventoryItems = inventoryResponse.items
-
       const normalizedInventory: InventoryItem[] = inventoryItems.map(normalizeInventoryItem)
-
       set({ inventory: normalizedInventory })
     } catch (error) {
       console.error('Failed to load inventory:', error)
       throw error instanceof Error ? error : new Error('Failed to load inventory')
     }
   },
-
   addItem: async (data) => {
     const adminScope = getAdminScopeMeta(useAuthStore.getState().user)
-    const targetFoodBankId = data.food_bank_id ?? adminScope.foodBankId ?? undefined
-
-    if (adminScope.isPlatformAdmin && targetFoodBankId == null) {
+    const targetFoodBankId = resolveAdminTargetFoodBankId(adminScope, data.food_bank_id) ?? undefined
+    if (isAdminFoodBankSelectionRequired(adminScope, targetFoodBankId)) {
       throw new Error('Choose a food bank before adding an inventory item')
     }
-
     const normalizedItem = normalizeInventoryItem(
       await adminAPI.createInventoryItem(
         {
@@ -372,67 +308,57 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         getRequiredAccessToken(),
       ),
     )
-
     set((state) => ({
       inventory: [normalizedItem, ...state.inventory],
     }))
   },
-
   updateItem: async (itemId, data) => {
     const normalizedItem = normalizeInventoryItem(
       await adminAPI.updateInventoryItem(itemId, data, getRequiredAccessToken()),
     )
-
     set((state) => ({
       inventory: replaceInventoryItem(state.inventory, itemId, normalizedItem),
     }))
   },
-
   stockInItem: async (itemId, quantity, reason = 'manual stock in') => {
     const normalizedItem = normalizeInventoryItem(
       await adminAPI.stockInInventoryItem(itemId, { quantity, reason }, getRequiredAccessToken()),
     )
-
     set((state) => ({
       inventory: replaceInventoryItem(state.inventory, itemId, normalizedItem),
     }))
   },
-
   stockOutItem: async (itemId, quantity, reason = 'manual stock out') => {
     const normalizedItem = normalizeInventoryItem(
       await adminAPI.stockOutInventoryItem(itemId, { quantity, reason }, getRequiredAccessToken()),
     )
-
     set((state) => ({
       inventory: replaceInventoryItem(state.inventory, itemId, normalizedItem),
     }))
   },
-
   deleteItem: async (itemId) => {
     await adminAPI.deleteInventoryItem(itemId, getRequiredAccessToken())
-
     set((state) => ({
       inventory: state.inventory.filter((item) => item.id !== itemId),
     }))
   },
-
   addPackage: async (data) => {
     const adminScope = getAdminScopeMeta(useAuthStore.getState().user)
-    let foodBankId = data.food_bank_id ?? adminScope.foodBankId ?? get().selectedFoodBank?.id
-
-    if (adminScope.isPlatformAdmin && (!foodBankId || foodBankId <= 0)) {
+    let foodBankId = resolveAdminTargetFoodBankId(
+      adminScope,
+      data.food_bank_id,
+      get().selectedFoodBank?.id,
+    )
+    if (isAdminFoodBankSelectionRequired(adminScope, foodBankId)) {
       throw new Error('Choose a food bank before adding a package')
     }
-
     if (!foodBankId || foodBankId <= 0) {
       const resolvedFoodBank = await resolveSelectedFoodBank(get, set)
-      foodBankId = resolvedFoodBank?.id
+      foodBankId = resolvedFoodBank?.id ?? null
     }
-
     if (!foodBankId || foodBankId <= 0) {
       throw new Error('No food bank available. Create a food bank before adding packages.')
     }
-
     const normalizedPackage = normalizePackage(
       await adminAPI.createFoodPackage(
         {
@@ -442,12 +368,10 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         getRequiredAccessToken(),
       ),
     )
-
     set((state) => ({
       packages: [normalizedPackage, ...state.packages],
     }))
   },
-
   updatePackage: async (packageId, data) => {
     const updatedPackage = await adminAPI.updateFoodPackage(
       packageId,
@@ -474,7 +398,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       ),
     }))
   },
-
   searchFoodBanks: async (postcode) => {
     if (!postcode.trim()) return
     set({ isSearching: true, searchError: null })
@@ -488,21 +411,17 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         getNearbyFoodbanks(postcode),
         getRankedFoodbanks(postcode),
       ])
-
       console.info('[FindFoodBank] search start', {
         postcode,
         searchedLocation: userCoords,
         externalNearbyCount: nearby.length,
       })
-
       const internalBanks = internalFoodBanksResponse.items
-
       const rankedInternalBanks = internalBanks
         .flatMap((bank) => {
           if (typeof bank.lat !== 'number' || typeof bank.lng !== 'number') {
             return []
           }
-
           return [{
             id: bank.id,
             name: bank.name,
@@ -515,7 +434,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           } satisfies SearchableInternalFoodBank]
         })
         .sort((a, b) => a.distance - b.distance)
-
       const internalBanksWithPackages = await Promise.all(
         rankedInternalBanks.map(async (bank) => {
           try {
@@ -532,7 +450,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           }
         }),
       )
-
       const onlineInternalBanks = internalBanksWithPackages.filter((bank) => bank.systemMatched)
       const defaultOnlineBank = onlineInternalBanks[0] ?? null
       const externalResults: FoodBank[] = nearby.map((fb) => {
@@ -547,7 +464,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           ? mapped
           : defaultOnlineBank
         const isOnline = Boolean(packageSourceBank)
-
         return {
           id: packageSourceBank?.id ?? -1,
           name: fb.name,
@@ -561,13 +477,11 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           systemMatched: isOnline,
         }
       })
-
       if (externalResults.length > 0) {
         console.info('[FindFoodBank] search results ready', {
           postcode,
           externalResults: externalResults.length,
         })
-
         set({
           searchResults: [...externalResults].sort((a, b) => (a.distance ?? Number.MAX_SAFE_INTEGER) - (b.distance ?? Number.MAX_SAFE_INTEGER)),
           searchedLocation: userCoords,
@@ -577,7 +491,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
         })
         return
       }
-
       console.warn(
         // This log is intentionally descriptive so search-radius debugging can
         // happen from the browser console without a deeper tracing tool.
@@ -588,7 +501,6 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
             .join(', ') || 'none'
         }`,
       )
-
       set({
         searchResults: [],
         searchedLocation: userCoords,
@@ -608,29 +520,24 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       })
     }
   },
-
   selectFoodBank: (fb) => set({ selectedFoodBank: fb }),
-
   loadUserCollections: async (_email, weekStart) => {
     try {
       const accessToken = useAuthStore.getState().accessToken
       if (!accessToken) {
         return
       }
-
       const response = await applicationsAPI.getMyApplications(accessToken)
       const items = response.items as UserApplicationSummary[]
       const targetWeek = weekStart || getCurrentWeekMonday()
       const totalCollected = items
         .filter((application) => application.week_start === targetWeek)
         .reduce((sum, application) => sum + Number(application.total_quantity ?? 0), 0)
-
       set({ weeklyCollected: totalCollected })
     } catch (error) {
       console.error('Failed to load collections:', error)
     }
   },
-
   applyPackages: async (_userEmail, selections, weekStart, itemSelections = []) => {
     try {
       const accessToken = useAuthStore.getState().accessToken
@@ -638,17 +545,14 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       if (!accessToken || !currentUser) {
         return { success: false, message: 'Not authenticated' }
       }
-
       const selectedFoodBank = get().selectedFoodBank
       if (!selectedFoodBank || selectedFoodBank.id <= 0) {
         return { success: false, message: 'This food bank is not connected to online applications yet.' }
       }
-
       let finalWeekStart = weekStart
       if (!finalWeekStart) {
         finalWeekStart = getCurrentWeekMonday()
       }
-
       const payload: ApplicationCreatePayload = {
         food_bank_id: selectedFoodBank.id,
         week_start: finalWeekStart,
@@ -663,14 +567,12 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
           })),
         ],
       }
-
       const result = await applicationsAPI.submitApplication(payload, accessToken)
       await Promise.allSettled([
         get().loadUserCollections(_userEmail, finalWeekStart),
         get().loadPackages(),
         get().loadAvailableItems(),
       ])
-
       return {
         success: true,
         message: 'Application successful!',
@@ -683,7 +585,8 @@ export const useFoodBankStore = create<FoodBankState>((set, get) => ({
       }
     }
   },
-
   resetSearch: () =>
     set({ searchPostcode: '', searchResults: [], searchedLocation: null, hasSearched: false, searchError: null, selectedFoodBank: null, packages: [], availableItems: [] }),
 }))
+
+

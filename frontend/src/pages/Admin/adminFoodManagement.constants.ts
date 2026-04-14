@@ -5,9 +5,7 @@ export const packageCategoryOptions = [
   'Family Bundle',
   'Emergency Pack',
 ] as const
-
 export type PackageCategoryOption = (typeof packageCategoryOptions)[number]
-
 export const packageDescriptionFallbacks: Record<PackageCategoryOption, string> = {
   'Pantry & Spices': 'Core pantry staples suitable for daily household support.',
   Breakfast: 'Breakfast essentials prepared for quick and balanced mornings.',
@@ -15,7 +13,6 @@ export const packageDescriptionFallbacks: Record<PackageCategoryOption, string> 
   'Family Bundle': 'Balanced nutrition support designed for larger households.',
   'Emergency Pack': 'Fast-response essentials for urgent short-term food support.',
 }
-
 export const inventoryCategoryOptions = [
   'Proteins & Meat',
   'Vegetables',
@@ -27,5 +24,4 @@ export const inventoryCategoryOptions = [
   'Beverages',
   'Baby Food',
 ] as const
-
 export type InventoryCategoryOption = (typeof inventoryCategoryOptions)[number]

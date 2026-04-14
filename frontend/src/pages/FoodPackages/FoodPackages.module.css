@@ -1,15 +1,391 @@
-/* Page wrapper — override global Playfair Display font */
 .pageWrap {
+  flex: 1;
   width: 100%;
   font-family: system-ui, -apple-system, sans-serif;
   background: #ffffff;
-  padding-bottom: 100px;
+  padding-bottom: 2rem;
 }
 
-/* Override global h1-h4 Playfair Display */
 .pageWrap h1,
 .pageWrap h2,
 .pageWrap h3,
 .pageWrap h4 {
   font-family: system-ui, -apple-system, sans-serif;
+}
+
+.page {
+  width: 100%;
+  padding: 3rem 1.5rem;
+}
+
+.hero {
+  text-align: center;
+  margin: 0 auto 3rem;
+  max-width: 80rem;
+}
+
+.heroTitle {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.heroSub {
+  font-size: 1.125rem;
+  color: #6b7280;
+  max-width: 48rem;
+  margin: 0 auto 2rem;
+}
+
+.keyPoints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.keyPoint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.keyPoint::before {
+  content: "\2713";
+  color: #2e7d32;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tabButtons {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.tabBtn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  background: #f5a623;
+  color: #1a1a1a;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.tabBtn:hover {
+  background: #d4870a;
+}
+
+.main {
+  max-width: 80rem;
+  margin: 0 auto;
+}
+
+.infoCard {
+  background: #f2f4f3;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.fbName {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+}
+
+.fbAddr {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.remainingBadge {
+  background: #f5a623;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  min-width: 100px;
+}
+
+.remainingNum {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.remainingLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1a1a1a;
+  margin-top: 0.125rem;
+}
+
+.infoBanner {
+  background: #f2f4f3;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 2rem;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+}
+
+.warningBanner {
+  border-color: #fde68a;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.accentText {
+  color: #f5a623;
+}
+
+.errorBanner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  color: #dc2626;
+}
+
+.emptyState {
+  max-width: 720px;
+  margin: 5rem auto;
+  background: #f2f4f3;
+  border-radius: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.emptyState h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+}
+
+.emptyState p {
+  font-size: 1rem;
+  color: #6b7280;
+}
+
+.section {
+  margin-bottom: 3rem;
+  scroll-margin-top: 1.5rem;
+}
+
+.sectionHeader {
+  margin-bottom: 1.25rem;
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+}
+
+.sectionDesc {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.statusBar {
+  background: #f2f4f3;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.statusBarLimit {
+  background: #fef3c7;
+  border-color: #f5a623;
+}
+
+.statusLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.limitBadge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background: #f5a623;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.statusNote {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.successSection {
+  margin-bottom: 2rem;
+}
+
+.successCard {
+  background: #f2f4f3;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.successTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+}
+
+.successDesc {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1.25rem;
+}
+
+.successCodeBlock {
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.successCodeLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+}
+
+.successCode {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #f5a623;
+  margin-bottom: 0.25rem;
+}
+
+.successCodeHint {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.sectionActions {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.actionBar {
+  background: #f2f4f3;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.actionBold {
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.125rem;
+}
+
+.actionMuted {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.submitBtn {
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  background: #e5e7eb;
+  color: #1a1a1a;
+  border: none;
+  cursor: not-allowed;
+  transition: all 0.15s;
+  font-size: 0.875rem;
+}
+
+.submitBtnActive {
+  background: #f5a623;
+  cursor: pointer;
+}
+
+.submitBtnActive:hover {
+  background: #d4870a;
+}
+
+.submitBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.newAppBtn {
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  background: #f5a623;
+  color: #1a1a1a;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  font-size: 0.875rem;
+}
+
+.newAppBtn:hover {
+  background: #d4870a;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 3rem 1rem;
+  }
+
+  .heroTitle {
+    font-size: 2rem;
+  }
+
+  .infoCard,
+  .statusBar,
+  .actionBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .submitBtn {
+    width: 100%;
+  }
 }

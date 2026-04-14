@@ -1,4 +1,4 @@
-import type { User } from '@/shared/types/common'
+import type { User } from '@/shared/types/auth'
 
 type AdminScopeKind = 'platform' | 'local' | 'unknown'
 
@@ -12,8 +12,52 @@ export interface AdminScopeMeta {
   foodBankName: string | null
 }
 
+export interface AdminFoodBankScopeState {
+  scopeKey: string
+  effectiveFoodBankId: number | null
+  hasFixedFoodBank: boolean
+  canChooseFoodBank: boolean
+  isFoodBankSelectionRequired: boolean
+}
+
 function normalizeFoodBankId(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+export function resolveAdminTargetFoodBankId(
+  scope: AdminScopeMeta,
+  preferredFoodBankId?: number | null,
+  fallbackFoodBankId?: number | null,
+) {
+  return (
+    normalizeFoodBankId(preferredFoodBankId)
+    ?? scope.foodBankId
+    ?? normalizeFoodBankId(fallbackFoodBankId)
+  )
+}
+
+export function isAdminFoodBankSelectionRequired(
+  scope: AdminScopeMeta,
+  foodBankId?: number | null,
+) {
+  return scope.isPlatformAdmin && resolveAdminTargetFoodBankId(scope, foodBankId) == null
+}
+
+export function getAdminFoodBankScopeState(
+  scope: AdminScopeMeta,
+  selectedFoodBankId: number | null,
+): AdminFoodBankScopeState {
+  const effectiveFoodBankId = resolveAdminTargetFoodBankId(scope, selectedFoodBankId)
+  const hasFixedFoodBank = scope.foodBankId != null
+  const canChooseFoodBank = scope.isPlatformAdmin && !hasFixedFoodBank
+
+  return {
+    scopeKey: `${scope.scopeKind}:${effectiveFoodBankId ?? 'none'}`,
+    effectiveFoodBankId,
+    hasFixedFoodBank,
+    canChooseFoodBank,
+    isFoodBankSelectionRequired: canChooseFoodBank && effectiveFoodBankId == null,
+  }
 }
 
 export function getAdminScopeMeta(user: User | null | undefined): AdminScopeMeta {

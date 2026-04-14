@@ -1,189 +1,219 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { applicationsAPI, type AdminApplicationRecord } from '@/shared/lib/api/applications'
+import { adminAPI } from '@/shared/lib/api/admin'
+import { foodBanksAPI } from '@/shared/lib/api/foodBanks'
 import { useAuthStore } from '@/app/store/authStore'
 import { useFoodBankStore } from '@/app/store/foodBankStore'
-import { adminAPI, restockAPI } from '@/shared/lib/api'
-import type {
-  InventoryLotRow,
-  LowStockRow,
-  RestockRequestRow,
-} from './adminFoodManagement.types'
-import {
-  buildInventoryCategories,
-  buildPackageRows,
-  extractRestockRequests,
-  filterInventoryCategories,
-  toErrorMessage,
-} from './adminFoodManagement.utils'
+import type { FoodPackageDetailRecord } from '@/shared/lib/api/packages'
+import type { AdminScopeMeta } from '@/shared/lib/adminScope'
+import { getAdminFoodBankScopeState } from '@/shared/lib/adminScope'
+import type { DonationListRow } from '@/shared/types/donations'
+import { buildScopedPackageRow } from './builders'
+import type { InventoryLotRow } from './adminFoodManagement.types'
+import { captureRequestError, extractApplications, runManagedRequest, sortApplications, sortDonations } from './rules'
 
-const captureLoadError = async (
-  task: () => Promise<void>,
-  fallbackMessage: string,
-) => {
-  try {
-    await task()
-    return ''
-  } catch (error) {
-    return toErrorMessage(error, fallbackMessage)
-  }
+type StateSetter<T> = Dispatch<SetStateAction<T>>
+type CancelGuard = () => boolean
+type FoodBankOption = { id: number; name: string }
+
+interface UseAdminFoodManagementDataArgs {
+  adminScope: AdminScopeMeta
+  selectedFoodBankId: number | null
 }
 
-export function useAdminFoodManagementData(search: string) {
+interface AuthorizedLoadConfig<Result> {
+  request: (token: string) => Promise<Result>
+  setLoading?: StateSetter<boolean>
+  setError?: StateSetter<string>
+  fallbackMessage: string
+  onSuccess?: (result: Result) => void
+  onError?: (message: string) => void
+}
+
+const extractFoodBanks = (response: { items?: FoodBankOption[] } | null | undefined) => Array.isArray(response?.items) ? response.items : []
+const sortNamedRows = <Row extends { name: string }>(rows: Row[]) => [...rows].sort((left, right) => left.name.localeCompare(right.name))
+
+export function useAdminFoodManagementData({ adminScope, selectedFoodBankId }: UseAdminFoodManagementDataArgs) {
   const accessToken = useAuthStore((state) => state.accessToken)
   const inventory = useFoodBankStore((state) => state.inventory)
-  const packages = useFoodBankStore((state) => state.packages)
-  const loadPackages = useFoodBankStore((state) => state.loadPackages)
   const loadInventory = useFoodBankStore((state) => state.loadInventory)
-  const updateItem = useFoodBankStore((state) => state.updateItem)
-  const stockInItem = useFoodBankStore((state) => state.stockInItem)
-  const stockOutItem = useFoodBankStore((state) => state.stockOutItem)
   const deleteItem = useFoodBankStore((state) => state.deleteItem)
-  const updatePackage = useFoodBankStore((state) => state.updatePackage)
 
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [lotRows, setLotRows] = useState<InventoryLotRow[]>([])
   const [isLoadingLots, setIsLoadingLots] = useState(false)
   const [lotError, setLotError] = useState('')
-  const [lowStockRows, setLowStockRows] = useState<LowStockRow[]>([])
-  const [isLoadingLowStock, setIsLoadingLowStock] = useState(false)
-  const [lowStockError, setLowStockError] = useState('')
-  const [restockRequests, setRestockRequests] = useState<RestockRequestRow[]>([])
-  const [isLoadingRestockRequests, setIsLoadingRestockRequests] = useState(false)
-  const [restockError, setRestockError] = useState('')
+  const [donations, setDonations] = useState<DonationListRow[]>([])
+  const [isLoadingDonations, setIsLoadingDonations] = useState(false)
+  const [donationError, setDonationError] = useState('')
+  const [applications, setApplications] = useState<AdminApplicationRecord[]>([])
+  const [isLoadingApplications, setIsLoadingApplications] = useState(false)
+  const [applicationsError, setApplicationsError] = useState('')
+  const [availableFoodBanks, setAvailableFoodBanks] = useState<FoodBankOption[]>([])
+  const [availableFoodBanksError, setAvailableFoodBanksError] = useState('')
+  const [scopedPackageDetails, setScopedPackageDetails] = useState<FoodPackageDetailRecord[]>([])
+  const [isLoadingScopedPackages, setIsLoadingScopedPackages] = useState(false)
+  const [scopedPackageError, setScopedPackageError] = useState('')
+  const [packageDetailsById, setPackageDetailsById] = useState<Record<number, FoodPackageDetailRecord>>({})
+  const [isLoadingPackageDetail, setIsLoadingPackageDetail] = useState(false)
 
-  const loadLots = async () => {
-    if (!accessToken) {
+  const scopeState = useMemo(() => getAdminFoodBankScopeState(adminScope, selectedFoodBankId), [adminScope, selectedFoodBankId])
+  const foodBankFilterOptions = useMemo(() => sortNamedRows(availableFoodBanks), [availableFoodBanks])
+  const scopedPackageRows = useMemo(() => scopedPackageDetails.map((detail) => buildScopedPackageRow(detail)), [scopedPackageDetails])
+  const scopedPackingPackages = useMemo(() => scopedPackageDetails.map((detail) => ({ id: detail.id, name: detail.name })), [scopedPackageDetails])
+
+  const applyScopedPackageDetails = useCallback((details: FoodPackageDetailRecord[]) => {
+    const sortedDetails = sortNamedRows(details)
+    setScopedPackageDetails(sortedDetails)
+    setPackageDetailsById((current) => {
+      const next = { ...current }
+      for (const detail of sortedDetails) next[detail.id] = detail
+      return next
+    })
+  }, [])
+
+  const runAuthorizedLoad = useCallback(async <Result>({ request, setLoading, setError, fallbackMessage, onSuccess, onError }: AuthorizedLoadConfig<Result>, isCancelled?: CancelGuard) => {
+    if (!accessToken) return
+    await runManagedRequest({ request: () => request(accessToken), setLoading, setError, fallbackMessage, onSuccess, onError, isCancelled, rethrow: true })
+  }, [accessToken])
+
+  const loadLots = useCallback((isCancelled?: CancelGuard) => runAuthorizedLoad({
+    request: (token) => adminAPI.getInventoryLots(token, true),
+    setLoading: setIsLoadingLots,
+    setError: setLotError,
+    fallbackMessage: 'Failed to load inventory lots.',
+    onSuccess: (data) => setLotRows(Array.isArray(data) ? (data as InventoryLotRow[]) : []),
+  }, isCancelled), [runAuthorizedLoad])
+
+  const loadDonations = useCallback((isCancelled?: CancelGuard) => runAuthorizedLoad({
+    request: (token) => adminAPI.getDonations(token),
+    setLoading: setIsLoadingDonations,
+    setError: setDonationError,
+    fallbackMessage: 'Failed to load donation records.',
+    onSuccess: (data) => setDonations(sortDonations(Array.isArray(data) ? (data as DonationListRow[]) : [])),
+  }, isCancelled), [runAuthorizedLoad])
+
+  const loadApplications = useCallback((isCancelled?: CancelGuard) => runAuthorizedLoad({
+    request: (token) => applicationsAPI.getAdminApplications(token),
+    setLoading: setIsLoadingApplications,
+    setError: setApplicationsError,
+    fallbackMessage: 'Failed to load redemption code records.',
+    onSuccess: (data) => setApplications(sortApplications(extractApplications(data))),
+  }, isCancelled), [runAuthorizedLoad])
+
+  const loadAvailableFoodBanks = useCallback(async (isCancelled?: CancelGuard) => {
+    await runManagedRequest({
+      request: () => foodBanksAPI.getFoodBanks(),
+      fallbackMessage: 'Failed to load food banks.',
+      onSuccess: (response) => {
+        setAvailableFoodBanks(extractFoodBanks(response))
+        setAvailableFoodBanksError('')
+      },
+      onError: (message) => {
+        setAvailableFoodBanks([])
+        setAvailableFoodBanksError(message)
+      },
+      isCancelled,
+    })
+  }, [])
+
+  const loadScopedPackages = useCallback(async (foodBankId: number | null, isCancelled?: CancelGuard) => {
+    if (!accessToken || foodBankId == null) {
+      if (!isCancelled?.()) {
+        setScopedPackageDetails([])
+        setScopedPackageError('')
+        setIsLoadingScopedPackages(false)
+      }
       return
     }
 
-    setIsLoadingLots(true)
-    setLotError('')
+    await runAuthorizedLoad({
+      request: (token) => adminAPI.listFoodPackages(token, { foodBankId }),
+      setLoading: setIsLoadingScopedPackages,
+      setError: setScopedPackageError,
+      fallbackMessage: 'Failed to load food packages.',
+      onSuccess: (details) => applyScopedPackageDetails(Array.isArray(details) ? details : []),
+      onError: () => setScopedPackageDetails([]),
+    }, isCancelled)
+  }, [accessToken, applyScopedPackageDetails, runAuthorizedLoad])
 
-    try {
-      const data = await adminAPI.getInventoryLots(accessToken, true)
-      setLotRows(Array.isArray(data) ? (data as InventoryLotRow[]) : [])
-    } catch (error) {
-      setLotError(toErrorMessage(error, 'Failed to load inventory lots.'))
-      throw error
-    } finally {
-      setIsLoadingLots(false)
-    }
-  }
-
-  const loadLowStock = async (overrideThreshold?: number) => {
-    if (!accessToken) {
-      return
-    }
-
-    setIsLoadingLowStock(true)
-    setLowStockError('')
-
-    try {
-      const data = await adminAPI.getLowStockItems(accessToken, overrideThreshold)
-      setLowStockRows(Array.isArray(data) ? (data as LowStockRow[]) : [])
-    } catch (error) {
-      setLowStockError(toErrorMessage(error, 'Failed to load low stock items.'))
-      throw error
-    } finally {
-      setIsLoadingLowStock(false)
-    }
-  }
-
-  const loadRestockRequests = async () => {
-    if (!accessToken) {
-      return
-    }
-
-    setIsLoadingRestockRequests(true)
-    setRestockError('')
-
-    try {
-      const data = await restockAPI.getRequests(accessToken)
-      setRestockRequests(extractRestockRequests(data))
-    } catch (error) {
-      setRestockError(toErrorMessage(error, 'Failed to load restock requests.'))
-      throw error
-    } finally {
-      setIsLoadingRestockRequests(false)
-    }
-  }
+  const refreshInventoryAndLots = useCallback(async () => { await Promise.all([loadInventory(), loadLots()]) }, [loadInventory, loadLots])
+  const refreshLots = useCallback(async () => { await loadLots() }, [loadLots])
+  const refreshScopedPackages = useCallback(async () => { await loadScopedPackages(scopeState.effectiveFoodBankId) }, [loadScopedPackages, scopeState.effectiveFoodBankId])
+  const reloadAllData = useCallback(async () => { await Promise.all([loadInventory(), loadLots(), loadDonations(), loadApplications()]) }, [loadApplications, loadDonations, loadInventory, loadLots])
 
   useEffect(() => {
     let cancelled = false
+    const isCancelled = () => cancelled
 
     const loadAll = async () => {
       setIsLoadingData(true)
       setLoadError('')
-
       const errors = await Promise.all([
-        captureLoadError(loadPackages, 'Failed to load packages.'),
-        captureLoadError(loadInventory, 'Failed to load inventory.'),
-        captureLoadError(loadLots, 'Failed to load inventory lots.'),
-        captureLoadError(() => loadLowStock(), 'Failed to load low stock items.'),
-        captureLoadError(loadRestockRequests, 'Failed to load restock requests.'),
+        captureRequestError(() => loadInventory(), 'Failed to load inventory.'),
+        captureRequestError(() => loadLots(isCancelled), 'Failed to load inventory lots.'),
+        captureRequestError(() => loadDonations(isCancelled), 'Failed to load donation records.'),
+        captureRequestError(() => loadApplications(isCancelled), 'Failed to load redemption code records.'),
       ])
-
-      if (cancelled) {
-        return
-      }
-
+      if (cancelled) return
       setLoadError(errors.find(Boolean) ?? '')
       setIsLoadingData(false)
     }
 
     void loadAll()
+    return () => { cancelled = true }
+  }, [accessToken, loadApplications, loadDonations, loadInventory, loadLots])
 
-    return () => {
-      cancelled = true
+  useEffect(() => {
+    if (!scopeState.canChooseFoodBank) {
+      setAvailableFoodBanks([])
+      setAvailableFoodBanksError('')
+      return
     }
-  }, [accessToken, loadInventory, loadPackages])
+    let cancelled = false
+    void loadAvailableFoodBanks(() => cancelled)
+    return () => { cancelled = true }
+  }, [loadAvailableFoodBanks, scopeState.canChooseFoodBank])
 
-  const packageRows = useMemo(() => buildPackageRows(packages), [packages])
-  const inventoryIdSet = useMemo(
-    () => new Set(inventory.map((item) => item.id)),
-    [inventory],
-  )
-  const filteredCategories = useMemo(
-    () => filterInventoryCategories(buildInventoryCategories(inventory), search),
-    [inventory, search],
-  )
-  const openRestockRequests = useMemo(
-    () => restockRequests.filter((request) => request.status === 'open'),
-    [restockRequests],
-  )
-  const openRestockItemIds = useMemo(
-    () => new Set(openRestockRequests.map((request) => request.inventory_item_id)),
-    [openRestockRequests],
-  )
+  useEffect(() => {
+    let cancelled = false
+    void loadScopedPackages(scopeState.effectiveFoodBankId, () => cancelled)
+    return () => { cancelled = true }
+  }, [loadScopedPackages, scopeState.effectiveFoodBankId])
 
   return {
     accessToken,
-    packages,
-    updateItem,
-    stockInItem,
-    stockOutItem,
     deleteItem,
-    updatePackage,
-    loadPackages,
-    loadInventory,
     isLoadingData,
     loadError,
     lotRows,
     isLoadingLots,
     lotError,
-    lowStockRows,
-    isLoadingLowStock,
-    lowStockError,
-    setLowStockError,
-    isLoadingRestockRequests,
-    restockError,
-    packageRows,
-    inventoryIdSet,
-    filteredCategories,
-    openRestockRequests,
-    openRestockItemIds,
-    loadLots,
-    loadLowStock,
-    loadRestockRequests,
+    donations,
+    isLoadingDonations,
+    donationError,
+    applications,
+    isLoadingApplications,
+    applicationsError,
+    inventory,
+    refreshInventoryAndLots,
+    refreshLots,
+    reloadAllData,
+    availableFoodBanksError,
+    effectiveFoodBankId: scopeState.effectiveFoodBankId,
+    foodBankFilterOptions,
+    isLoadingPackageDetail,
+    isLoadingScopedPackages,
+    isScopedSelectionRequired: scopeState.isFoodBankSelectionRequired,
+    packageDetailsById,
+    refreshScopedPackages,
+    scopeState,
+    scopedPackageDetails,
+    scopedPackageError,
+    scopedPackageRows,
+    scopedPackingPackages,
+    setIsLoadingPackageDetail,
+    setPackageDetailsById,
   }
 }

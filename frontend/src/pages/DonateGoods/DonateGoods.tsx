@@ -1,278 +1,39 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
-import { ArrowRight, Check, ChevronRight, MapPin, Search, X } from 'lucide-react'
-import PrimaryNavbar from '@/app/layout/PrimaryNavbar'
-import { donationsAPI, foodBanksAPI } from '@/shared/lib/api'
+import { useState, type FormEvent } from 'react'
+import { Check, X } from '@/shared/ui/InlineIcons'
+import { donationsAPI } from '@/shared/lib/api/donations'
+import { foodBanksAPI } from '@/shared/lib/api/foodBanks'
+import { normalizeWhitespace } from '@/shared/lib/foodBankAddress'
+import { scrollToElementById } from '@/shared/lib/scroll'
+import PublicPageShell from '@/shared/ui/PublicPageShell'
 import {
-  buildFoodBankDisplayAddress,
-  findInternalFoodBankMatch,
-  normalizeWhitespace,
-} from '@/shared/lib/foodBankAddress'
+  BACKEND_API_UNAVAILABLE_MESSAGE,
+  getCoordinatesFromPostcode,
+  getFoodBankLookupErrorMessage,
+  getNearbyFoodbanks,
+} from '@/utils/foodbankApi'
+import { ImageWithFallback } from '@/shared/ui/ImageWithFallback'
+import { FEATURE_STORIES, STEP_FEATURES } from './donateGoods.content'
 import {
-  isValidEmail,
-  normalizePostcodeInput,
-  parseUkDateValue,
-  sanitizeDateTextInput,
-  sanitizePhoneInput,
-} from '@/shared/lib/validation'
-import PublicSiteFooter from '@/shared/ui/PublicSiteFooter'
-import { getNearbyFoodbanks } from '@/utils/foodbankApi'
+  ACCEPTED_ITEMS,
+  FLOW_PROGRESS_LABELS,
+  HERO_BENEFITS,
+  INITIAL_DETAILS,
+  LOCAL_SEARCH_RADIUS_KM,
+  REJECTED_ITEMS,
+  UK_POSTCODE_PATTERN,
+} from './donateGoods.constants'
 import {
-  DONATE_GOODS_ACCEPTED_CATEGORIES,
-  DONATE_GOODS_CONDITION_OPTIONS,
-  DONATE_GOODS_FORM_STEPS,
-  DONATE_GOODS_HERO_POINTS,
-  DONATE_GOODS_PRE_DONATION_NOTES,
-  DONATE_GOODS_REJECTED_ITEMS,
-} from './donateGoods.content'
-import styles from './DonateGoods.module.css'
-
-type FoodBankOption = {
-  id: string
-  foodBankId?: number | null
-  name: string
-  address: string
-  distance: string
-  distanceMiles: number
-}
-
-type DonationDetails = {
-  name: string
-  email: string
-  phone: string
-  pickupDate: string
-  items: string
-  condition: string
-  quantity: string
-  notes: string
-}
-
-type FeedbackState = {
-  type: 'success' | 'error'
-  message: string
-}
-
-const INITIAL_DETAILS: DonationDetails = {
-  name: '',
-  email: '',
-  phone: '',
-  pickupDate: '',
-  items: '',
-  condition: '',
-  quantity: '',
-  notes: '',
-}
-
-const UK_POSTCODE_PATTERN = /^[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}$/i
-const LOCAL_SEARCH_RADIUS_KM = 5
-
-function parsePickupDate(value: string) {
-  return parseUkDateValue(value)
-}
-
-function getStartOfToday() {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today
-}
-
-function getPickupDateError(value: string) {
-  const trimmedValue = value.trim()
-  if (!trimmedValue) {
-    return 'Preferred collection or drop-off date is required.'
-  }
-
-  const parsedPickupDate = parsePickupDate(trimmedValue)
-  if (!parsedPickupDate) {
-    return 'Please enter a valid date in DD/MM/YYYY format.'
-  }
-
-  if (parsedPickupDate.date < getStartOfToday()) {
-    return 'Please enter a valid date on or after today.'
-  }
-
-  return ''
-}
-
-function getPhoneError(value: string) {
-  const digitsOnly = value.replace(/\D/g, '')
-  if (!digitsOnly) {
-    return 'Phone number is required and must contain 11 digits.'
-  }
-
-  if (digitsOnly.length !== 11) {
-    return 'Phone number must be exactly 11 digits.'
-  }
-
-  return ''
-}
-
-function estimateQuantity(value: string) {
-  const numbers = value.match(/\d+/g)
-  if (!numbers) {
-    return 1
-  }
-
-  const total = numbers.reduce((sum, current) => sum + Number(current), 0)
-  return total > 0 ? total : 1
-}
-
-function formatDistanceMiles(distanceKm: number) {
-  const distanceMiles = distanceKm * 0.621371
-  return `${distanceMiles.toFixed(1)} miles`
-}
-
-function scrollToSection(sectionId: string) {
-  document.getElementById(sectionId)?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-  })
-}
-
-function SectionHeader({
-  title,
-  description,
-}: {
-  title: string
-  description?: string
-}) {
-  return (
-    <div className={styles.sectionHeader}>
-      <h2 className={styles.sectionTitle}>{title}</h2>
-      {description ? <p className={styles.sectionText}>{description}</p> : null}
-    </div>
-  )
-}
-
-function HeroPoint({ text }: { text: string }) {
-  return (
-    <li className={styles.heroPoint}>
-      <span className={styles.heroPointIcon}>
-        <Check size={18} />
-      </span>
-      <span>{text}</span>
-    </li>
-  )
-}
-
-function AcceptedCategoryCard({
-  category,
-  items,
-}: {
-  category: string
-  items: string[]
-}) {
-  return (
-    <article className={styles.categoryCard}>
-      <h3 className={styles.categoryTitle}>{category}</h3>
-      <ul className={styles.acceptedList}>
-        {items.map((item) => (
-          <li key={item} className={styles.acceptedItem}>
-            <Check className={styles.acceptedItemIcon} size={16} />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-    </article>
-  )
-}
-
-function ProgressHeader({ step }: { step: number }) {
-  return (
-    <aside className={styles.progressCard}>
-      <p className={styles.progressEyebrow}>Donation flow</p>
-      <ol className={styles.progressList}>
-        {DONATE_GOODS_FORM_STEPS.map((flowStep) => {
-          const stateClassName =
-            step === flowStep.id
-              ? styles.progressItemActive
-              : step > flowStep.id
-                ? styles.progressItemComplete
-                : ''
-
-          return (
-            <li
-              key={flowStep.id}
-              className={`${styles.progressItem} ${stateClassName}`}
-            >
-              <div className={styles.progressBadge}>{flowStep.id}</div>
-              <div>
-                <p className={styles.progressLabel}>{flowStep.label}</p>
-                <p className={styles.progressDescription}>{flowStep.description}</p>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-      <p className={styles.progressHelp}>
-        The request only goes to the food bank you select.
-      </p>
-    </aside>
-  )
-}
-
-function BankResultCard({
-  bank,
-  onSelect,
-}: {
-  bank: FoodBankOption
-  onSelect: (bank: FoodBankOption) => void
-}) {
-  return (
-    <button
-      type="button"
-      className={styles.resultCard}
-      onClick={() => onSelect(bank)}
-    >
-      <div className={styles.resultHeader}>
-        <div>
-          <h4 className={styles.resultName}>{bank.name}</h4>
-          <div className={styles.resultAddress}>
-            <MapPin size={16} />
-            <span>{bank.address}</span>
-          </div>
-          <p className={styles.resultMeta}>{bank.distance} away</p>
-        </div>
-        <ChevronRight className={styles.resultArrow} size={18} />
-      </div>
-    </button>
-  )
-}
-
-function FormField({
-  id,
-  label,
-  error,
-  children,
-}: {
-  id: string
-  label: string
-  error?: string
-  children: ReactNode
-}) {
-  return (
-    <div className={styles.formField}>
-      <label htmlFor={id} className={styles.formLabel}>
-        {label}
-      </label>
-      {children}
-      {error ? <p className={styles.fieldError}>{error}</p> : null}
-    </div>
-  )
-}
-
-function FeedbackBanner({ feedback }: { feedback: FeedbackState }) {
-  return (
-    <div
-      className={`${styles.feedback} ${
-        feedback.type === 'success' ? styles.feedbackSuccess : styles.feedbackError
-      }`}
-      role={feedback.type === 'error' ? 'alert' : 'status'}
-      aria-live="polite"
-    >
-      {feedback.message}
-    </div>
-  )
-}
+  buildRankedFoodBankOptions,
+  estimateQuantity,
+  getPhoneError,
+  getPickupDateError,
+  parsePickupDate,
+  validateDonationDetails,
+} from './donateGoods.helpers'
+import { FeatureCard } from './components/FeatureCard'
+import { SearchLocationStep, SelectFoodBankStep, DonationDetailsStep } from './components/DonateGoodsFlowSteps'
+import type { DonationDetails, FeedbackState, FieldErrors, FoodBankOption } from './donateGoods.types'
+import { styles } from './donateGoodsStyles'
 
 export default function DonateGoods() {
   const [step, setStep] = useState(1)
@@ -281,11 +42,15 @@ export default function DonateGoods() {
   const [searchResults, setSearchResults] = useState<FoodBankOption[]>([])
   const [selectedBank, setSelectedBank] = useState<FoodBankOption | null>(null)
   const [details, setDetails] = useState<DonationDetails>(INITIAL_DETAILS)
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitFeedback, setSubmitFeedback] = useState<FeedbackState | null>(null)
   const [searchFeedback, setSearchFeedback] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  const scrollToSection = (sectionId: string) => {
+    scrollToElementById(sectionId)
+  }
 
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -293,6 +58,7 @@ export default function DonateGoods() {
     setSearchFeedback(null)
 
     const normalizedPostcode = normalizeWhitespace(postcode).toUpperCase()
+
     if (!UK_POSTCODE_PATTERN.test(normalizedPostcode)) {
       setPostcodeError('Please enter a valid postcode, for example SY23 3AN.')
       return
@@ -304,46 +70,23 @@ export default function DonateGoods() {
     setSearching(true)
 
     try {
-      const [nearbyFoodBanks, internalFoodBanksResponse] = await Promise.all([
+      const [userCoords, internalBanksResponse, nearbyBanks] = await Promise.all([
+        getCoordinatesFromPostcode(normalizedPostcode),
+        foodBanksAPI.getFoodBanks(),
         getNearbyFoodbanks(normalizedPostcode),
-        foodBanksAPI.getFoodBanks().catch(() => null),
       ])
 
-      const internalFoodBanks = Array.isArray(internalFoodBanksResponse?.items)
-        ? internalFoodBanksResponse.items
-            .filter((bank) => typeof bank.id === 'number')
-            .map((bank) => ({
-              id: bank.id,
-              name: bank.name,
-              address: bank.address,
-            }))
-        : []
-
-      const rankedResults = nearbyFoodBanks
-        .map((bank) => {
-          const matchedInternalBank = findInternalFoodBankMatch(
-            {
-              name: bank.name,
-              address: `${bank.address}, ${bank.postcode}`,
-            },
-            internalFoodBanks,
-          )
-
-          return {
-            id: `${bank.name}-${bank.postcode}-${bank.lat}-${bank.lng}`,
-            foodBankId: matchedInternalBank?.id,
-            name: bank.name,
-            address: buildFoodBankDisplayAddress(bank.address, bank.postcode),
-            distance: formatDistanceMiles(bank.distance),
-            distanceMiles: bank.distance * 0.621371,
-          } satisfies FoodBankOption
-        })
-        .sort((left, right) => left.distanceMiles - right.distanceMiles)
+      const rankedResults = buildRankedFoodBankOptions({
+        userCoords,
+        internalBanks: internalBanksResponse.items ?? [],
+        nearbyBanks,
+        localSearchRadiusKm: LOCAL_SEARCH_RADIUS_KM,
+      })
 
       setSearchResults(rankedResults)
       setSearchFeedback(
         rankedResults.length === 0
-          ? `No food banks were found within ${LOCAL_SEARCH_RADIUS_KM} km of ${normalizedPostcode}.`
+          ? `We could not find any food banks within ${LOCAL_SEARCH_RADIUS_KM} km of ${normalizedPostcode}.`
           : `Showing food banks within ${LOCAL_SEARCH_RADIUS_KM} km of ${normalizedPostcode}.`,
       )
       setStep(2)
@@ -351,9 +94,10 @@ export default function DonateGoods() {
       setSearchResults([])
       setStep(1)
       setPostcodeError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to look up nearby food banks right now. Please try again.',
+        getFoodBankLookupErrorMessage(
+          error,
+          BACKEND_API_UNAVAILABLE_MESSAGE,
+        ),
       )
     } finally {
       setSearching(false)
@@ -362,31 +106,10 @@ export default function DonateGoods() {
 
   const handleSelectBank = (bank: FoodBankOption) => {
     setSelectedBank(bank)
-    setSubmitFeedback(null)
     setStep(3)
   }
 
-  const goToSearchStep = () => {
-    setSelectedBank(null)
-    setSubmitFeedback(null)
-    setStep(1)
-  }
-
-  const goToResultsStep = () => {
-    setSelectedBank(null)
-    setSubmitFeedback(null)
-    setStep(2)
-  }
-
-  const normalizePickupDateField = () => {
-    const parsedPickupDate = parsePickupDate(details.pickupDate)
-    if (parsedPickupDate && details.pickupDate !== parsedPickupDate.ukDate) {
-      updateDetails('pickupDate', parsedPickupDate.ukDate)
-    }
-  }
-
   const updateDetails = (field: keyof DonationDetails, value: string) => {
-    setSubmitFeedback(null)
     setDetails((current) => ({ ...current, [field]: value }))
     setFieldErrors((current) => {
       const nextErrors = { ...current }
@@ -420,35 +143,15 @@ export default function DonateGoods() {
     })
   }
 
+  const normalizePickupDateField = () => {
+    const parsedPickupDate = parsePickupDate(details.pickupDate)
+    if (parsedPickupDate && details.pickupDate !== parsedPickupDate.ukDate) {
+      updateDetails('pickupDate', parsedPickupDate.ukDate)
+    }
+  }
+
   const validateDetails = () => {
-    const nextErrors: Record<string, string> = {}
-
-    if (!details.name.trim()) {
-      nextErrors.name = 'Full name is required.'
-    }
-
-    if (!isValidEmail(details.email)) {
-      nextErrors.email = 'Please enter a valid email address.'
-    }
-
-    const phoneError = getPhoneError(details.phone)
-    if (phoneError) {
-      nextErrors.phone = phoneError
-    }
-
-    const pickupDateError = getPickupDateError(details.pickupDate)
-    if (pickupDateError) {
-      nextErrors.pickupDate = pickupDateError
-    }
-
-    if (!details.items.trim()) {
-      nextErrors.items = 'Please describe the items you are donating.'
-    }
-
-    if (!details.condition) {
-      nextErrors.condition = 'Please select the item condition.'
-    }
-
+    const nextErrors = validateDonationDetails(details)
     setFieldErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -479,17 +182,17 @@ export default function DonateGoods() {
     }
 
     setSubmitting(true)
-
     try {
       await donationsAPI.donateGoods({
         food_bank_id: selectedBank.foodBankId ?? undefined,
+        food_bank_email: selectedBank.foodBankEmail?.trim() || undefined,
         food_bank_name: selectedBank.name,
         food_bank_address: selectedBank.address,
         donor_name: details.name.trim(),
         donor_email: details.email.trim(),
         donor_phone: details.phone.trim(),
         postcode: postcode.trim().toUpperCase(),
-        pickup_date: parsedPickupDate.ukDate,
+        pickup_date: parsedPickupDate.isoDate,
         item_condition: details.condition,
         estimated_quantity: details.quantity.trim() || undefined,
         notes: details.notes.trim() || undefined,
@@ -509,19 +212,21 @@ export default function DonateGoods() {
       })
     } catch (error) {
       if (error instanceof Error) {
-        if (/11 digits/i.test(error.message)) {
+        if (/at least 3 characters/i.test(error.message)) {
           setFieldErrors((current) => ({
             ...current,
-            phone: 'Phone number must be exactly 11 digits.',
+            phone: 'Phone number must be at least 3 characters.',
           }))
           return
         }
 
-        if (/pickup date on or after today/i.test(error.message) || /valid date/i.test(error.message)) {
+        if (
+          /pickup date on or after today/i.test(error.message)
+          || /valid date/i.test(error.message)
+        ) {
           setFieldErrors((current) => ({
             ...current,
-            pickupDate:
-              getPickupDateError(details.pickupDate) || 'Please enter a valid date on or after today.',
+            pickupDate: getPickupDateError(details.pickupDate) || 'Please enter a valid date on or after today.',
           }))
           return
         }
@@ -540,351 +245,206 @@ export default function DonateGoods() {
   }
 
   return (
-    <>
-      <PrimaryNavbar variant="public" />
-      <div className={styles.page}>
-        <main className={styles.main}>
-          <section className={styles.heroSection}>
-            <div className={styles.container}>
-              <div className={styles.heroBlock}>
-                <p className={styles.eyebrow}>Goods donation</p>
-                <h1 className={styles.heroTitle}>Donate goods to a local food bank</h1>
-                <p className={styles.heroText}>
-                  Search by postcode, choose the right team, and send the details they need before
-                  any drop-off or collection is arranged.
+    <PublicPageShell mainClassName={`${styles.page} flex-1`}>
+      <section id="home" className={styles.heroSection}>
+        <div className={styles.shell}>
+          <div className={styles.heroInner}>
+            <h1 className={styles.heroTitle}>Your Unwanted Goods, Their Utilities</h1>
+            <p className={styles.heroText}>
+              Choose a food bank near you and submit a goods donation request to their local
+              team. We record the request through the platform and help coordinate the handover.
+            </p>
+
+            <div className={styles.heroBenefits}>
+              {HERO_BENEFITS.map((benefit) => (
+                <div key={benefit} className={styles.heroBenefit}>
+                  <Check className={styles.checkIcon} />
+                  <span>{benefit}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className={styles.heroImageCard}>
+              <ImageWithFallback
+                src="https://images.unsplash.com/photo-1738618141234-1ee52c6475a7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwYmFuayUyMHNoZWx2ZXMlMjBjYW5uZWQlMjBnb29kc3xlbnwxfHx8fDE3NzQ5Mzc1MDZ8MA&ixlib=rb-4.1.0&q=80&w=1080"
+                alt="Food bank shelves with donations"
+                className={styles.heroImage}
+              />
+              <div className={styles.heroImageOverlay}>
+                <p className={styles.heroQuote}>
+                  Every item donated is a step towards building a stronger, more caring community.
                 </p>
-                <ul className={styles.heroPoints}>
-                  {DONATE_GOODS_HERO_POINTS.map((point) => (
-                    <HeroPoint key={point.id} text={point.text} />
+              </div>
+            </div>
+
+            <button type="button" onClick={() => scrollToSection('donate')} className={styles.heroCta}>
+              Donate Goods
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="how-it-works" className={styles.surfaceSection}>
+        <div className={styles.shell}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Simple Steps to Give Back</h2>
+          </div>
+
+          <div className={styles.featureGrid}>
+            {STEP_FEATURES.map((feature) => (
+              <FeatureCard
+                key={feature.title}
+                title={feature.title}
+                description={feature.description}
+              />
+            ))}
+          </div>
+
+          <div className={styles.featureStoryGrid}>
+            {FEATURE_STORIES.map((story) => (
+              <FeatureCard
+                key={story.title}
+                title={story.title}
+                description={story.description}
+                image={story.image}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.surfaceSection}>
+        <div className={styles.shell}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Items We Gladly Accept</h2>
+            <p className={styles.sectionText}>
+              All items must be unopened, in original packaging, and within their best-before
+              dates
+            </p>
+          </div>
+
+          <div className={styles.acceptedGrid}>
+            {ACCEPTED_ITEMS.map((group) => (
+              <article key={group.category} className={styles.acceptedCard}>
+                <h3 className={styles.acceptedCardTitle}>{group.category}</h3>
+                <ul className={styles.acceptedList}>
+                  {group.items.map((item) => (
+                    <li key={item} className={styles.acceptedListItem}>
+                      <Check className={styles.acceptedListIcon} />
+                      <span>{item}</span>
+                    </li>
                   ))}
                 </ul>
-                <button
-                  type="button"
-                  className={styles.primaryButton}
-                  onClick={() => scrollToSection('donate-flow')}
+              </article>
+            ))}
+          </div>
+
+          <div className={styles.noticeCardPrimary}>
+            <Check className={styles.noticeIconSuccess} />
+            <div>
+              <p className={styles.noticeText}>
+                <strong>Please note:</strong> All items must be unopened, in their original
+                packaging, and within their best-before or use-by dates.
+              </p>
+            </div>
+          </div>
+
+          <div className={styles.noticeCardNeutral}>
+            <X className={styles.noticeIconDanger} />
+            <div>
+              <p className={styles.noticeTitle}>
+                <strong>We cannot accept:</strong>
+              </p>
+              <ul className={styles.rejectedList}>
+                {REJECTED_ITEMS.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="donate" className={styles.section}>
+        <div className={styles.shell}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Ready to Make a Difference?</h2>
+            <p className={styles.sectionText}>
+              Follow these steps to submit your request to the food bank you want to support
+            </p>
+          </div>
+
+          <div className={styles.flowShell}>
+            <div className={styles.progressHeader}>
+              <div className={styles.progressTrack}>
+                <div
+                  className={`${styles.progressDot} ${step >= 1 ? styles.progressDotActive : ''}`}
                 >
-                  Start donation request
-                  <ArrowRight className={styles.buttonIcon} size={18} />
-                </button>
+                  1
+                </div>
+                <div
+                  className={`${styles.progressLine} ${step >= 2 ? styles.progressLineActive : ''}`}
+                />
+                <div
+                  className={`${styles.progressDot} ${step >= 2 ? styles.progressDotActive : ''}`}
+                >
+                  2
+                </div>
+                <div
+                  className={`${styles.progressLine} ${step >= 3 ? styles.progressLineActive : ''}`}
+                />
+                <div
+                  className={`${styles.progressDot} ${step >= 3 ? styles.progressDotActive : ''}`}
+                >
+                  3
+                </div>
+              </div>
+              <div className={styles.progressLabels}>
+                {FLOW_PROGRESS_LABELS.map((label, index) => (
+                  <span key={label} className={step >= index + 1 ? styles.progressLabelActive : ''}>
+                    {label}
+                  </span>
+                ))}
               </div>
             </div>
-          </section>
 
-          <section className={`${styles.section} ${styles.sectionMuted}`}>
-            <div className={styles.container}>
-              <SectionHeader
-                title="Check the basics before you submit"
-                description="A short, clear request is easier for the local team to review and respond to."
+            {step === 1 ? (
+              <SearchLocationStep
+                postcode={postcode}
+                postcodeError={postcodeError}
+                searching={searching}
+                onSearch={handleSearch}
+                onPostcodeChange={setPostcode}
+                onClearPostcodeError={() => setPostcodeError('')}
+                onClearSearchFeedback={() => setSearchFeedback(null)}
               />
-              <div className={styles.guidanceLayout}>
-                <div className={styles.panel}>
-                  <h3 className={styles.panelTitle}>Commonly accepted goods</h3>
-                  <div className={styles.categoryGrid}>
-                    {DONATE_GOODS_ACCEPTED_CATEGORIES.map((group) => (
-                      <AcceptedCategoryCard
-                        key={group.id}
-                        category={group.category}
-                        items={group.items}
-                      />
-                    ))}
-                  </div>
-                </div>
+            ) : null}
 
-                <div className={styles.sidePanel}>
-                  <div className={`${styles.noticeCard} ${styles.noticeCardSuccess}`}>
-                    <Check className={styles.noticeIcon} size={18} />
-                    <p>
-                      All items should be unopened, in original packaging, and within their
-                      best-before or use-by dates.
-                    </p>
-                  </div>
-
-                  <div className={styles.sideCard}>
-                    <h3 className={styles.panelTitle}>Before you submit</h3>
-                    <ul className={styles.noteList}>
-                      {DONATE_GOODS_PRE_DONATION_NOTES.map((note) => (
-                        <li key={note} className={styles.noteItem}>
-                          <ArrowRight className={styles.noteItemIcon} size={16} />
-                          <span>{note}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className={`${styles.sideCard} ${styles.sideCardDanger}`}>
-                    <div className={styles.noticeCard}>
-                      <X className={styles.noticeIcon} size={18} />
-                      <p>Please do not include items that the food bank cannot safely store or use.</p>
-                    </div>
-                    <ul className={styles.rejectedList}>
-                      {DONATE_GOODS_REJECTED_ITEMS.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section id="donate-flow" className={styles.section}>
-            <div className={styles.container}>
-              <SectionHeader
-                title="Submit a goods donation request"
-                description="Search nearby food banks, choose the right team, and share the details they need to reply."
+            {step === 2 ? (
+              <SelectFoodBankStep
+                searchFeedback={searchFeedback}
+                searchResults={searchResults}
+                onBack={() => setStep(1)}
+                onSelectBank={handleSelectBank}
               />
-              <div className={styles.flowLayout}>
-                <ProgressHeader step={step} />
+            ) : null}
 
-                <div className={styles.flowStage}>
-                  {step === 1 ? (
-                    <form onSubmit={handleSearch} className={styles.stepCard}>
-                      <div className={styles.stepHeader}>
-                        <h3 className={styles.stepTitle}>Search by postcode</h3>
-                        <p className={styles.stepText}>
-                          Enter a UK postcode to find food banks within {LOCAL_SEARCH_RADIUS_KM} km.
-                        </p>
-                      </div>
-
-                      <div className={styles.searchRow}>
-                        <div className={styles.searchInputWrap}>
-                          <Search className={styles.searchIcon} size={18} />
-                          <input
-                            type="text"
-                            placeholder="e.g. SW1A 1AA"
-                            value={postcode}
-                            onChange={(event) => {
-                              setPostcode(normalizePostcodeInput(event.target.value))
-                              setPostcodeError('')
-                              setSearchFeedback(null)
-                              setSubmitFeedback(null)
-                            }}
-                            maxLength={8}
-                            className={`${styles.textInput} ${styles.searchInput}`}
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          className={styles.primaryButton}
-                          disabled={searching}
-                        >
-                          {searching ? 'Searching...' : 'Find food banks'}
-                        </button>
-                      </div>
-
-                      {postcodeError ? <p className={styles.fieldError}>{postcodeError}</p> : null}
-                    </form>
-                  ) : null}
-
-                  {step === 2 ? (
-                    <div className={styles.flowStack}>
-                      <div className={styles.inlineActions}>
-                        <button
-                          type="button"
-                          onClick={goToSearchStep}
-                          className={styles.ghostButton}
-                        >
-                          Change postcode
-                        </button>
-                      </div>
-
-                      <div className={styles.stepCard}>
-                        <div className={styles.stepHeader}>
-                          <h3 className={styles.stepTitle}>Choose a food bank</h3>
-                          <p className={styles.stepText}>
-                            {searchFeedback ?? 'Select the local team that should review this request.'}
-                          </p>
-                        </div>
-
-                        {searchResults.length === 0 ? (
-                          <div className={styles.emptyState}>
-                            {searchFeedback ?? 'Try another postcode to load nearby food banks.'}
-                          </div>
-                        ) : (
-                          <div className={styles.resultList}>
-                            {searchResults.map((bank) => (
-                              <BankResultCard
-                                key={bank.id}
-                                bank={bank}
-                                onSelect={handleSelectBank}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {step === 3 && selectedBank ? (
-                    <div className={styles.flowStack}>
-                      <div className={styles.inlineActions}>
-                        <button
-                          type="button"
-                          onClick={goToResultsStep}
-                          className={styles.ghostButton}
-                        >
-                          Choose a different food bank
-                        </button>
-                        <button
-                          type="button"
-                          onClick={goToSearchStep}
-                          className={styles.ghostButton}
-                        >
-                          Search another postcode
-                        </button>
-                      </div>
-
-                      <div className={styles.selectedBankCard}>
-                        <p className={styles.selectedBankLabel}>Sending request to</p>
-                        <h3 className={styles.selectedBankName}>{selectedBank.name}</h3>
-                        <p className={styles.selectedBankAddress}>{selectedBank.address}</p>
-                        <p className={styles.selectedBankMeta}>{selectedBank.distance} from {postcode}</p>
-                      </div>
-
-                      <form onSubmit={handleSubmitDonation} className={styles.stepCard}>
-                        <div className={styles.stepHeader}>
-                          <h3 className={styles.stepTitle}>Donation details</h3>
-                          <p className={styles.stepText}>
-                            Share what you have and how the food bank can contact you.
-                          </p>
-                        </div>
-
-                        <div className={styles.formGrid}>
-                          <FormField id="donor-name" label="Full name *" error={fieldErrors.name}>
-                            <input
-                              id="donor-name"
-                              type="text"
-                              value={details.name}
-                              onChange={(event) => updateDetails('name', event.target.value)}
-                              className={styles.textInput}
-                            />
-                          </FormField>
-
-                          <FormField id="donor-email" label="Email address *" error={fieldErrors.email}>
-                            <input
-                              id="donor-email"
-                              type="email"
-                              value={details.email}
-                              onChange={(event) => updateDetails('email', event.target.value)}
-                              className={styles.textInput}
-                            />
-                          </FormField>
-
-                          <FormField id="donor-phone" label="Phone number *" error={fieldErrors.phone}>
-                            <input
-                              id="donor-phone"
-                              type="tel"
-                              value={details.phone}
-                              onChange={(event) =>
-                                updateDetails('phone', sanitizePhoneInput(event.target.value))
-                              }
-                              inputMode="numeric"
-                              maxLength={11}
-                              placeholder="07123456789"
-                              className={styles.textInput}
-                            />
-                          </FormField>
-
-                          <FormField
-                            id="pickup-date"
-                            label="Preferred collection or drop-off date *"
-                            error={fieldErrors.pickupDate}
-                          >
-                            <input
-                              id="pickup-date"
-                              type="text"
-                              value={details.pickupDate}
-                              onChange={(event) =>
-                                updateDetails(
-                                  'pickupDate',
-                                  sanitizeDateTextInput(event.target.value),
-                                )
-                              }
-                              onBlur={normalizePickupDateField}
-                              inputMode="numeric"
-                              maxLength={10}
-                              placeholder="DD/MM/YYYY"
-                              className={styles.textInput}
-                            />
-                          </FormField>
-                        </div>
-
-                        <FormField
-                          id="donation-items"
-                          label="What are you donating? *"
-                          error={fieldErrors.items}
-                        >
-                          <textarea
-                            id="donation-items"
-                            value={details.items}
-                            onChange={(event) => updateDetails('items', event.target.value)}
-                            placeholder="e.g. canned vegetables, pasta, cereal, shampoo, or nappies"
-                            className={styles.textareaInput}
-                          />
-                        </FormField>
-
-                        <div className={styles.formGrid}>
-                          <FormField
-                            id="item-condition"
-                            label="Item condition *"
-                            error={fieldErrors.condition}
-                          >
-                            <select
-                              id="item-condition"
-                              value={details.condition}
-                              onChange={(event) => updateDetails('condition', event.target.value)}
-                              className={styles.selectInput}
-                            >
-                              {DONATE_GOODS_CONDITION_OPTIONS.map((option) => (
-                                <option key={option.value || 'empty'} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </FormField>
-
-                          <FormField id="estimated-quantity" label="Estimated quantity">
-                            <input
-                              id="estimated-quantity"
-                              type="text"
-                              value={details.quantity}
-                              onChange={(event) => updateDetails('quantity', event.target.value)}
-                              placeholder="e.g. 2 bags, 1 box"
-                              className={styles.textInput}
-                            />
-                          </FormField>
-                        </div>
-
-                        <FormField id="special-notes" label="Special instructions or notes">
-                          <textarea
-                            id="special-notes"
-                            value={details.notes}
-                            onChange={(event) => updateDetails('notes', event.target.value)}
-                            placeholder="Access instructions, parking details, or when someone will be in"
-                            className={`${styles.textareaInput} ${styles.textareaSmall}`}
-                          />
-                        </FormField>
-
-                        {submitFeedback ? <FeedbackBanner feedback={submitFeedback} /> : null}
-
-                        <button
-                          type="submit"
-                          disabled={submitting}
-                          className={styles.submitButton}
-                        >
-                          {submitting ? 'Sending request...' : 'Send donation request'}
-                        </button>
-                      </form>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </section>
-        </main>
-
-        <PublicSiteFooter />
-      </div>
-    </>
+            {step === 3 && selectedBank ? (
+              <DonationDetailsStep
+                selectedBank={selectedBank}
+                details={details}
+                fieldErrors={fieldErrors}
+                submitFeedback={submitFeedback}
+                submitting={submitting}
+                onBack={() => setStep(2)}
+                onSubmit={handleSubmitDonation}
+                onUpdateDetails={updateDetails}
+                onNormalizePickupDateField={normalizePickupDateField}
+              />
+            ) : null}
+          </div>
+        </div>
+      </section>
+    </PublicPageShell>
   )
 }

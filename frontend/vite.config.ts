@@ -50,79 +50,6 @@ const apiProxyTarget = getConfigValue(
   `http://${devHost}:${backendPort}`,
 )
 
-const foodManagementReferencePath = path.resolve(projectRoot, 'scripts', 'food_management.html')
-const dataDashboardReferencePath = path.resolve(projectRoot, 'scripts', 'Data_dashboard.html')
-const FOOD_MANAGEMENT_VIRTUAL_MODULE = 'virtual:food-management-reference'
-const FOOD_MANAGEMENT_VIRTUAL_MODULE_ID = `\0${FOOD_MANAGEMENT_VIRTUAL_MODULE}`
-const DATA_DASHBOARD_VIRTUAL_MODULE = 'virtual:data-dashboard-reference'
-const DATA_DASHBOARD_VIRTUAL_MODULE_ID = `\0${DATA_DASHBOARD_VIRTUAL_MODULE}`
-
-const listFilesRecursively = (dirPath: string): string[] => {
-  if (!fs.existsSync(dirPath)) {
-    return []
-  }
-
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true })
-  return entries.flatMap((entry) => {
-    const fullPath = path.join(dirPath, entry.name)
-    return entry.isDirectory() ? listFilesRecursively(fullPath) : [fullPath]
-  })
-}
-
-const readFoodManagementBackup = (): string => {
-  const appDataPath = process.env.APPDATA
-  if (!appDataPath) {
-    return ''
-  }
-
-  const backupsRoot = path.join(appDataPath, 'Code', 'Backups')
-  const backupFiles = listFilesRecursively(backupsRoot)
-
-  for (const backupFile of backupFiles) {
-    try {
-      const content = fs.readFileSync(backupFile, 'utf8')
-      if (!content.includes('scripts/food_management.html')) {
-        continue
-      }
-
-      return content.replace(/^.*\r?\n/, '')
-    } catch {
-      continue
-    }
-  }
-
-  return ''
-}
-
-const loadFoodManagementReference = (): string => {
-  if (fs.existsSync(foodManagementReferencePath) && fs.statSync(foodManagementReferencePath).size > 0) {
-    return fs.readFileSync(foodManagementReferencePath, 'utf8')
-  }
-
-  return readFoodManagementBackup()
-}
-
-const loadDataDashboardReference = (): string => {
-  if (fs.existsSync(dataDashboardReferencePath) && fs.statSync(dataDashboardReferencePath).size > 0) {
-    return fs.readFileSync(dataDashboardReferencePath, 'utf8')
-  }
-
-  return ''
-}
-
-
-const xlsxChunkPackages = new Set([
-  'xlsx',
-  'cfb',
-  'codepage',
-  'ssf',
-  'frac',
-  'crc-32',
-  'adler-32',
-  'wmf',
-  'word',
-])
-
 const getNodeModulePackageName = (id: string): string | null => {
   const normalizedId = id.replace(/\\/g, '/')
   const segments = normalizedId.split('/node_modules/')
@@ -145,63 +72,10 @@ const getNodeModulePackageName = (id: string): string | null => {
 
 const sanitizeChunkName = (name: string): string => name.replace(/^@/, '').replace(/[\\/]/g, '-')
 
-const htmlReferencePlugin = () => ({
-  name: 'html-reference-plugin',
-  resolveId(id: string) {
-    if (id === FOOD_MANAGEMENT_VIRTUAL_MODULE) {
-      return FOOD_MANAGEMENT_VIRTUAL_MODULE_ID
-    }
-
-    if (id === DATA_DASHBOARD_VIRTUAL_MODULE) {
-      return DATA_DASHBOARD_VIRTUAL_MODULE_ID
-    }
-
-    return null
-  },
-  load(id: string) {
-    if (id === FOOD_MANAGEMENT_VIRTUAL_MODULE_ID) {
-      return `export default ${JSON.stringify(loadFoodManagementReference())};`
-    }
-
-    if (id === DATA_DASHBOARD_VIRTUAL_MODULE_ID) {
-      return `export default ${JSON.stringify(loadDataDashboardReference())};`
-    }
-
-    return null
-  },
-  handleHotUpdate(ctx: {
-    file: string
-    server: {
-      moduleGraph: {
-        getModuleById: (id: string) => unknown
-        invalidateModule: (module: unknown) => void
-      }
-      ws: {
-        send: (payload: { type: string }) => void
-      }
-    }
-  }) {
-    const resolvedFile = path.resolve(ctx.file)
-    if (resolvedFile !== foodManagementReferencePath && resolvedFile !== dataDashboardReferencePath) {
-      return
-    }
-
-    const moduleId =
-      resolvedFile === foodManagementReferencePath
-        ? FOOD_MANAGEMENT_VIRTUAL_MODULE_ID
-        : DATA_DASHBOARD_VIRTUAL_MODULE_ID
-    const moduleNode = ctx.server.moduleGraph.getModuleById(moduleId)
-    if (moduleNode) {
-      ctx.server.moduleGraph.invalidateModule(moduleNode)
-    }
-
-    ctx.server.ws.send({ type: 'full-reload' })
-    return []
-  },
-})
 export default defineConfig({
-  plugins: [react(), htmlReferencePlugin()],
+  plugins: [react()],
   build: {
+    modulePreload: false,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -242,16 +116,8 @@ export default defineConfig({
             return 'icons'
           }
 
-          if (xlsxChunkPackages.has(packageName)) {
-            return 'xlsx'
-          }
-
           if (packageName === 'zustand' || packageName === 'use-sync-external-store') {
             return 'state'
-          }
-
-          if (packageName === 'clsx' || packageName === 'tailwind-merge') {
-            return 'ui-utils'
           }
 
           return `vendor-${sanitizeChunkName(packageName)}`

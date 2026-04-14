@@ -1,21 +1,19 @@
-"""
-InventoryItem model representing individual food inventory items.
-
-From spec section 1 for the `inventory_items` table:
-InventoryItem records are the atomic units of food inventory tracked by the
-system. These represent individual food types such as "Canned Beans" or
-"Rice". Items are combined into packages via the PackageItem junction table.
-Thresholds are tracked per item for restock management.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .application_item import ApplicationItem
+    from .food_bank import FoodBank
+    from .inventory_lot import InventoryLot
+    from .package_item import PackageItem
+    from .restock_request import RestockRequest
 
 
 class InventoryItem(Base):
@@ -50,24 +48,20 @@ class InventoryItem(Base):
 
     food_bank: Mapped["FoodBank | None"] = relationship(back_populates="inventory_items")
 
-    # inventory_items -> package_items is one-to-many.
     package_items: Mapped[list["PackageItem"]] = relationship(
         back_populates="inventory_item",
         cascade="all, delete-orphan",
     )
 
-    # inventory_items -> application_items is one-to-many.
     application_items: Mapped[list["ApplicationItem"]] = relationship(
         back_populates="inventory_item",
     )
 
-    # inventory_items -> inventory_lots is one-to-many.
     lots: Mapped[list["InventoryLot"]] = relationship(
         back_populates="inventory_item",
         cascade="all, delete-orphan",
     )
 
-    # inventory_items -> restock_requests is one-to-many.
     restock_requests: Mapped[list["RestockRequest"]] = relationship(
         back_populates="inventory_item",
         cascade="all, delete-orphan",

@@ -1,23 +1,17 @@
-"""
-FoodPackage model representing pre-configured food packages.
-
-From spec section 1 for the `food_packages` table:
-FoodPackage entities represent curated collections of inventory items ready
-for distribution. Each package has a stock level, threshold for restock, and
-tracks how many times it has been applied for. The live application treats
-packages as food-bank scoped records tied to `food_bank_id`; legacy NULL-scope
-rows may still exist in old databases but are not used by current flows. The
-`is_active` flag allows soft-deletion for historical tracking.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .application_item import ApplicationItem
+    from .food_bank import FoodBank
+    from .package_item import PackageItem
 
 
 class FoodPackage(Base):
@@ -54,16 +48,13 @@ class FoodPackage(Base):
         server_default=text("now()"),
     )
 
-    # food_banks -> food_packages is one-to-many.
     food_bank: Mapped["FoodBank | None"] = relationship(back_populates="packages")
 
-    # food_packages -> package_items is one-to-many.
     package_items: Mapped[list["PackageItem"]] = relationship(
         back_populates="package",
         cascade="all, delete-orphan",
     )
 
-    # food_packages -> application_items is one-to-many.
     application_items: Mapped[list["ApplicationItem"]] = relationship(
         back_populates="package",
         cascade="all, delete-orphan",

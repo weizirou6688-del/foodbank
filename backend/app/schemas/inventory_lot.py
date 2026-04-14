@@ -1,5 +1,3 @@
-"""Pydantic schemas for inventory lot management."""
-
 from datetime import date, datetime
 from typing import Literal
 
@@ -10,8 +8,6 @@ LotStatus = Literal["active", "wasted", "expired"]
 
 
 class InventoryLotOut(BaseModel):
-    """Response schema for inventory lot rows in admin management UI."""
-
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -26,8 +22,6 @@ class InventoryLotOut(BaseModel):
 
 
 class InventoryLotAdjustRequest(BaseModel):
-    """Request schema for PATCH /inventory/lots/{lot_id}."""
-
     quantity: int | None = Field(default=None, gt=0)
     damage_quantity: int | None = Field(default=None, gt=0)
     expiry_date: date | None = None
