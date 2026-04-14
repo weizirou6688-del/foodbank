@@ -6,10 +6,11 @@ from typing import Literal
 from app.schemas.stats import (
     DashboardChartOut,
     DashboardDisplayCardOut,
-    DashboardImpactMetricOut,
     PublicImpactMetricOut,
 )
 
+
+StatsRangeKey = Literal["month", "quarter", "year"]
 
 COMPARISON_LABELS = {
     "month": "last month",
@@ -185,10 +186,6 @@ def _absolute_changed_public_metric(
         plural_unit,
     )
     return _public_metric(key, value, label, note, change=change, positive=positive)
-
-
-def _impact_metric(key: str, value: str, label: str) -> DashboardImpactMetricOut:
-    return DashboardImpactMetricOut(key=key, value=value, label=label)
 
 
 def _record_donor_activity(
