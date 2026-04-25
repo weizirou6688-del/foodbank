@@ -43,11 +43,12 @@ async function main() {
   }
 
   validateRows(rows);
+  const currentKeys = new Set(rows.map((row) => normalizeIssueKey(row.Title)));
 
   const existingIssues = await listRepositoryIssues();
   const issuesByKey = new Map();
   for (const issue of existingIssues) {
-    const key = extractIssueKey(issue.body);
+    const key = extractIssueKeyFromIssue(issue);
     if (!key) {
       continue;
     }
@@ -63,9 +64,25 @@ async function main() {
   for (const field of project.fields) {
     fieldMap.set(field.name, field);
   }
+  const projectItems = await listProjectItems(project.id);
+  const projectItemIdsByContentId = new Map();
+  const projectItemIdsByKey = new Map();
+  for (const item of projectItems) {
+    const content = item.content;
+    if (content?.__typename !== "Issue") {
+      continue;
+    }
+    projectItemIdsByContentId.set(content.id, item.id);
+    const key = extractIssueKeyFromIssue(content);
+    if (key && !projectItemIdsByKey.has(key)) {
+      projectItemIdsByKey.set(key, item.id);
+    }
+  }
 
   let createdCount = 0;
   let updatedCount = 0;
+  let orphanedCount = 0;
+  let removedCount = 0;
 
   for (const row of rows) {
     const key = normalizeIssueKey(row.Title);
@@ -110,7 +127,8 @@ async function main() {
       continue;
     }
 
-    const itemId = await ensureProjectItem(project.id, issue.node_id);
+    const itemId = await ensureProjectItem(project.id, issue.node_id, projectItemIdsByContentId);
+    projectItemIdsByKey.set(key, itemId);
     for (const fieldName of projectFieldNames) {
       const field = fieldMap.get(fieldName);
       const rawValue = row[fieldName];
@@ -129,7 +147,44 @@ async function main() {
     }
   }
 
-  console.log(`Sync complete. Created ${createdCount} issue(s), updated ${updatedCount} issue(s).`);
+  for (const issue of existingIssues) {
+    const key = extractIssueKeyFromIssue(issue);
+    if (!key || currentKeys.has(key)) {
+      continue;
+    }
+
+    console.log(`Cleaning orphaned issue ${issue.number}: ${issue.title}`);
+    const cleanedBody = buildOrphanIssueBody(issue, key, csvPath);
+
+    if (dryRun) {
+      console.log(`[dry-run] Would close issue ${issue.number} and remove it from the project if present.`);
+    } else {
+      await updateIssue(issue.number, {
+        body: cleanedBody,
+        state: "closed",
+      });
+    }
+
+    orphanedCount += 1;
+
+    const itemId = projectItemIdsByContentId.get(issue.node_id) ?? projectItemIdsByKey.get(key);
+    if (!itemId) {
+      continue;
+    }
+
+    if (dryRun) {
+      console.log(`[dry-run] Would remove project item ${itemId} for issue ${issue.number}.`);
+    } else {
+      await removeProjectItem(project.id, itemId);
+    }
+    projectItemIdsByContentId.delete(issue.node_id);
+    projectItemIdsByKey.delete(key);
+    removedCount += 1;
+  }
+
+  console.log(
+    `Sync complete. Created ${createdCount} issue(s), updated ${updatedCount} issue(s), cleaned ${orphanedCount} orphaned issue(s), removed ${removedCount} project item(s).`,
+  );
 }
 
 function requiredEnv(name) {
@@ -248,9 +303,84 @@ function buildIssueBody(row, key, sourcePath) {
   return lines.join("\n");
 }
 
+function buildOrphanIssueBody(issue, key, sourcePath) {
+  const lines = [];
+  const visibleBody = stripVisibleSyncMetadata(issue.body);
+
+  if (visibleBody) {
+    lines.push(visibleBody, "");
+  }
+
+  lines.push(
+    `<!-- kanban-key: ${key} -->`,
+    `<!-- kanban-source: ${sourcePath} -->`,
+  );
+
+  return lines.join("\n");
+}
+
 function extractIssueKey(body) {
   const match = body?.match(/<!--\s*kanban-key:\s*([A-Za-z0-9-]+)\s*-->/i);
   return match?.[1] ?? null;
+}
+
+function extractIssueKeyFromIssue(issue) {
+  const bodyKey = extractIssueKey(issue?.body);
+  if (bodyKey) {
+    return bodyKey;
+  }
+
+  if (looksLikeLegacySyncedBody(issue?.body)) {
+    return normalizeIssueKey(issue?.title ?? "");
+  }
+
+  return null;
+}
+
+function looksLikeLegacySyncedBody(body) {
+  const text = String(body ?? "");
+  return (
+    text.includes("Synced from kanban.csv") ||
+    /(^|\n)\s*-\s*(Board Section|Status|Priority|Estimate|Area|Sprint|Target Date):/i.test(text)
+  );
+}
+
+function stripVisibleSyncMetadata(body) {
+  const lines = String(body ?? "").replace(/\r/g, "").split("\n");
+  const visibleLines = [];
+
+  for (const line of lines) {
+    if (/^\s*<!--\s*kanban-(key|source):/i.test(line)) {
+      continue;
+    }
+    if (/^\s*Synced from kanban\.csv\s*$/i.test(line)) {
+      continue;
+    }
+    if (/^\s*-\s*(Board Section|Status|Priority|Estimate|Area|Sprint|Target Date):/i.test(line)) {
+      continue;
+    }
+    if (/^\s*---\s*$/.test(line)) {
+      break;
+    }
+    visibleLines.push(line);
+  }
+
+  const cleanedLines = [];
+  let previousBlank = true;
+  for (const line of visibleLines) {
+    const isBlank = line.trim() === "";
+    if (isBlank && previousBlank) {
+      continue;
+    }
+    cleanedLines.push(line);
+    previousBlank = isBlank;
+  }
+
+  while (cleanedLines.length && cleanedLines[cleanedLines.length - 1].trim() === "") {
+    cleanedLines.pop();
+  }
+
+  return cleanedLines.join("\n").trim();
 }
 
 async function listRepositoryIssues() {
@@ -371,7 +501,61 @@ async function resolveOwnerType(owner) {
   return "user";
 }
 
-async function ensureProjectItem(projectId, contentId) {
+async function listProjectItems(projectId) {
+  const items = [];
+  let after = null;
+
+  while (true) {
+    const query = `
+      query($projectId: ID!, $after: String) {
+        node(id: $projectId) {
+          ... on ProjectV2 {
+            items(first: 100, after: $after) {
+              nodes {
+                id
+                content {
+                  __typename
+                  ... on Issue {
+                    id
+                    number
+                    title
+                    body
+                  }
+                }
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const data = await graphQl(query, { projectId, after });
+    const connection = data.node?.items;
+    if (!connection) {
+      throw new Error(`Unable to load items for project ${projectId}.`);
+    }
+
+    items.push(...connection.nodes.filter(Boolean));
+
+    if (!connection.pageInfo.hasNextPage) {
+      break;
+    }
+    after = connection.pageInfo.endCursor;
+  }
+
+  return items;
+}
+
+async function ensureProjectItem(projectId, contentId, existingItemsByContentId) {
+  const existingItemId = existingItemsByContentId.get(contentId);
+  if (existingItemId) {
+    return existingItemId;
+  }
+
   const mutation = `
     mutation($projectId: ID!, $contentId: ID!) {
       addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
@@ -383,7 +567,21 @@ async function ensureProjectItem(projectId, contentId) {
   `;
 
   const data = await graphQl(mutation, { projectId, contentId });
-  return data.addProjectV2ItemById.item.id;
+  const itemId = data.addProjectV2ItemById.item.id;
+  existingItemsByContentId.set(contentId, itemId);
+  return itemId;
+}
+
+async function removeProjectItem(projectId, itemId) {
+  const mutation = `
+    mutation($projectId: ID!, $itemId: ID!) {
+      deleteProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {
+        deletedItemId
+      }
+    }
+  `;
+
+  await graphQl(mutation, { projectId, itemId });
 }
 
 async function syncProjectFieldValue({ projectId, itemId, field, rawValue }) {
