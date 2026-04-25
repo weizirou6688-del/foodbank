@@ -164,22 +164,31 @@ async function main() {
       continue;
     }
 
-    console.log(`Cleaning orphaned issue ${issue.number}: ${issue.title}`);
     const cleanedBody = buildOrphanIssueBody(issue, key, csvPath);
+    const itemId = projectItemIdsByContentId.get(issue.node_id) ?? projectItemIdsByKey.get(key);
+    const needsIssueUpdate =
+      issue.state !== "closed" || normalizeMultilineText(issue.body) !== cleanedBody;
+    const needsProjectRemoval = Boolean(itemId);
 
-    if (dryRun) {
-      console.log(`[dry-run] Would close issue ${issue.number} and remove it from the project if present.`);
-    } else {
-      await updateIssue(issue.number, {
-        body: cleanedBody,
-        state: "closed",
-      });
+    if (!needsIssueUpdate && !needsProjectRemoval) {
+      continue;
     }
 
-    orphanedCount += 1;
+    console.log(`Cleaning orphaned issue ${issue.number}: ${issue.title}`);
 
-    const itemId = projectItemIdsByContentId.get(issue.node_id) ?? projectItemIdsByKey.get(key);
-    if (!itemId) {
+    if (needsIssueUpdate) {
+      if (dryRun) {
+        console.log(`[dry-run] Would close issue ${issue.number} and refresh its cleaned body.`);
+      } else {
+        await updateIssue(issue.number, {
+          body: cleanedBody,
+          state: "closed",
+        });
+      }
+      orphanedCount += 1;
+    }
+
+    if (!needsProjectRemoval) {
       continue;
     }
 
@@ -392,6 +401,10 @@ function stripVisibleSyncMetadata(body) {
   }
 
   return cleanedLines.join("\n").trim();
+}
+
+function normalizeMultilineText(value) {
+  return String(value ?? "").replace(/\r/g, "").trim();
 }
 
 async function listRepositoryIssues() {
