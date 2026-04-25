@@ -238,19 +238,9 @@ function buildIssueBody(row, key, sourcePath) {
     lines.push(row.Body.trim(), "");
   }
 
+  // Keep only hidden sync markers in the issue body so the visible text stays
+  // exactly as written in the CSV card content.
   lines.push(
-    "---",
-    "",
-    "Synced from kanban.csv",
-    "",
-    `- Board Section: ${row["Board Section"] || "-"}`,
-    `- Status: ${row.Status || "-"}`,
-    `- Priority: ${row.Priority || "-"}`,
-    `- Estimate: ${row.Estimate || "-"}`,
-    `- Area: ${row.Area || "-"}`,
-    `- Sprint: ${row.Sprint || "-"}`,
-    `- Target Date: ${row["Target Date"] || "-"}`,
-    "",
     `<!-- kanban-key: ${key} -->`,
     `<!-- kanban-source: ${sourcePath} -->`,
   );
