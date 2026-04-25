@@ -27,6 +27,13 @@ const projectFieldNames = [
   "Sprint",
 ];
 
+const projectFieldValueAliases = {
+  Area: {
+    Research: "Fullstack",
+    Design: "Fullstack",
+  },
+};
+
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
@@ -63,6 +70,13 @@ async function main() {
   const fieldMap = new Map();
   for (const field of project.fields) {
     fieldMap.set(field.name, field);
+  }
+  const syncableProjectFieldNames = projectFieldNames.filter((fieldName) => fieldMap.has(fieldName));
+  const missingProjectFieldNames = projectFieldNames.filter((fieldName) => !fieldMap.has(fieldName));
+  if (missingProjectFieldNames.length) {
+    console.log(
+      `Skipping unavailable project fields: ${missingProjectFieldNames.join(", ")}`,
+    );
   }
   const projectItems = await listProjectItems(project.id);
   const projectItemIdsByContentId = new Map();
@@ -129,13 +143,10 @@ async function main() {
 
     const itemId = await ensureProjectItem(project.id, issue.node_id, projectItemIdsByContentId);
     projectItemIdsByKey.set(key, itemId);
-    for (const fieldName of projectFieldNames) {
+    for (const fieldName of syncableProjectFieldNames) {
       const field = fieldMap.get(fieldName);
       const rawValue = row[fieldName];
       if (!field || !rawValue) {
-        if (!field && rawValue) {
-          console.warn(`Project field "${fieldName}" not found. Skipping value "${rawValue}".`);
-        }
         continue;
       }
       await syncProjectFieldValue({
@@ -601,9 +612,14 @@ async function syncProjectFieldValue({ projectId, itemId, field, rawValue }) {
 }
 
 async function setSingleSelectField(projectId, itemId, field, rawValue) {
-  const option = field.options.find((candidate) => candidate.name === rawValue);
+  const normalizedValue = resolveProjectFieldValue(field.name, rawValue);
+  const option =
+    field.options.find((candidate) => candidate.name === normalizedValue) ??
+    field.options.find(
+      (candidate) => candidate.name.toLowerCase() === normalizedValue.toLowerCase(),
+    );
   if (!option) {
-    console.warn(`Option "${rawValue}" not found in project field "${field.name}".`);
+    console.warn(`Option "${normalizedValue}" not found in project field "${field.name}".`);
     return;
   }
 
@@ -630,6 +646,14 @@ async function setSingleSelectField(projectId, itemId, field, rawValue) {
     fieldId: field.id,
     optionId: option.id,
   });
+}
+
+function resolveProjectFieldValue(fieldName, rawValue) {
+  const alias = projectFieldValueAliases[fieldName]?.[rawValue];
+  if (alias) {
+    return alias;
+  }
+  return rawValue;
 }
 
 async function setIterationField(projectId, itemId, field, rawValue) {
