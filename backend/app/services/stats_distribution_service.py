@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from app.core.analytics_utils import as_utc_naive as _as_utc_naive
@@ -12,15 +12,25 @@ from app.models.food_package import FoodPackage
 from app.schemas.stats import DashboardVerificationRecordOut
 
 
-def _package_display_name(application: Application) -> str:
-    unique_names = list(
-        dict.fromkeys(
-            item.package.name if item.package is not None else item.inventory_item.name
-            for item in application.items
-            if item.package is not None or item.inventory_item is not None
-        )
-    )
-    return ", ".join(unique_names) if unique_names else "Direct Item Support"
+@dataclass(frozen=True)
+class ResolvedRedemptionCounts:
+    resolved_count: int
+    success_count: int
+
+
+@dataclass(frozen=True)
+class ApplicationDistributionSummary:
+    package_quantity: int
+    food_units: int
+    snapshot_package_units_total: int
+    snapshot_package_quantity_total: int
+    package_categories: list[tuple[str, int]]
+
+
+@dataclass(frozen=True)
+class VerificationRecordEntry:
+    sort_key: datetime
+    record: DashboardVerificationRecordOut
 
 
 def _package_recipe_units(packages: list[FoodPackage]) -> dict[int, int]:
@@ -35,11 +45,9 @@ def _package_recipe_units(packages: list[FoodPackage]) -> dict[int, int]:
 def _group_distribution_snapshots(
     distribution_snapshots: list[ApplicationDistributionSnapshot],
 ) -> dict[object, list[ApplicationDistributionSnapshot]]:
-    snapshots_by_application_id: dict[object, list[ApplicationDistributionSnapshot]] = (
-        defaultdict(list)
-    )
+    snapshots_by_application_id: dict[object, list[ApplicationDistributionSnapshot]] = {}
     for snapshot in distribution_snapshots:
-        snapshots_by_application_id[snapshot.application_id].append(snapshot)
+        snapshots_by_application_id.setdefault(snapshot.application_id, []).append(snapshot)
     return snapshots_by_application_id
 
 
@@ -47,19 +55,19 @@ def _resolved_redemption_counts(
     applications: list[Application],
     start: date,
     end: date,
-) -> tuple[int, int]:
+) -> ResolvedRedemptionCounts:
     window_applications = [
         application
         for application in applications
         if _in_period(_event_date(application.created_at), start, end)
     ]
-    return (
-        sum(
+    return ResolvedRedemptionCounts(
+        resolved_count=sum(
             application.deleted_at is not None
             or application.status in {"expired", "collected"}
             for application in window_applications
         ),
-        sum(
+        success_count=sum(
             application.deleted_at is None and application.status == "collected"
             for application in window_applications
         ),
@@ -72,32 +80,44 @@ def _application_distribution_summary(
     package_recipe_units: dict[int, int],
     *,
     use_snapshot_packages: bool = False,
-) -> tuple[int, int, int, int, list[tuple[str, int]]]:
-    snapshot_groups: dict[str, list[ApplicationDistributionSnapshot]] = defaultdict(list)
-    for snapshot in application_snapshots:
-        snapshot_groups[snapshot.snapshot_type].append(snapshot)
-    package_snapshots = snapshot_groups["package"]
+) -> ApplicationDistributionSummary:
+    package_snapshots = [
+        snapshot
+        for snapshot in application_snapshots
+        if snapshot.snapshot_type == "package"
+    ]
+    package_component_snapshots = [
+        snapshot
+        for snapshot in application_snapshots
+        if snapshot.snapshot_type == "package_component"
+    ]
+    direct_item_snapshots = [
+        snapshot
+        for snapshot in application_snapshots
+        if snapshot.snapshot_type == "direct_item"
+    ]
+    # 有 snapshot 就优先用 snapshot,因为 package recipe 和 inventory category
+    # 在 application 提交之后可能会变。
     if (
-        snapshot_groups["package_component"]
-        or snapshot_groups["direct_item"]
+        package_component_snapshots
+        or direct_item_snapshots
         or (use_snapshot_packages and package_snapshots)
     ):
         package_quantity = sum(
             snapshot.requested_quantity for snapshot in package_snapshots
         )
-        return (
-            package_quantity,
-            sum(
+        return ApplicationDistributionSummary(
+            package_quantity=package_quantity,
+            food_units=sum(
                 snapshot.distributed_quantity
-                for snapshot_type in ("package_component", "direct_item")
-                for snapshot in snapshot_groups[snapshot_type]
+                for snapshot in package_component_snapshots + direct_item_snapshots
             ),
-            sum(
+            snapshot_package_units_total=sum(
                 (snapshot.recipe_unit_total or 0) * snapshot.requested_quantity
                 for snapshot in package_snapshots
             ),
-            package_quantity,
-            [
+            snapshot_package_quantity_total=package_quantity,
+            package_categories=[
                 (
                     snapshot.package_category or "Uncategorized",
                     snapshot.requested_quantity,
@@ -119,7 +139,13 @@ def _application_distribution_summary(
                 )
         elif item.inventory_item_id is not None:
             food_units += item.quantity
-    return package_quantity, food_units, 0, 0, package_categories
+    return ApplicationDistributionSummary(
+        package_quantity=package_quantity,
+        food_units=food_units,
+        snapshot_package_units_total=0,
+        snapshot_package_quantity_total=0,
+        package_categories=package_categories,
+    )
 
 
 def _build_verification_record(
@@ -128,17 +154,29 @@ def _build_verification_record(
     primary_timestamp: datetime | None,
     status: str,
     status_tone: str,
-) -> tuple[datetime, DashboardVerificationRecordOut]:
+) -> VerificationRecordEntry:
     verification_timestamp = (
         _as_utc_naive(primary_timestamp)
         or _as_utc_naive(application.updated_at)
         or _as_utc_naive(application.created_at)
         or datetime.min
     )
-    return verification_timestamp, DashboardVerificationRecordOut(
-        redemption_code=application.redemption_code,
-        package_type=_package_display_name(application),
-        verified_at=verification_timestamp.strftime("%Y-%m-%d %H:%M"),
-        status=status,
-        status_tone=status_tone,
+    package_names = list(
+        dict.fromkeys(
+            item.package.name if item.package is not None else item.inventory_item.name
+            for item in application.items
+            if item.package is not None or item.inventory_item is not None
+        )
+    )
+    return VerificationRecordEntry(
+        sort_key=verification_timestamp,
+        record=DashboardVerificationRecordOut(
+            redemption_code=application.redemption_code,
+            package_type=", ".join(package_names)
+            if package_names
+            else "Direct Item Support",
+            verified_at=verification_timestamp.strftime("%Y-%m-%d %H:%M"),
+            status=status,
+            status_tone=status_tone,
+        ),
     )

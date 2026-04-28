@@ -1,3 +1,5 @@
+"""面向捐赠人的物品捐赠日期和电话号码的规范化工具。"""
+
 from __future__ import annotations
 
 import re
@@ -25,6 +27,8 @@ def format_goods_pickup_date(value: date | datetime | str | None) -> str | None:
     if not trimmed_value:
         return None
 
+    # 同时接受斜杠、横杠和 ISO 三种输入,公开表单、admin 编辑和种子数据
+    # 最终都会落到统一的 DD/MM/YYYY 存储格式
     if GOODS_DONATION_DATE_PATTERN.fullmatch(trimmed_value):
         parsed_date = datetime.strptime(trimmed_value, GOODS_DONATION_DATE_FORMAT)
         return parsed_date.strftime(GOODS_DONATION_DATE_FORMAT)
@@ -54,6 +58,8 @@ def normalize_goods_donor_phone(value: str | None, *, required: bool) -> str | N
             raise ValueError("Donor phone must be exactly 11 digits.")
         return None
 
+    # 电话号码只存数字,后续校验和匹配就不会受原表单里
+    # 各种标点符号的影响
     digits_only = re.sub(r"\D", "", str(value))
     if not digits_only:
         if required:

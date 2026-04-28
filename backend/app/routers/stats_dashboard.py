@@ -20,6 +20,8 @@ async def get_dashboard_analytics(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    # router 故意保持很薄,所有 dashboard 计算都走专门的 service,
+    # 统一一份 reporting 契约
     return await build_dashboard_analytics(
         range_key=range_key,
         admin_user=admin_user,

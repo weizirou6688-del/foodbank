@@ -1,36 +1,51 @@
 from __future__ import annotations
 
-from fastapi import Depends, Query
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import and_, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.database_errors import run_guarded_action
 from app.core.db_utils import fetch_rows
 from app.core.security import require_admin_or_supermarket
 from app.models.inventory_item import InventoryItem
 from app.models.inventory_lot import InventoryLot
 from app.routers._shared import bank_scoped_clause
-from app.routers.inventory_shared import active_inventory_lot_filters, run_inventory_action
 from app.schemas.inventory_item import LowStockItem
 
 
+router = APIRouter()
+
+
+@router.get("/low-stock", response_model=list[LowStockItem])
 async def get_low_stock_items(
     threshold: int | None = Query(None, ge=0, description="Override default threshold"),
     admin_user: dict = Depends(require_admin_or_supermarket),
     db: AsyncSession = Depends(get_db),
 ):
     async def action() -> list[LowStockItem]:
+        # 告警基于还活着、没过期的 lot 算,low-stock 队列和 admin dashboard 其他地方
+        # 用的是同一个 stock 定义
         stock_subquery = (
             select(
                 InventoryLot.inventory_item_id,
                 func.coalesce(func.sum(InventoryLot.quantity), 0).label("total_stock"),
             )
-            .where(and_(*active_inventory_lot_filters()))
+            .where(
+                and_(
+                    InventoryLot.deleted_at.is_(None),
+                    InventoryLot.expiry_date >= date.today(),
+                )
+            )
             .group_by(InventoryLot.inventory_item_id)
             .subquery()
         )
 
         effective_total_stock = func.coalesce(stock_subquery.c.total_stock, 0)
+        # override threshold 用来支持"今天什么算低"的查询,不去改 DB 里每个
+        # inventory item 存的 threshold
         effective_threshold = (
             literal(threshold) if threshold is not None else InventoryItem.threshold
         )
@@ -73,4 +88,7 @@ async def get_low_stock_items(
             for row in rows
         ]
 
-    return await run_inventory_action(action, failure_detail="Failed to retrieve low-stock items")
+    return await run_guarded_action(
+        action,
+        failure_detail="Failed to retrieve low-stock items",
+    )

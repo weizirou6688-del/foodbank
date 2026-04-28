@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import Depends, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,8 +15,13 @@ from app.models.food_package import FoodPackage
 from app.models.inventory_item import InventoryItem
 from app.models.package_item import PackageItem
 from app.routers._shared import bank_scoped_clause
+from app.schemas.food_package import FoodPackageDetailOut
 
 
+router = APIRouter()
+
+
+@router.get("/packages", response_model=list[FoodPackageDetailOut])
 async def list_admin_packages(
     food_bank_id: int | None = Query(None, gt=0),
     category: str | None = Query(None, min_length=1, max_length=100),
@@ -45,6 +50,8 @@ async def list_admin_packages(
         .order_by(FoodPackage.id.asc())
     )
 
+    # local admin 在 UI 上可能仍然带了 food_bank_id 过来,但 admin 侧的 package 查询
+    # 一律以 token 里的 scope 为准
     if normalized_food_bank_id is not None:
         if admin_food_bank_id is not None:
             enforce_admin_food_bank_scope(
@@ -63,6 +70,7 @@ async def list_admin_packages(
         query = query.where(FoodPackage.category == normalized_category)
 
     if normalized_search:
+        # inventory join 只在全文搜索时才需要,默认列表走更便宜的纯 package 查询
         search_pattern = f"%{normalized_search}%"
         query = (
             query.outerjoin(PackageItem, PackageItem.package_id == FoodPackage.id)

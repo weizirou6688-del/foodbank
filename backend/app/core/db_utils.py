@@ -1,3 +1,5 @@
+"""数据库小工具,让 router 和 service 把精力放在业务规则上。"""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
@@ -12,20 +14,22 @@ ChildT = TypeVar("ChildT")
 
 
 async def fetch_scalars(db: AsyncSession, query) -> list[T]:
-    return list((await db.execute(query)).scalars().all())
+    return (await db.execute(query)).scalars().all()
 
 
 async def fetch_rows(db: AsyncSession, query) -> list[tuple]:
-    return list((await db.execute(query)).all())
+    return (await db.execute(query)).all()
 
 
 async def fetch_one_or_none(db: AsyncSession, query) -> T | None:
-    scalar = getattr(db, "scalar", None)
-    if callable(scalar):
-        result = await scalar(query)
-        if hasattr(db, "scalar_values") or result is not None or not callable(getattr(db, "execute", None)):
-            return result
-    return (await db.execute(query)).scalar_one_or_none()
+    try:
+        return (await db.execute(query)).scalar_one_or_none()
+    except AttributeError:
+        # 有些测试提供的轻量 session stub 只有 scalar()
+        scalar = getattr(db, "scalar", None)
+        if callable(scalar):
+            return await scalar(query)
+        raise AttributeError("Database session does not support execute() or scalar().")
 
 
 async def flush_refresh(db: AsyncSession, instance: T) -> T:
@@ -66,16 +70,19 @@ async def sync_keyed_quantity_children(
     changed = False
     existing_items_by_key = {key_getter(item): item for item in existing_items}
 
+    # 这个辅助函数同步"配方型"子集合,免得每个调用方都自己写一套
+    # 增 / 改 / 删的簿记代码
     for key, quantity in desired_quantities.items():
         existing_item = existing_items_by_key.get(key)
         if existing_item is None:
             db.add(build_child(key, quantity))
             changed = True
-        elif sync_model_fields(existing_item, {"quantity": quantity}):
+        elif getattr(existing_item, "quantity") != quantity:
+            setattr(existing_item, "quantity", quantity)
             changed = True
 
-    for existing_item in existing_items:
-        if key_getter(existing_item) not in desired_quantities:
+    for key, existing_item in existing_items_by_key.items():
+        if key not in desired_quantities:
             await db.delete(existing_item)
             changed = True
 

@@ -1,3 +1,5 @@
+"""snapshot helpers for dashboard"""
+
 from __future__ import annotations
 
 import uuid
@@ -13,18 +15,33 @@ from app.models.inventory_lot import InventoryLot
 from app.models.inventory_waste_event import InventoryWasteEvent
 
 
+def _package_snapshot_fields(package: FoodPackage) -> dict[str, object]:
+    return {
+        "package_id": package.id,
+        "package_name": package.name,
+        "package_category": package.category,
+    }
+
+
+def _inventory_item_snapshot_fields(inventory_item: InventoryItem) -> dict[str, object]:
+    return {
+        "inventory_item_id": inventory_item.id,
+        "inventory_item_name": inventory_item.name,
+        "inventory_item_category": inventory_item.category,
+        "inventory_item_unit": inventory_item.unit,
+    }
+
+
 def build_package_snapshot_rows(
     application_id: uuid.UUID,
     package: FoodPackage,
     requested_quantity: int,
     snapshot_created_at: datetime | None,
 ) -> list[ApplicationDistributionSnapshot]:
+    # package 快照同时存 package 级别的申请和展开后的 recipe 组件,
+    # 后面 analytics 就不用依赖此刻的 package 定义。
     recipe_unit_total = sum(package_item.quantity for package_item in package.package_items)
-    package_fields = {
-        "package_id": package.id,
-        "package_name": package.name,
-        "package_category": package.category,
-    }
+    package_fields = _package_snapshot_fields(package)
     rows = [
         ApplicationDistributionSnapshot(
             application_id=application_id,
@@ -47,10 +64,7 @@ def build_package_snapshot_rows(
                 application_id=application_id,
                 snapshot_type="package_component",
                 **package_fields,
-                inventory_item_id=inventory_item.id,
-                inventory_item_name=inventory_item.name,
-                inventory_item_category=inventory_item.category,
-                inventory_item_unit=inventory_item.unit,
+                **_inventory_item_snapshot_fields(inventory_item),
                 requested_quantity=requested_quantity,
                 quantity_per_package=package_item.quantity,
                 distributed_quantity=requested_quantity * package_item.quantity,
@@ -93,10 +107,7 @@ async def record_application_distribution_snapshots(
             ApplicationDistributionSnapshot(
                 application_id=application_id,
                 snapshot_type="direct_item",
-                inventory_item_id=inventory_item.id,
-                inventory_item_name=inventory_item.name,
-                inventory_item_category=inventory_item.category,
-                inventory_item_unit=inventory_item.unit,
+                **_inventory_item_snapshot_fields(inventory_item),
                 requested_quantity=requested_quantity,
                 distributed_quantity=requested_quantity,
                 created_at=snapshot_created_at,
@@ -118,6 +129,8 @@ def record_inventory_waste_event(
     if quantity <= 0:
         return
 
+    # waste event 在破坏性的 lot 变更之前写入,
+    # lot 之后被删或缩水,过期/损耗的 analytics 仍有可查的审计记录。
     db.add(
         InventoryWasteEvent(
             inventory_lot_id=lot.id,

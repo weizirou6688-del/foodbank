@@ -1,3 +1,5 @@
+"""shared helpers for routers"""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
@@ -21,6 +23,8 @@ def single_page_response(items: Sequence[T]) -> dict[str, object]:
 
 
 def bank_scoped_clause(model, admin_user: dict):
+    # 平台 admin 能看任何 bank 的数据;local admin 在每个用到这个 helper 的 router
+    # 里都被钉死在自己分配的 food bank 上
     admin_food_bank_id = get_admin_food_bank_id(admin_user)
     if admin_food_bank_id is None:
         return model.food_bank_id.is_not(None)
@@ -49,6 +53,8 @@ async def require_scoped_by_id(
     options: Sequence[object] = (),
     food_bank_id_getter: Callable[[T], int | None] | None = None,
 ) -> T:
+    # 先把 record 取出来,因为有的调用方是通过关联对象拿 scope 的,
+    # 不一定有直接的 food_bank_id 列
     record = await require_by_id(db, model, entity_id, detail=not_found_detail, options=options)
     food_bank_id = food_bank_id_getter(record) if food_bank_id_getter is not None else getattr(record, "food_bank_id")
     enforce_admin_food_bank_scope(admin_user, food_bank_id, detail=detail)
@@ -63,6 +69,8 @@ async def resolve_admin_target_food_bank_id(
 ) -> int:
     admin_food_bank_id = get_admin_food_bank_id(admin_user)
     if admin_food_bank_id is not None:
+        # local admin 就算前端传了别的 id 也不能改写到别的 bank,
+        # token 里分配的那个 id 永远优先
         if requested_food_bank_id is not None:
             enforce_admin_food_bank_scope(admin_user, requested_food_bank_id, detail=scope_detail)
         target_food_bank_id = admin_food_bank_id

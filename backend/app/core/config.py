@@ -1,3 +1,5 @@
+"""本地开发和部署环境用的配置加载器。"""
+
 import os
 from pathlib import Path
 from typing import List
@@ -10,6 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEV_ENV_PATH = PROJECT_ROOT / "dev.env"
 BACKEND_ENV_PATH = PROJECT_ROOT / "backend" / ".env"
 
+# 仓库级别的文件提供共用默认值,后端目录里的文件可以覆盖
 load_dotenv(DEV_ENV_PATH, override=False)
 load_dotenv(BACKEND_ENV_PATH, override=True)
 
@@ -26,6 +29,8 @@ def _build_default_cors_origins() -> List[str]:
     frontend_end = _env_int("FRONTEND_FALLBACK_PORT_END", frontend_start)
     preview_port = _env_int("FRONTEND_PREVIEW_PORT", 4173)
 
+    # 本地开发常常在备用端口之间跳来跳去,直接把整段本地端口都加进白名单,
+    # 这样 Vite 换端口重启时不用每次都改 CORS
     origins: List[str] = ["http://localhost:3000"]
     for port in range(frontend_start, frontend_end + 1):
         origins.append(f"http://localhost:{port}")
@@ -140,6 +145,8 @@ class Settings(BaseSettings):
 
     @property
     def operations_fallback_email(self) -> str | None:
+        # 通知优先用明确配置的运维邮箱,实在没有就回落到发件人地址,
+        # 免得运维邮件被悄悄丢掉
         return (
             self.platform_operations_email
             or self.operations_notification_email

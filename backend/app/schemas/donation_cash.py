@@ -38,8 +38,8 @@ class DonationCashCreate(BaseModel):
     payment_reference: str | None = Field(default=None, max_length=100)
     card_last4: str | None = Field(default=None, pattern=CARD_LAST4_PATTERN)
 
-    # Note: status intentionally omitted from Create; defaults to 'completed'
-    # server-side. Allows separate update if transaction fails post-creation.
+    # 注意:Create 里故意不放 status,server 端默认 'completed'
+    # 这样事务在创建之后失败也可以单独走 update 改状态
 
 
 class DonationCashOut(DonationCashBase):

@@ -1,3 +1,5 @@
+"""鉴权辅助函数,加上 admin 路由通用的 food bank 范围规则。"""
+
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -31,6 +33,8 @@ def _encode_token(
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     to_encode = data.copy()
+    # 把 token 类型塞进 payload,这样同一套解码逻辑能直接拒掉错的 token 类别,
+    # 不用靠路由层各自判断
     to_encode.update(
         {
             "exp": datetime.now(timezone.utc) + (expires_delta or default_expires),
@@ -139,6 +143,9 @@ def enforce_admin_food_bank_scope(
     allow_platform_records: bool = False,
     detail: str = "You do not have access to this food bank scope",
 ) -> None:
+    # 平台 admin 没有 food bank 范围,这里对他们就是空操作
+    # 本地 admin 在所有地方都走同一道关卡,保证各 router 和 service
+    # 的访问控制行为一致
     admin_food_bank_id = get_admin_food_bank_id(current_user)
     if admin_food_bank_id is None:
         return

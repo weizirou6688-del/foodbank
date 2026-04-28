@@ -29,6 +29,7 @@ class DashboardKpiTrendsOut(BaseModel):
     donation: str
     package: str
     lowStock: str
+    expiringLots: str
     wastage: str
 
 

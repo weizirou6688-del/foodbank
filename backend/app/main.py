@@ -1,13 +1,21 @@
+"""FastAPI entrypoint that keeps startup resilient even when the database is briefly unavailable."""
+
 import asyncio
 import logging
-import app.routers.applications as applications
+import app.routers.applications_admin as applications_admin
+import app.routers.applications_public as applications_public
 import app.routers.auth as auth
 import app.routers.donations as donations
-import app.routers.food_banks as food_banks
-import app.routers.food_packages as food_packages
-import app.routers.inventory as inventory
-import app.routers.restock as restock
-import app.routers.stats as stats
+import app.routers.food_banks_public as food_banks_public
+import app.routers.food_packages_admin_mutations as food_packages_admin_mutations
+import app.routers.food_packages_admin_queries as food_packages_admin_queries
+import app.routers.food_packages_public as food_packages_public
+import app.routers.inventory_alerts as inventory_alerts
+import app.routers.inventory_items as inventory_items
+import app.routers.inventory_items_admin as inventory_items_admin
+import app.routers.inventory_lots as inventory_lots
+import app.routers.stats_dashboard as stats_dashboard
+import app.routers.stats_public as stats_public
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, status
@@ -17,9 +25,6 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
-from app.core.bootstrap import (
-    ensure_canonical_redemption_codes,
-)
 from app.core.database import check_database_connection, close_db
 from app.core.database_errors import DATABASE_UNAVAILABLE_DETAIL
 from app.services.application_expiry_service import (
@@ -42,11 +47,12 @@ async def lifespan(app: FastAPI):
     application_expiry_task: asyncio.Task[None] | None = None
 
     try:
+        # We still boot the API in degraded mode so health checks and non-DB diagnostics
+        # remain available during local setup or transient database outages.
         db_ready, db_error = await check_database_connection()
         if not db_ready:
             raise RuntimeError(db_error or "Database connection check failed")
 
-        await ensure_canonical_redemption_codes()
         await ensure_dashboard_history()
         try:
             await run_application_expiry_pass()
@@ -98,6 +104,7 @@ app.add_middleware(
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc: RequestValidationError):
+    # Flatten FastAPI's nested validation structure into the shape used by the frontend.
     errors = [
         {
             "field": ".".join(str(x) for x in error["loc"][1:]) or "body",
@@ -175,13 +182,20 @@ async def health_check():
 
 
 for router, prefix, tags in (
+    # Keep router registration in one place so the public/admin split stays easy to scan.
     (auth.router, "/api/v1/auth", ["Authentication"]),
-    (food_banks.router, "/api/v1/food-banks", ["Food Banks"]),
-    (applications.router, "/api/v1/applications", ["Applications"]),
+    (food_banks_public.router, "/api/v1/food-banks", ["Food Banks"]),
+    (applications_public.router, "/api/v1/applications", ["Applications"]),
+    (applications_admin.router, "/api/v1/applications", ["Applications"]),
     (donations.router, "/api/v1/donations", ["Donations"]),
-    (inventory.router, "/api/v1/inventory", ["Inventory"]),
-    (food_packages.router, "/api/v1", ["Food Packages"]),
-    (restock.router, "/api/v1/restock", ["Restock"]),
-    (stats.router, "/api/v1/stats", ["Stats"]),
+    (inventory_items.router, "/api/v1/inventory", ["Inventory"]),
+    (inventory_items_admin.router, "/api/v1/inventory", ["Inventory"]),
+    (inventory_lots.router, "/api/v1/inventory", ["Inventory"]),
+    (inventory_alerts.router, "/api/v1/inventory", ["Inventory"]),
+    (food_packages_admin_queries.router, "/api/v1", ["Food Packages"]),
+    (food_packages_public.router, "/api/v1", ["Food Packages"]),
+    (food_packages_admin_mutations.router, "/api/v1", ["Food Packages"]),
+    (stats_public.router, "/api/v1/stats", ["Stats"]),
+    (stats_dashboard.router, "/api/v1/stats", ["Stats"]),
 ):
     app.include_router(router, prefix=prefix, tags=tags)

@@ -1,3 +1,6 @@
+# 一次性 backfill 脚本:给早期没记录 dashboard snapshot / waste event 的数据补上。
+# TODO: 历史数据补齐后可删除此文件（main.py 里的 import 也一并清理）。
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -23,6 +26,8 @@ async def ensure_dashboard_history() -> None:
     async with AsyncSessionLocal() as db:
         changed = False
 
+        # snapshot 的时间戳要跟原 application 的日期一致,
+        # 即使 snapshot 行是后来插入的,历史 dashboard 分桶也对得上。
         applications_by_id = {
             application.id: application
             for application in await fetch_scalars(
@@ -57,6 +62,7 @@ async def ensure_dashboard_history() -> None:
             )
             .order_by(Application.created_at.asc())
         )
+        # 重跑只补缺口,backfill 可以安全多次执行。
         if existing_snapshot_application_ids:
             applications_query = applications_query.where(
                 Application.id.not_in(existing_snapshot_application_ids)
@@ -95,6 +101,8 @@ async def ensure_dashboard_history() -> None:
             if requested_package_quantities or requested_inventory_quantities:
                 changed = True
 
+        # 早于 waste event 追踪的、已删除的 lot 转成合成的 waste event,
+        # 老的 inventory 历史也能让 dashboard 总数完整。
         existing_waste_lot_ids = {
             lot_id
             for lot_id in await fetch_scalars(

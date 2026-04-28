@@ -20,6 +20,7 @@ class Application(Base):
     __tablename__ = "applications"
 
     __table_args__ = (
+        # 三态:pending(待领)/ collected(已领)/ expired(超时未领)
         CheckConstraint(
             "status IN ('pending','collected','expired')",
             name="ck_applications_status",
@@ -45,6 +46,7 @@ class Application(Base):
         nullable=False,
         index=True,
     )
+    # RESTRICT:有申请记录的 food bank 不能直接删,避免外键悬空
     food_bank_id: Mapped[int] = mapped_column(
         ForeignKey("food_banks.id", ondelete="RESTRICT"),
         nullable=False,

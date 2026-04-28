@@ -1,3 +1,5 @@
+"""expire stale pending applications"""
+
 from __future__ import annotations
 
 import asyncio
@@ -16,11 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 def application_expiry_cutoff(*, now: datetime | None = None) -> datetime:
+    # application 的时间戳是 naive UTC,这里 cutoff 也按同一种约定,
+    # 在 SQL 里比较前先对齐。
     reference_time = now or datetime.now(UTC).replace(tzinfo=None)
     return reference_time - timedelta(days=settings.application_expiry_days)
 
 
 async def expire_overdue_applications(db: AsyncSession, *, now: datetime | None = None) -> int:
+    # bulk update,过期行很多时定时任务也跑得便宜。
     result = await db.execute(
         update(Application)
         .where(
@@ -45,6 +50,7 @@ async def run_application_expiry_pass() -> int:
 
 
 async def run_application_expiry_loop() -> None:
+    # 给间隔加了下限,避免配错变成密集失败循环。
     interval_seconds = max(settings.application_expiry_check_seconds, 60)
 
     while True:

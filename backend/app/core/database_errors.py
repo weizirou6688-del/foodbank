@@ -1,3 +1,5 @@
+"""把底层数据库错误翻译成稳定的 HTTP 响应。"""
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -22,6 +24,8 @@ def is_database_unavailable_exception(exc: Exception) -> bool:
     if isinstance(exc, DBAPIError) and getattr(exc, "connection_invalidated", False):
         return True
 
+    # SQLAlchemy 有时会把 asyncpg 的底层错误包好几层,所以要顺着异常链
+    # 一直往下看,再决定要不要返回 503
     seen: set[int] = set()
     current: Exception | None = exc
     while current is not None and id(current) not in seen:
@@ -80,12 +84,19 @@ async def run_guarded_transaction(
     failure_detail: str,
     conflict_detail: str | None = None,
 ) -> T:
-    async def _wrapped_action() -> T:
+    try:
+        # 把事务边界集中在这里,路由处理函数能写得更短,
+        # 而且 conflict / unavailable / failure 的映射在各处行为一致
         async with db.begin():
             return await action()
-
-    return await run_guarded_action(
-        _wrapped_action,
-        failure_detail=failure_detail,
-        conflict_detail=conflict_detail,
-    )
+    except HTTPException:
+        raise
+    except IntegrityError as exc:
+        if conflict_detail is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=conflict_detail,
+            ) from exc
+        raise_operation_failure_http_exception(exc, failure_detail)
+    except Exception as exc:
+        raise_operation_failure_http_exception(exc, failure_detail)

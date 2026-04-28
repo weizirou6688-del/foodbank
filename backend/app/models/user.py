@@ -22,6 +22,7 @@ class User(Base):
     __tablename__ = "users"
 
     __table_args__ = (
+        # 三种角色:public(申请食物)、supermarket(捐赠合作方)、admin(食物银行管理员)
         CheckConstraint(
             "role IN ('public','supermarket','admin')",
             name="ck_users_role",
@@ -38,6 +39,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
+    # admin 用这个字段定 scope;SET NULL 是为了删 food bank 时账号保留、只断关联
     food_bank_id: Mapped[int | None] = mapped_column(
         ForeignKey("food_banks.id", ondelete="SET NULL"),
         nullable=True,

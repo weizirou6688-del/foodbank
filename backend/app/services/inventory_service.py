@@ -13,7 +13,7 @@ async def consume_inventory_lots(
     quantity: int,
     db: AsyncSession,
 ) -> list[dict[str, int | str | None]]:
-    """Deduct stock from active lots using FEFO and return a consumption trace."""
+    """按 FEFO 从在用 lot 里扣库存,返回扣减明细。"""
     if quantity <= 0:
         return []
 

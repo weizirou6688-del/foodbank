@@ -25,6 +25,7 @@ class InventoryLot(Base):
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index("idx_lots_deleted", "deleted_at"),
+        # partial index:WHERE 限定 quantity > 0 AND deleted_at IS NULL,历史 lot 不入索引
         Index(
             "idx_inventory_lots_active_expiry",
             "inventory_item_id",

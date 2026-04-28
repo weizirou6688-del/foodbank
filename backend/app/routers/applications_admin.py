@@ -1,3 +1,5 @@
+"""Admin 端 application 路由:审核、核销、作废。"""
+
 from __future__ import annotations
 
 import uuid
@@ -6,31 +8,102 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.database_errors import run_guarded_transaction
-from app.core.db_utils import fetch_one_or_none, fetch_scalars, flush_refresh
-from app.core.redemption_codes import normalize_redemption_code, redemption_code_lookup_candidates
-from app.core.security import enforce_admin_food_bank_scope, require_admin
+from app.core.db_utils import fetch_scalars
+from app.core.redemption_codes import normalize_redemption_code
+from app.core.security import enforce_admin_food_bank_scope, get_admin_food_bank_id, require_admin
 from app.models.application import Application
-from app.routers._shared import require_one_or_404, single_page_response
-from app.routers.applications_shared import (
-    ADMIN_APPLICATION_OPTIONS,
-    admin_applications_query,
-    require_scoped_application,
-    run_admin_application_mutation,
-    serialize_admin_application,
-)
+from app.models.application_item import ApplicationItem
+from app.routers._shared import require_one_or_404, require_scoped_by_id, single_page_response
 from app.schemas.application import (
+    ApplicationAdminItemOut,
     ApplicationAdminListResponse,
     ApplicationAdminRecordOut,
     ApplicationListResponse,
     ApplicationOut,
-    ApplicationUpdate,
 )
 
 
 router = APIRouter()
+
+ADMIN_APPLICATION_OPTIONS = (
+    selectinload(Application.items).selectinload(ApplicationItem.package),
+    selectinload(Application.items).selectinload(ApplicationItem.inventory_item),
+)
+
+
+async def _require_scoped_application(
+    db: AsyncSession,
+    application_id: uuid.UUID,
+    admin_user: dict,
+    *,
+    detail: str,
+    include_admin_relations: bool = False,
+) -> Application:
+    return await require_scoped_by_id(
+        db,
+        Application,
+        application_id,
+        admin_user,
+        detail=detail,
+        not_found_detail="Application not found",
+        options=ADMIN_APPLICATION_OPTIONS if include_admin_relations else (),
+    )
+
+
+def _serialize_admin_application(application: Application) -> ApplicationAdminRecordOut:
+    items: list[ApplicationAdminItemOut] = []
+    display_names: list[str] = []
+
+    # 把 package 和 direct item 拉平成一个列表,前端不用关心库表结构
+    for item in application.items:
+        if item.package is not None:
+            item_name = item.package.name
+        elif item.inventory_item is not None:
+            item_name = item.inventory_item.name
+        else:
+            item_name = f"Item #{item.id}"
+
+        items.append(
+            ApplicationAdminItemOut(
+                id=item.id,
+                package_id=item.package_id,
+                inventory_item_id=item.inventory_item_id,
+                name=item_name,
+                quantity=item.quantity,
+            )
+        )
+        display_names.append(item_name)
+
+    package_name = ", ".join(dict.fromkeys(display_names)) if display_names else None
+    base_payload = ApplicationOut.model_validate(application).model_dump()
+    return ApplicationAdminRecordOut(
+        **base_payload,
+        items=items,
+        package_name=package_name,
+        is_voided=application.deleted_at is not None,
+        voided_at=application.deleted_at,
+    )
+
+
+def _admin_applications_query(
+    admin_user: dict,
+    *,
+    include_admin_relations: bool = False,
+):
+    query = select(Application).order_by(Application.created_at.desc())
+    if include_admin_relations:
+        query = query.options(*ADMIN_APPLICATION_OPTIONS)
+
+    admin_food_bank_id = get_admin_food_bank_id(admin_user)
+    return (
+        query.where(Application.food_bank_id == admin_food_bank_id)
+        if admin_food_bank_id is not None
+        else query
+    )
 
 
 @router.get("", response_model=ApplicationListResponse)
@@ -39,7 +112,7 @@ async def list_all_applications(
     db: AsyncSession = Depends(get_db),
 ):
     return single_page_response(
-        await fetch_scalars(db, admin_applications_query(admin_user))
+        await fetch_scalars(db, _admin_applications_query(admin_user))
     )
 
 
@@ -50,9 +123,9 @@ async def list_admin_application_records(
 ):
     applications = await fetch_scalars(
         db,
-        admin_applications_query(admin_user, include_admin_relations=True),
+        _admin_applications_query(admin_user, include_admin_relations=True),
     )
-    items = [serialize_admin_application(application) for application in applications]
+    items = [_serialize_admin_application(application) for application in applications]
     return single_page_response(items)
 
 
@@ -62,12 +135,12 @@ async def get_application_by_redemption_code(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    lookup_codes = redemption_code_lookup_candidates(redemption_code)
+    normalized_code = normalize_redemption_code(redemption_code)
     application = await require_one_or_404(
         db,
         select(Application)
         .options(*ADMIN_APPLICATION_OPTIONS)
-        .where(Application.redemption_code.in_(lookup_codes)),
+        .where(Application.redemption_code == normalized_code),
         detail="Application not found for redemption code",
     )
     enforce_admin_food_bank_scope(
@@ -75,7 +148,7 @@ async def get_application_by_redemption_code(
         application.food_bank_id,
         detail="You can only access redemption codes for your assigned food bank",
     )
-    return serialize_admin_application(application)
+    return _serialize_admin_application(application)
 
 
 @router.post("/admin/{application_id}/redeem", response_model=ApplicationAdminRecordOut)
@@ -84,7 +157,14 @@ async def redeem_application(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    def mutator(application: Application) -> None:
+    async def action() -> ApplicationAdminRecordOut:
+        application = await _require_scoped_application(
+            db,
+            application_id,
+            admin_user,
+            detail="You can only redeem records for your assigned food bank",
+            include_admin_relations=True,
+        )
         if application.deleted_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -101,16 +181,16 @@ async def redeem_application(
                 detail="Expired redemption code cannot be redeemed",
             )
 
+        # 核销是单向操作,只记第一次成功时间,不去管重复扫码的情况
         application.status = "collected"
         application.redeemed_at = datetime.now(timezone.utc)
+        await db.flush()
+        return _serialize_admin_application(application)
 
-    return await run_admin_application_mutation(
+    return await run_guarded_transaction(
         db,
-        application_id,
-        admin_user,
-        detail="You can only redeem records for your assigned food bank",
         failure_detail="Failed to redeem application",
-        mutator=mutator,
+        action=action,
     )
 
 
@@ -120,7 +200,14 @@ async def void_application(
     admin_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    def mutator(application: Application) -> None:
+    async def action() -> ApplicationAdminRecordOut:
+        application = await _require_scoped_application(
+            db,
+            application_id,
+            admin_user,
+            detail="You can only void records for your assigned food bank",
+            include_admin_relations=True,
+        )
         if application.deleted_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -132,67 +219,11 @@ async def void_application(
                 detail="Redeemed application cannot be voided",
             )
         application.deleted_at = datetime.now(timezone.utc)
-
-    return await run_admin_application_mutation(
-        db,
-        application_id,
-        admin_user,
-        detail="You can only void records for your assigned food bank",
-        failure_detail="Failed to void application",
-        mutator=mutator,
-    )
-
-
-@router.patch("/{application_id}", response_model=ApplicationOut)
-async def update_application_status(
-    application_id: uuid.UUID,
-    application_in: ApplicationUpdate,
-    admin_user: dict = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    if application_in.status is None and application_in.redemption_code is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No fields provided to update",
-        )
-
-    async def action() -> ApplicationOut:
-        application = await require_scoped_application(
-            db,
-            application_id,
-            admin_user,
-            detail="You can only update records for your assigned food bank",
-        )
-
-        if application_in.redemption_code is not None:
-            normalized_code = normalize_redemption_code(application_in.redemption_code)
-            lookup_codes = redemption_code_lookup_candidates(application_in.redemption_code)
-            code_owner = await fetch_one_or_none(
-                db,
-                select(Application.id).where(
-                    Application.redemption_code.in_(lookup_codes),
-                    Application.id != application_id,
-                ),
-            )
-            if code_owner is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Redemption code already in use",
-                )
-            application.redemption_code = normalized_code
-
-        if application_in.status is not None:
-            application.status = application_in.status
-            if application_in.status == "collected":
-                application.redeemed_at = application.redeemed_at or datetime.now(timezone.utc)
-            elif application_in.status != "collected":
-                application.redeemed_at = None
-
-        return await flush_refresh(db, application)
+        await db.flush()
+        return _serialize_admin_application(application)
 
     return await run_guarded_transaction(
         db,
-        action,
-        failure_detail="Failed to update application",
-        conflict_detail="Application conflict detected, please retry",
+        failure_detail="Failed to void application",
+        action=action,
     )

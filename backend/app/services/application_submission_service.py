@@ -1,3 +1,5 @@
+"""公众用户提交 application 的流程,包含每周限额和库存扣减。"""
+
 from __future__ import annotations
 
 import uuid
@@ -10,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database_errors import run_guarded_transaction
 from app.core.db_utils import fetch_one_or_none, fetch_scalars, flush_refresh
+from app.core.redemption_codes import new_redemption_code
 from app.models.application import Application
 from app.models.application_item import ApplicationItem
 from app.models.food_bank import FoodBank
@@ -17,20 +20,83 @@ from app.models.food_package import FoodPackage
 from app.models.inventory_item import InventoryItem
 from app.models.package_item import PackageItem
 from app.routers._shared import require_one_or_404
-from app.routers.applications_shared import (
-    MAX_SINGLE_INDIVIDUAL_ITEM_QUANTITY,
-    WEEKLY_INDIVIDUAL_ITEM_LIMIT,
-    WEEKLY_PACKAGE_LIMIT,
-    current_week_start,
-    extract_user_id,
-    generate_unique_redemption_code,
-    requested_quantities,
-)
 from app.schemas.application import ApplicationCreate
 from app.services.dashboard_distribution_snapshot_service import (
     record_application_distribution_snapshots,
 )
 from app.services.inventory_service import consume_inventory_lots
+
+
+WEEKLY_PACKAGE_LIMIT = 3
+WEEKLY_INDIVIDUAL_ITEM_LIMIT = 5
+MAX_SINGLE_INDIVIDUAL_ITEM_QUANTITY = 5
+
+
+async def generate_unique_redemption_code(db: AsyncSession) -> str:
+    for _ in range(10):
+        code = new_redemption_code()
+        existing_id = await fetch_one_or_none(
+            db,
+            select(Application.id).where(Application.redemption_code == code),
+        )
+        if existing_id is None:
+            return code
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to generate unique redemption code",
+    )
+
+
+def current_week_start() -> date:
+    today = date.today()
+    return date.fromordinal(today.toordinal() - today.weekday())
+
+
+def extract_user_id(current_user: dict | object) -> uuid.UUID:
+    user_ref = None
+    if isinstance(current_user, dict):
+        user_ref = current_user.get("id") or current_user.get("sub")
+    else:
+        user_ref = getattr(current_user, "id", None)
+
+    if not user_ref:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user token payload",
+        )
+
+    try:
+        return uuid.UUID(str(user_ref))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user identifier in token",
+        ) from exc
+
+
+def requested_quantities(
+    application_in: ApplicationCreate,
+) -> tuple[int, dict[int, int], dict[int, int]]:
+    requested_inventory_quantities: dict[int, int] = {}
+    requested_package_quantities: dict[int, int] = {}
+
+    # 一个请求里可能同时有 package 和 direct item,所以这里先拆开,
+    # 后面两条路径各自做校验。
+    for item in application_in.items:
+        quantity_map = (
+            requested_package_quantities
+            if item.package_id is not None
+            else requested_inventory_quantities
+        )
+        item_id = item.package_id if item.package_id is not None else item.inventory_item_id
+        if item_id is not None:
+            quantity_map[item_id] = quantity_map.get(item_id, 0) + item.quantity
+
+    return (
+        sum(requested_package_quantities.values()),
+        requested_inventory_quantities,
+        requested_package_quantities,
+    )
 
 
 def _validate_requested_items(
@@ -65,6 +131,8 @@ async def _validate_weekly_limits(
     package_quantity: int,
     requested_inventory_quantities: dict[int, int],
 ) -> None:
+    # package 限的是每周数量总和,direct item 限的是种类数。
+    # 一个政策、两个角度。
     existing_week_total = await fetch_one_or_none(
         db,
         select(func.coalesce(func.sum(Application.total_quantity), 0)).where(
@@ -131,6 +199,7 @@ async def _load_requested_packages(
                 )
             )
             .where(FoodPackage.id.in_(package_ids))
+            # 锁住选中的 package,避免两笔并发提交同时扣同一份库存。
             .with_for_update(),
         )
     }
@@ -202,6 +271,7 @@ async def _load_requested_inventory_items(
             db,
             select(InventoryItem)
             .where(InventoryItem.id.in_(inventory_item_ids))
+            # direct item 会立即扣 lot,所以先把行锁住。
             .with_for_update(),
         )
     }
@@ -246,58 +316,6 @@ async def _create_pending_application(
     return application
 
 
-def _apply_package_allocations(
-    packages: dict[int, FoodPackage],
-    requested_package_quantities: dict[int, int],
-) -> None:
-    for package_id, requested_quantity in requested_package_quantities.items():
-        package = packages[package_id]
-        package.stock -= requested_quantity
-        package.applied_count += requested_quantity
-
-
-def _build_package_application_items(
-    application_id: uuid.UUID,
-    requested_package_quantities: dict[int, int],
-) -> list[ApplicationItem]:
-    return [
-        ApplicationItem(
-            application_id=application_id,
-            package_id=package_id,
-            quantity=requested_quantity,
-        )
-        for package_id, requested_quantity in requested_package_quantities.items()
-    ]
-
-
-def _build_inventory_application_items(
-    application_id: uuid.UUID,
-    requested_inventory_quantities: dict[int, int],
-) -> list[ApplicationItem]:
-    return [
-        ApplicationItem(
-            application_id=application_id,
-            inventory_item_id=inventory_item_id,
-            quantity=requested_quantity,
-        )
-        for inventory_item_id, requested_quantity in requested_inventory_quantities.items()
-    ]
-
-
-async def _consume_requested_inventory(
-    db: AsyncSession,
-    requested_inventory_quantities: dict[int, int],
-) -> None:
-    for inventory_item_id, requested_quantity in requested_inventory_quantities.items():
-        try:
-            await consume_inventory_lots(inventory_item_id, requested_quantity, db)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient stock for inventory item {inventory_item_id}: {exc}",
-            ) from exc
-
-
 async def submit_public_application(
     application_in: ApplicationCreate,
     current_user: dict,
@@ -317,6 +335,8 @@ async def submit_public_application(
     )
 
     async def action() -> Application:
+        # 建 application、扣 package 库存、消耗 inventory lot、写 distribution snapshot,
+        # 全放在一个 transaction 里,这样报表看到的是一致的承诺记录。
         await require_one_or_404(
             db,
             select(FoodBank.id).where(FoodBank.id == application_in.food_bank_id),
@@ -349,21 +369,34 @@ async def submit_public_application(
             package_quantity=package_quantity,
         )
 
-        _apply_package_allocations(packages, requested_package_quantities)
-        db.add_all(
-            _build_package_application_items(
-                application.id,
-                requested_package_quantities,
+        for package_id, requested_quantity in requested_package_quantities.items():
+            package = packages[package_id]
+            package.stock -= requested_quantity
+            package.applied_count += requested_quantity
+            db.add(
+                ApplicationItem(
+                    application_id=application.id,
+                    package_id=package_id,
+                    quantity=requested_quantity,
+                )
             )
-        )
 
-        await _consume_requested_inventory(db, requested_inventory_quantities)
-        db.add_all(
-            _build_inventory_application_items(
-                application.id,
-                requested_inventory_quantities,
+        for inventory_item_id, requested_quantity in requested_inventory_quantities.items():
+            try:
+                await consume_inventory_lots(inventory_item_id, requested_quantity, db)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Insufficient stock for inventory item {inventory_item_id}: {exc}",
+                ) from exc
+
+            db.add(
+                ApplicationItem(
+                    application_id=application.id,
+                    inventory_item_id=inventory_item_id,
+                    quantity=requested_quantity,
+                )
             )
-        )
 
         await record_application_distribution_snapshots(
             db,

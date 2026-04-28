@@ -1,3 +1,5 @@
+"""邮件 helper:对捐赠者的感谢邮件,以及内部运维通知。"""
+
 from __future__ import annotations
 
 import logging
@@ -124,6 +126,8 @@ async def _send_email_message(
         return True
     except Exception as exc:
         logger.exception("Failed to send email to %s: %s", message["To"], exc)
+        # 大多数邮件发送是 best-effort 的副作用;只有像密码重置这种把"送达"
+        # 作为功能一部分的流程,调用方才会要求抛异常。
         if raise_on_failure:
             raise
         return False
@@ -267,6 +271,7 @@ async def send_password_reset_email(
     verification_code: str,
     expires_in_minutes: int,
 ) -> None:
+    # 这个邮件不能静默失败——前面踩过坑,用户被告知"已发送"但实际没发出去,白等十分钟
     await _send_simple_email(
         recipient=to_email,
         subject="Password Reset Verification Code | ABC Community Food Bank",

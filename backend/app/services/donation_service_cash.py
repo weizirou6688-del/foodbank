@@ -12,9 +12,8 @@ from app.core.database_errors import run_guarded_transaction
 from app.core.db_utils import flush_refresh
 from app.models.donation_cash import DonationCash
 from app.models.food_bank import FoodBank
+from app.routers._shared import require_by_id
 from app.schemas.donation_cash import DonationCashCreate
-from app.services.donation_service_common import delete_donation, food_bank_snapshot
-from app.services.donation_service_resolvers import require_cash_donation, resolve_food_bank
 from app.services.email_service import (
     send_cash_donation_notification,
     send_thank_you_email,
@@ -25,7 +24,40 @@ logger = logging.getLogger("uvicorn.error")
 CASH_DONATION_FREQUENCIES = {"one_time", "monthly"}
 
 
+async def _resolve_food_bank(food_bank_id: int, db: AsyncSession) -> FoodBank:
+    return await require_by_id(db, FoodBank, food_bank_id, detail="Food bank not found")
+
+
+async def _require_cash_donation(
+    db: AsyncSession,
+    donation_id: uuid.UUID,
+) -> DonationCash:
+    return await require_by_id(
+        db,
+        DonationCash,
+        donation_id,
+        detail="Cash donation not found",
+    )
+
+
+def _food_bank_snapshot(
+    food_bank: FoodBank | None,
+    *,
+    fallback_name: str | None = None,
+    fallback_address: str | None = None,
+    fallback_email: str | None = None,
+) -> tuple[int | None, str | None, str | None, str | None]:
+    return (
+        food_bank.id if food_bank is not None else None,
+        food_bank.name if food_bank is not None else fallback_name,
+        food_bank.address if food_bank is not None else fallback_address,
+        (food_bank.notification_email if food_bank is not None else None)
+        or fallback_email,
+    )
+
+
 def next_monthly_charge_date(anchor: date) -> date:
+    # 下个月尽量保持同一日,如果下个月天数不够就退到当月最后一天。
     if anchor.month == 12:
         target_year = anchor.year + 1
         target_month = 1
@@ -77,7 +109,9 @@ def queue_cash_notification_email(
     subscription_reference: str | None = None,
     next_charge_date: date | None = None,
 ) -> None:
-    food_bank_id, food_bank_name, _, notification_email = food_bank_snapshot(selected_food_bank)
+    food_bank_id, food_bank_name, _, notification_email = _food_bank_snapshot(
+        selected_food_bank
+    )
     background_tasks.add_task(
         send_cash_donation_notification,
         notification_email=notification_email,
@@ -105,7 +139,7 @@ async def submit_cash_donation(
     async def action() -> DonationCash:
         donation_frequency = donation_in.donation_frequency or "one_time"
         selected_food_bank = (
-            await resolve_food_bank(donation_in.food_bank_id, db)
+            await _resolve_food_bank(donation_in.food_bank_id, db)
             if donation_in.food_bank_id is not None
             else None
         )
@@ -120,6 +154,8 @@ async def submit_cash_donation(
                 detail="Monthly donations require card_last4",
             )
 
+        # 这两个 reference 暂时代替支付方的 ID,但格式保持稳定,
+        # admin 能据此追踪一次性和按月两条流程。
         payment_reference_prefix = "MON" if donation_frequency == "monthly" else "WEB"
         payment_reference = donation_in.payment_reference or f"{payment_reference_prefix}-{uuid.uuid4().hex[:12].upper()}"
         subscription_reference = (
@@ -177,8 +213,13 @@ async def delete_cash_donation(
     donation_id: uuid.UUID,
     db: AsyncSession,
 ) -> None:
-    return await delete_donation(
+    async def action() -> None:
+        donation = await _require_cash_donation(db, donation_id)
+        await db.delete(donation)
+        await db.flush()
+
+    return await run_guarded_transaction(
         db,
-        lambda: require_cash_donation(db, donation_id),
+        action,
         failure_detail="Failed to delete cash donation",
     )

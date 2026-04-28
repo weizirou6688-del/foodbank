@@ -1,32 +1,32 @@
 {
   "demo_users": [
     {
-      "name": "Admin User",
+      "name": "Emma Collins",
       "email": "admin@foodbank.com",
       "password": "admin123",
       "role": "admin"
     },
     {
-      "name": "Supermarket User",
+      "name": "Noah Bennett",
       "email": "supermarket@foodbank.com",
       "password": "supermarket123",
       "role": "supermarket"
     },
     {
-      "name": "Public User",
+      "name": "Leah Carter",
       "email": "user@example.com",
       "password": "user12345",
       "role": "public"
     },
     {
-      "name": "Local Food Bank Admin",
+      "name": "Sarah Ahmed",
       "email": "localadmin@foodbank.com",
       "password": "localadmin123",
       "role": "admin",
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
-      "name": "Westside Local Admin",
+      "name": "Maya Thompson",
       "email": "local1admin@foodbank.com",
       "password": "local1admin123",
       "role": "admin",
@@ -35,7 +35,7 @@
   ],
   "demo_food_banks": [
     {
-      "name": "Downtown Community Food Bank",
+      "name": "Jubilee Storehouse",
       "address": "123 Main Street, London, SW1A 1AA",
       "lat": 51.5074,
       "lng": -0.1278,
@@ -63,7 +63,7 @@
       "unit": "bags",
       "threshold": 20,
       "quantity": 240,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Pasta (500g)",
@@ -71,7 +71,7 @@
       "unit": "packs",
       "threshold": 18,
       "quantity": 240,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Canned Beans",
@@ -79,7 +79,7 @@
       "unit": "cans",
       "threshold": 24,
       "quantity": 360,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "UHT Milk (1L)",
@@ -87,7 +87,7 @@
       "unit": "cartons",
       "threshold": 18,
       "quantity": 180,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Wholemeal Bread",
@@ -95,7 +95,7 @@
       "unit": "loaves",
       "threshold": 12,
       "quantity": 120,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Mixed Vegetables (frozen)",
@@ -103,7 +103,7 @@
       "unit": "bags",
       "threshold": 12,
       "quantity": 120,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Tomato Soup (400g)",
@@ -111,7 +111,7 @@
       "unit": "cans",
       "threshold": 18,
       "quantity": 220,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Cornflakes Cereal",
@@ -119,7 +119,7 @@
       "unit": "boxes",
       "threshold": 15,
       "quantity": 150,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Canned Tuna",
@@ -127,7 +127,7 @@
       "unit": "cans",
       "threshold": 18,
       "quantity": 180,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Chicken Breast (canned)",
@@ -135,7 +135,7 @@
       "unit": "cans",
       "threshold": 16,
       "quantity": 160,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Lentils (500g)",
@@ -143,7 +143,7 @@
       "unit": "packs",
       "threshold": 18,
       "quantity": 180,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Eggs (6-pack)",
@@ -151,7 +151,7 @@
       "unit": "cartons",
       "threshold": 12,
       "quantity": 120,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Potatoes (1kg)",
@@ -159,7 +159,7 @@
       "unit": "bags",
       "threshold": 16,
       "quantity": 180,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Carrots (500g)",
@@ -167,7 +167,7 @@
       "unit": "bags",
       "threshold": 16,
       "quantity": 180,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Onions (500g)",
@@ -175,7 +175,7 @@
       "unit": "bags",
       "threshold": 16,
       "quantity": 180,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Canned Tomatoes",
@@ -183,7 +183,7 @@
       "unit": "cans",
       "threshold": 18,
       "quantity": 220,
-      "food_bank_name": "Downtown Community Food Bank"
+      "food_bank_name": "Jubilee Storehouse"
     },
     {
       "name": "Rice (2kg)",
@@ -316,8 +316,8 @@
   ],
   "demo_scoped_inventory_items": [
     {
-      "food_bank_name": "Downtown Community Food Bank",
-      "name": "Downtown Ready Meal Tray",
+      "food_bank_name": "Jubilee Storehouse",
+      "name": "Jubilee Ready Meal Tray",
       "category": "Snacks",
       "unit": "trays",
       "threshold": 14,
@@ -325,8 +325,8 @@
       "expiry_days": 18
     },
     {
-      "food_bank_name": "Downtown Community Food Bank",
-      "name": "Downtown Kids Snack Box",
+      "food_bank_name": "Jubilee Storehouse",
+      "name": "Jubilee Kids Snack Box",
       "category": "Snacks",
       "unit": "boxes",
       "threshold": 12,
@@ -334,8 +334,8 @@
       "expiry_days": 35
     },
     {
-      "food_bank_name": "Downtown Community Food Bank",
-      "name": "Downtown Fruit Cup",
+      "food_bank_name": "Jubilee Storehouse",
+      "name": "Jubilee Fruit Cup",
       "category": "Fruits",
       "unit": "cups",
       "threshold": 15,
@@ -386,9 +386,9 @@
     "Carrots (500g)",
     "Chicken Breast (canned)",
     "Cornflakes Cereal",
-    "Downtown Fruit Cup",
-    "Downtown Kids Snack Box",
-    "Downtown Ready Meal Tray",
+    "Jubilee Fruit Cup",
+    "Jubilee Kids Snack Box",
+    "Jubilee Ready Meal Tray",
     "Eggs (6-pack)",
     "Lentils (500g)",
     "Mixed Vegetables (frozen)",
@@ -406,7 +406,7 @@
   ],
   "demo_packages": [
     {
-      "food_bank_name": "Downtown Community Food Bank",
+      "food_bank_name": "Jubilee Storehouse",
       "name": "Basic Essentials Package",
       "category": "Emergency Pack",
       "description": "Core staples for individuals or couples.",
@@ -433,7 +433,7 @@
       ]
     },
     {
-      "food_bank_name": "Downtown Community Food Bank",
+      "food_bank_name": "Jubilee Storehouse",
       "name": "Family Support Package",
       "category": "Family Bundle",
       "description": "Balanced nutrition for families of 3-5.",
@@ -460,7 +460,7 @@
       ]
     },
     {
-      "food_bank_name": "Downtown Community Food Bank",
+      "food_bank_name": "Jubilee Storehouse",
       "name": "Protein & Meat Package",
       "category": "Pantry & Spices",
       "description": "High-protein items including canned meats.",
@@ -487,7 +487,7 @@
       ]
     },
     {
-      "food_bank_name": "Downtown Community Food Bank",
+      "food_bank_name": "Jubilee Storehouse",
       "name": "Fresh Veg & Staples Package",
       "category": "Lunchbox",
       "description": "Fresh and dried produce for a healthy diet.",
@@ -514,20 +514,20 @@
       ]
     },
     {
-      "food_bank_name": "Downtown Community Food Bank",
-      "name": "Downtown Quick Lunch Pack",
+      "food_bank_name": "Jubilee Storehouse",
+      "name": "Jubilee Quick Lunch Pack",
       "category": "Lunchbox",
       "description": "Compact midday support with ready meals and snacks.",
       "stock": 3,
       "threshold": 4,
-      "image_url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "image_url": "https://images.unsplash.com/photo-1575890001395-43ff3adf8cc1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
       "contents": [
         {
-          "item_name": "Downtown Ready Meal Tray",
+          "item_name": "Jubilee Ready Meal Tray",
           "quantity": 2
         },
         {
-          "item_name": "Downtown Kids Snack Box",
+          "item_name": "Jubilee Kids Snack Box",
           "quantity": 1
         },
         {
@@ -537,16 +537,16 @@
       ]
     },
     {
-      "food_bank_name": "Downtown Community Food Bank",
-      "name": "Downtown Fresh Start Pack",
+      "food_bank_name": "Jubilee Storehouse",
+      "name": "Jubilee Fresh Start Pack",
       "category": "Breakfast",
       "description": "Breakfast-focused support with fruit and shelf-stable items.",
       "stock": 2,
       "threshold": 4,
-      "image_url": "https://images.unsplash.com/photo-1484723091739-30a097e8f929?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "image_url": "https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
       "contents": [
         {
-          "item_name": "Downtown Fruit Cup",
+          "item_name": "Jubilee Fruit Cup",
           "quantity": 3
         },
         {
@@ -612,7 +612,7 @@
       "description": "Breakfast-focused support package for recurring pickups.",
       "stock": 6,
       "threshold": 4,
-      "image_url": "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
+      "image_url": "https://images.unsplash.com/photo-1517673400267-0251440c45dc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=600&q=80",
       "contents": [
         {
           "item_name": "Westside Oat Cups",
@@ -630,9 +630,9 @@
     }
   ],
   "demo_scoped_cash_payment_references": [
-    "DEMO-LOCAL-CASH-001",
-    "DEMO-WESTSIDE-CASH-001",
-    "DEMO-WESTSIDE-CASH-002"
+    "JUBILEE-CASH-001",
+    "WESTSIDE-CASH-001",
+    "WESTSIDE-CASH-002"
   ],
   "demo_scoped_cash_donor_emails": [
     "mary.network.donor@example.com",
@@ -648,10 +648,10 @@
   "demo_scoped_admin_seeds": [
     {
       "admin_email": "localadmin@foodbank.com",
-      "bank_name": "Downtown Community Food Bank",
+      "bank_name": "Jubilee Storehouse",
       "cash_donations": [
         {
-          "payment_reference": "DEMO-LOCAL-CASH-001",
+          "payment_reference": "JUBILEE-CASH-001",
           "donor_name": "Mary Network Donor",
           "donor_email": "mary.network.donor@example.com",
           "amount_pence": 2500,
@@ -668,7 +668,7 @@
           "item_condition": "New or unopened",
           "estimated_quantity": "3 boxes",
           "status": "pending",
-          "notes": "Demo local admin goods donation",
+          "notes": "Local admin goods donation",
           "items": [
             {
               "item_name": "Rice (2kg)",
@@ -681,7 +681,7 @@
           ]
         },
         {
-          "donor_name": "Downtown School Pantry",
+          "donor_name": "Jubilee School Pantry",
           "donor_email": "downtown.school.pantry@example.com",
           "donor_phone": "07111222333",
           "postcode": "SW1A 1AA",
@@ -689,14 +689,14 @@
           "item_condition": "New or unopened",
           "estimated_quantity": "2 trolleys",
           "status": "received",
-          "notes": "Downtown received snack support donation",
+          "notes": "Jubilee received snack support donation",
           "items": [
             {
-              "item_name": "Downtown Ready Meal Tray",
+              "item_name": "Jubilee Ready Meal Tray",
               "quantity": 4
             },
             {
-              "item_name": "Downtown Kids Snack Box",
+              "item_name": "Jubilee Kids Snack Box",
               "quantity": 6
             }
           ]
@@ -1286,14 +1286,14 @@
       "bank_name": "Westside Food Support Centre",
       "cash_donations": [
         {
-          "payment_reference": "DEMO-WESTSIDE-CASH-001",
+          "payment_reference": "WESTSIDE-CASH-001",
           "donor_name": "Westside Student Union",
           "donor_email": "westside.students.union@example.com",
           "amount_pence": 4200,
           "status": "completed"
         },
         {
-          "payment_reference": "DEMO-WESTSIDE-CASH-002",
+          "payment_reference": "WESTSIDE-CASH-002",
           "donor_name": "Westside Family Circle",
           "donor_email": "westside.family.circle@example.com",
           "amount_pence": 1800,

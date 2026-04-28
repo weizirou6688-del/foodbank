@@ -5,13 +5,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.redemption_codes import (
-    SUPPORTED_REDEMPTION_CODE_PATTERN,
+    CANONICAL_REDEMPTION_CODE_PATTERN,
     normalize_redemption_code,
 )
 
 
 ApplicationStatus = Literal["pending", "collected", "expired"]
-APPLICATION_REDEMPTION_CODE_PATTERN = SUPPORTED_REDEMPTION_CODE_PATTERN
+APPLICATION_REDEMPTION_CODE_PATTERN = CANONICAL_REDEMPTION_CODE_PATTERN
 
 
 class ApplicationItemCreatePayload(BaseModel):
@@ -60,23 +60,6 @@ class ApplicationCreate(BaseModel):
         min_length=1,
         description="List of requested packages or individual inventory items",
     )
-
-
-class ApplicationUpdate(BaseModel):
-    status: ApplicationStatus | None = None
-
-    redemption_code: str | None = Field(
-        default=None,
-        pattern=APPLICATION_REDEMPTION_CODE_PATTERN,
-        max_length=20,
-    )
-
-    @field_validator("redemption_code", mode="before")
-    @classmethod
-    def normalize_redemption_code(cls, value: object) -> object:
-        if isinstance(value, str):
-            return normalize_redemption_code(value)
-        return value
 
 
 class ApplicationOut(ApplicationBase):

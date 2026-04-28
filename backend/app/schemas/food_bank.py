@@ -11,22 +11,11 @@ class FoodBankBase(BaseModel):
     lng: float
 
 
-class FoodBankCreate(FoodBankBase):
-    pass
-
-
-class FoodBankUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=200)
-    address: str | None = Field(default=None, min_length=1)
-    notification_email: EmailStr | None = None
-    lat: float | None = None
-    lng: float | None = None
-
-
 class FoodBankOut(FoodBankBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     created_at: datetime
+    has_local_admin_account: bool = False
 
 
 class FoodBankListResponse(BaseModel):

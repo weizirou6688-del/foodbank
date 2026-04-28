@@ -1,3 +1,11 @@
+"""密码重置流程。
+
+发送 6 位验证码到邮箱,10 分钟内有效。
+用户拿验证码换一次重置机会,通过后自己设新密码。
+
+注意:对未注册邮箱也返回同样的 generic message,避免被人拿来枚举用户。
+"""
+
 from __future__ import annotations
 
 import secrets
@@ -10,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db_utils import fetch_one_or_none
 from app.core.security import get_password_hash, verify_password
 from app.models.password_reset_token import PasswordResetToken
-from app.services.auth_user_service import get_user_by_email
+from app.models.user import User
 from app.services.email_service import is_smtp_configured, send_password_reset_email
 
 PASSWORD_RESET_CODE_LENGTH = 6
@@ -28,6 +36,10 @@ def generate_password_reset_code() -> str:
     return f"{secrets.randbelow(10**PASSWORD_RESET_CODE_LENGTH):0{PASSWORD_RESET_CODE_LENGTH}d}"
 
 
+async def _get_user_by_email(db: AsyncSession, email: str) -> User | None:
+    return await fetch_one_or_none(db, select(User).where(User.email == email))
+
+
 async def request_password_reset(db: AsyncSession, email: str) -> str:
     if not is_smtp_configured():
         raise HTTPException(
@@ -35,8 +47,9 @@ async def request_password_reset(db: AsyncSession, email: str) -> str:
             detail="Password reset email service is unavailable.",
         )
 
-    user = await get_user_by_email(db, email)
+    user = await _get_user_by_email(db, email)
     if user is None:
+        # 对未知邮箱也返回同样的响应,避免暴露账号是否存在。
         return PASSWORD_RESET_GENERIC_MESSAGE
 
     verification_code = generate_password_reset_code()
@@ -70,7 +83,7 @@ async def reset_password(
     verification_code: str,
     new_password: str,
 ) -> str:
-    user = await get_user_by_email(db, email)
+    user = await _get_user_by_email(db, email)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -88,6 +101,8 @@ async def reset_password(
         .order_by(PasswordResetToken.created_at.desc())
         .limit(1),
     )
+    # 只接受最新一条没用过的验证码。流程简单,
+    # 也避免新一条已申请之后旧码还能用。
     if reset_record is None or not verify_password(verification_code, reset_record.token_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
