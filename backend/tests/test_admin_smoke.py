@@ -1,20 +1,13 @@
 from __future__ import annotations
 
-import sys
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import datetime, timezone
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
-BACKEND_ROOT = Path(__file__).resolve().parents[1]
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
-
-import app.main as main_module
 import app.core.database as database_module
 import app.core.security as security_module
 import app.routers.auth as auth_module
@@ -22,26 +15,14 @@ import app.routers.inventory_items as inventory_items_module
 
 
 @pytest.fixture
-def client(monkeypatch) -> Iterator[TestClient]:
-    async def _healthy_connection() -> tuple[bool, str | None]:
-        return True, None
-
-    async def _noop() -> None:
-        return None
-
+def client(client_factory) -> Iterator[TestClient]:
     async def _dummy_db() -> AsyncIterator[object]:
         yield object()
 
-    monkeypatch.setattr(main_module, "check_database_connection", _healthy_connection)
-    monkeypatch.setattr(main_module, "ensure_canonical_redemption_codes", _noop)
-    monkeypatch.setattr(main_module, "ensure_dashboard_history", _noop)
-    monkeypatch.setattr(main_module, "close_db", _noop)
-    main_module.app.dependency_overrides[database_module.get_db] = _dummy_db
-
-    with TestClient(main_module.app) as test_client:
+    with client_factory(
+        dependency_overrides={database_module.get_db: _dummy_db},
+    ) as test_client:
         yield test_client
-
-    main_module.app.dependency_overrides.clear()
 
 
 def _headers(*, role: str, food_bank_id: int | None = None, subject: str = "smoke-user") -> dict[str, str]:
@@ -51,7 +32,7 @@ def _headers(*, role: str, food_bank_id: int | None = None, subject: str = "smok
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_profile_route_accepts_authenticated_access_token(
+def test_auth_me_returns_admin_profile_for_signed_admin_token(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -89,14 +70,7 @@ def test_profile_route_accepts_authenticated_access_token(
     assert body["food_bank_id"] == 1
 
 
-def test_admin_route_rejects_requests_without_token(client: TestClient) -> None:
-    response = client.get("/api/v1/inventory")
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Not authenticated"
-
-
-def test_admin_route_allows_admin_token_when_query_returns_empty_list(
+def test_inventory_list_allows_admin_token_when_inventory_query_returns_empty(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -114,12 +88,20 @@ def test_admin_route_allows_admin_token_when_query_returns_empty_list(
     assert response.json() == {"items": [], "total": 0, "page": 1, "size": 0, "pages": 1}
 
 
-
-def test_admin_route_rejects_public_user_token(client: TestClient) -> None:
-    response = client.get(
-        "/api/v1/inventory",
-        headers=_headers(role="public"),
-    )
+@pytest.mark.parametrize(
+    ("headers", "expected_detail"),
+    [
+        (None, "Not authenticated"),
+        (_headers(role="public"), "Admin privileges required"),
+    ],
+    ids=["missing_bearer_token", "public_role_token"],
+)
+def test_inventory_list_rejects_missing_or_non_admin_tokens(
+    client: TestClient,
+    headers: dict[str, str] | None,
+    expected_detail: str,
+) -> None:
+    response = client.get("/api/v1/inventory", headers=headers)
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Admin privileges required"
+    assert response.json()["detail"] == expected_detail
