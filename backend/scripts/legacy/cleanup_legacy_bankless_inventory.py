@@ -1,23 +1,21 @@
+"""清理仍然没有 food bank 范围的旧版库存记录。"""
+
 from __future__ import annotations
 
 import argparse
 import asyncio
-import sys
-from dataclasses import dataclass
-from pathlib import Path
 
 from sqlalchemy import case, delete, func, select
 
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
+from _bootstrap_legacy import ensure_legacy_script_imports
 
-from _bootstrap import ensure_backend_on_path
-
-ensure_backend_on_path()
+ensure_legacy_script_imports()
 
 from app.core.database import AsyncSessionLocal  # noqa: E402
 from app.core.db_utils import fetch_rows  # noqa: E402
+from app.core.legacy_inventory_disposition import (  # noqa: E402
+    classify_legacy_inventory_bucket,
+)
 from app.models.application_distribution_snapshot import (  # noqa: E402
     ApplicationDistributionSnapshot,
 )
@@ -30,96 +28,45 @@ from app.models.package_item import PackageItem  # noqa: E402
 from app.models.restock_request import RestockRequest  # noqa: E402
 
 
-@dataclass(slots=True)
-class LegacyInventoryRow:
-    item_id: int
-    name: str
-    active_lot_count: int
-    deleted_lot_count: int
-    active_package_ref_count: int
-    package_ref_count: int
-    application_ref_count: int
-    restock_ref_count: int
-    waste_event_count: int
-    snapshot_ref_count: int
-
-
-@dataclass(slots=True)
-class CleanupSummary:
-    compatibility_items: list[LegacyInventoryRow]
-    migrate_before_archive_items: list[LegacyInventoryRow]
-    safe_cleanup_items: list[LegacyInventoryRow]
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Preview or clean legacy bankless inventory shell items that are no longer "
-            "reachable from active package/application flows."
-        ),
+        description="Preview or delete old inventory rows with no food_bank_id.",
     )
     parser.add_argument(
         "--apply",
         action="store_true",
-        help=(
-            "Delete only the safe legacy shell items that have no package, application, "
-            "or restock references."
-        ),
+        help="Delete only rows that are safe to remove.",
     )
     return parser.parse_args()
 
 
-def _preview_item(row: LegacyInventoryRow) -> str:
-    return (
-        f"#{row.item_id} {row.name} "
-        f"(deleted_lots={row.deleted_lot_count}, waste={row.waste_event_count}, "
-        f"snapshots={row.snapshot_ref_count})"
-    )
+def print_summary(summary: dict[str, list[dict[str, object]]], *, apply: bool) -> None:
+    mode = "apply" if apply else "preview"
+    print(f"[{mode}] legacy bankless inventory")
 
+    for title, rows in (
+        ("keep: live refs", summary["compatibility_items"]),
+        ("keep: map history first", summary["migrate_before_archive_items"]),
+        ("safe to delete", summary["safe_cleanup_items"]),
+    ):
+        print(f"- {title}: {len(rows)}")
+        for row in rows:
+            print(
+                "  "
+                f"#{row['item_id']} {row['name']} | "
+                f"deleted_lots={row['deleted_lot_count']} "
+                f"waste={row['waste_event_count']} "
+                f"snapshots={row['snapshot_ref_count']}"
+            )
 
-def _print_bucket(title: str, rows: list[LegacyInventoryRow]) -> None:
-    print(f"- {title}: {len(rows)}")
-    for row in rows:
-        print(f"  {_preview_item(row)}")
-
-
-def print_summary(summary: CleanupSummary, *, apply: bool) -> None:
-    mode = "APPLY" if apply else "PREVIEW"
-    print(f"[{mode}] Legacy bankless inventory summary")
-    _print_bucket("Historical compatibility layer", summary.compatibility_items)
-    _print_bucket("Migrate before archive", summary.migrate_before_archive_items)
-    _print_bucket("Safe cleanup candidates", summary.safe_cleanup_items)
     if not apply:
-        print("Run again with --apply to delete the safe cleanup candidates only.")
+        print("Use --apply to delete only the safe rows.")
 
 
-def classify_rows(rows: list[LegacyInventoryRow]) -> CleanupSummary:
-    compatibility_items: list[LegacyInventoryRow] = []
-    migrate_before_archive_items: list[LegacyInventoryRow] = []
-    safe_cleanup_items: list[LegacyInventoryRow] = []
-
-    for row in rows:
-        if (
-            row.active_lot_count > 0
-            or row.active_package_ref_count > 0
-            or row.restock_ref_count > 0
-        ):
-            compatibility_items.append(row)
-            continue
-        if row.package_ref_count > 0 or row.application_ref_count > 0:
-            migrate_before_archive_items.append(row)
-            continue
-        safe_cleanup_items.append(row)
-
-    return CleanupSummary(
-        compatibility_items=compatibility_items,
-        migrate_before_archive_items=migrate_before_archive_items,
-        safe_cleanup_items=safe_cleanup_items,
-    )
-
-
-async def collect_summary() -> CleanupSummary:
+async def collect_summary() -> dict[str, list[dict[str, object]]]:
     async with AsyncSessionLocal() as db:
+        # 预览和实际执行都用同一份数据库推导出来的处置结果,
+        # 操作者看到的桶分类就是后面删除步骤会依据的
         rows = await fetch_rows(
             db,
             select(
@@ -175,41 +122,63 @@ async def collect_summary() -> CleanupSummary:
             .order_by(InventoryItem.id.asc()),
         )
 
-    classified_rows = [
-        LegacyInventoryRow(
-            item_id=int(item_id),
-            name=str(name),
-            active_lot_count=int(active_lot_count or 0),
-            deleted_lot_count=int(deleted_lot_count or 0),
-            active_package_ref_count=int(active_package_ref_count or 0),
-            package_ref_count=int(package_ref_count or 0),
-            application_ref_count=int(application_ref_count or 0),
-            restock_ref_count=int(restock_ref_count or 0),
-            waste_event_count=int(waste_event_count or 0),
-            snapshot_ref_count=int(snapshot_ref_count or 0),
+    compatibility_items: list[dict[str, object]] = []
+    migrate_before_archive_items: list[dict[str, object]] = []
+    safe_cleanup_items: list[dict[str, object]] = []
+
+    for (
+        item_id,
+        name,
+        active_lot_count,
+        deleted_lot_count,
+        active_package_ref_count,
+        package_ref_count,
+        application_ref_count,
+        restock_ref_count,
+        waste_event_count,
+        snapshot_ref_count,
+    ) in rows:
+        row = {
+            "item_id": int(item_id),
+            "name": str(name),
+            "active_lot_count": int(active_lot_count or 0),
+            "deleted_lot_count": int(deleted_lot_count or 0),
+            "active_package_ref_count": int(active_package_ref_count or 0),
+            "package_ref_count": int(package_ref_count or 0),
+            "application_ref_count": int(application_ref_count or 0),
+            "restock_ref_count": int(restock_ref_count or 0),
+            "waste_event_count": int(waste_event_count or 0),
+            "snapshot_ref_count": int(snapshot_ref_count or 0),
+        }
+        bucket = classify_legacy_inventory_bucket(
+            active_lot_count=row["active_lot_count"],
+            active_package_ref_count=row["active_package_ref_count"],
+            package_ref_count=row["package_ref_count"],
+            application_ref_count=row["application_ref_count"],
+            restock_ref_count=row["restock_ref_count"],
         )
-        for (
-            item_id,
-            name,
-            active_lot_count,
-            deleted_lot_count,
-            active_package_ref_count,
-            package_ref_count,
-            application_ref_count,
-            restock_ref_count,
-            waste_event_count,
-            snapshot_ref_count,
-        ) in rows
-    ]
-    return classify_rows(classified_rows)
+        if bucket == "historical_compatibility":
+            compatibility_items.append(row)
+        elif bucket == "migrate_before_archive":
+            migrate_before_archive_items.append(row)
+        else:
+            safe_cleanup_items.append(row)
+
+    return {
+        "compatibility_items": compatibility_items,
+        "migrate_before_archive_items": migrate_before_archive_items,
+        "safe_cleanup_items": safe_cleanup_items,
+    }
 
 
-async def apply_cleanup(summary: CleanupSummary) -> None:
-    safe_item_ids = [row.item_id for row in summary.safe_cleanup_items]
+async def apply_cleanup(summary: dict[str, list[dict[str, object]]]) -> None:
+    safe_item_ids = [int(row["item_id"]) for row in summary["safe_cleanup_items"]]
     if not safe_item_ids:
         return
 
     async with AsyncSessionLocal() as db:
+        # 实际执行模式在写入 session 里再查一遍运行时引用,
+        # 这样过时的预览不会把同时新增了关联的记录删掉
         live_refs = await fetch_rows(
             db,
             select(
@@ -279,7 +248,7 @@ async def main() -> None:
     await apply_cleanup(summary)
     after = await collect_summary()
     print()
-    print("Cleanup complete.")
+    print("Cleanup done.")
     print_summary(after, apply=True)
 
 

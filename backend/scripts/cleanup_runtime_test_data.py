@@ -1,20 +1,20 @@
+"""预览或删除运行时的测试数据,保留共享的 demo 种子记录不动。"""
+
 from __future__ import annotations
 
 import argparse
 import asyncio
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from uuid import UUID
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import case, delete, func, or_, select
 
 from _bootstrap import ensure_backend_on_path
 
 ensure_backend_on_path()
 
-from app.core.bootstrap_seed import DEMO_SCOPED_GOODS_DONOR_EMAILS  # noqa: E402
+from _cleanup_shared import count_rows, preview_values, sync_food_package_applied_counts  # noqa: E402
 from app.core.database import AsyncSessionLocal  # noqa: E402
-from app.core.db_utils import fetch_rows, fetch_scalars  # noqa: E402
+from app.core.db_utils import fetch_rows  # noqa: E402
 from app.models.application import Application  # noqa: E402
 from app.models.application_item import ApplicationItem  # noqa: E402
 from app.models.donation_cash import DonationCash  # noqa: E402
@@ -47,57 +47,29 @@ RUNTIME_TEST_EMAIL_PATTERNS = (
 RUNTIME_TEST_EXACT_EMAILS = {
     "smoke-test@example.com",
 }
-ANALYTICS_USER_PATTERN = "analytics.user.%@example.com"
-ANALYTICS_CASH_REFERENCE_PATTERN = "AN-CASH-%"
-ANALYTICS_GOODS_EMAIL_PATTERN = "%.goods%@example.com"
 SUMMARY_SAMPLE_LIMIT = 5
-
-
-@dataclass(slots=True)
-class CleanupSummary:
-    runtime_user_ids: list[UUID]
-    runtime_user_emails: list[str]
-    runtime_application_count: int
-    runtime_cash_count: int
-    runtime_cash_samples: list[str]
-    runtime_goods_count: int
-    runtime_goods_samples: list[str]
-    reset_token_count: int
-    review_bankless_cash_count: int
-    review_bankless_goods_count: int
-    review_deleted_application_count: int
-    review_deleted_lot_count: int
-    review_null_scoped_inventory_item_count: int
-    review_demo_seed_lot_count: int
-    qa_inventory_item_ids: list[int]
-    qa_inventory_item_names: list[str]
-    qa_inventory_lot_count: int
-    analytics_user_count: int
-    analytics_cash_count: int
-    analytics_goods_count: int
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Preview or remove local runtime/test data artifacts "
-            "without touching canonical demo seed records."
-        ),
+        description="Preview or remove runtime/test data without touching demo seed data.",
     )
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Execute the cleanup. Without this flag the script only prints a preview.",
+        help="Delete the rows instead of printing a preview.",
     )
     parser.add_argument(
         "--keep-reset-tokens",
         action="store_true",
-        help="Preserve expired/used password reset tokens instead of deleting them.",
+        help="Leave expired and used password reset tokens alone.",
     )
     return parser.parse_args()
 
 
 def _email_filter(column):
+    # 运行时测试记录靠邮箱命名约定来识别,因为这个信号在用户、
+    # 捐赠和其他相关记录之间都是稳定的
     clauses = [column.like(pattern) for pattern in RUNTIME_TEST_EMAIL_PATTERNS]
     if RUNTIME_TEST_EXACT_EMAILS:
         clauses.append(column.in_(sorted(RUNTIME_TEST_EXACT_EMAILS)))
@@ -113,105 +85,104 @@ def _looks_like_qa_inventory_name(name: str | None) -> bool:
     return normalized.isdigit() or "qa" in normalized
 
 
-async def _count(db, stmt) -> int:
-    return int((await db.scalar(stmt)) or 0)
-
-
-def _preview_list(values: list[str]) -> str:
-    if not values:
-        return ""
-    preview = ", ".join(values[:SUMMARY_SAMPLE_LIMIT])
-    if len(values) > SUMMARY_SAMPLE_LIMIT:
-        preview = f"{preview}, ..."
-    return preview
-
-
 def print_summary(
-    summary: CleanupSummary,
+    summary: dict[str, object],
     *,
     apply: bool,
     keep_reset_tokens: bool,
 ) -> None:
-    mode = "APPLY" if apply else "PREVIEW"
-    print(f"[{mode}] Runtime/test cleanup summary")
-    print(f"- Runtime/test users: {len(summary.runtime_user_ids)}")
-    if summary.runtime_user_emails:
-        print(f"  Sample users: {_preview_list(summary.runtime_user_emails)}")
-    print(f"- Applications tied to runtime/test users: {summary.runtime_application_count}")
-    print(f"- Cash donations to remove: {summary.runtime_cash_count}")
-    if summary.runtime_cash_samples:
-        print(f"  Sample cash donors: {_preview_list(summary.runtime_cash_samples)}")
-    print(f"- Goods donations to remove: {summary.runtime_goods_count}")
-    if summary.runtime_goods_samples:
-        print(f"  Sample goods donors: {_preview_list(summary.runtime_goods_samples)}")
+    runtime_users = summary["runtime_users"]
+    runtime_user_emails = [email for _user_id, email in runtime_users if email]
+    runtime_cash_samples = [
+        f"{donor_email or '(missing email)'} [{payment_reference or 'no-ref'}]"
+        for donor_email, payment_reference in summary["runtime_cash_rows"][:SUMMARY_SAMPLE_LIMIT]
+    ]
+    runtime_goods_samples = [
+        f"{donor_email or '(missing email)'} [{food_bank_name or 'no-bank'}]"
+        for donor_email, food_bank_name in summary["runtime_goods_rows"][:SUMMARY_SAMPLE_LIMIT]
+    ]
+    qa_inventory_items = summary["qa_inventory_items"]
+    qa_inventory_item_names = [name for _item_id, name in qa_inventory_items]
+
+    mode = "apply" if apply else "preview"
+    print(f"[{mode}] runtime/test cleanup")
+
+    print(f"- runtime users: {len(runtime_users)}")
+    if runtime_user_emails:
+        print(f"  sample: {preview_values(runtime_user_emails, limit=SUMMARY_SAMPLE_LIMIT)}")
+    print(f"- applications tied to those users: {summary['runtime_application_count']}")
+    print(f"- cash donations to remove: {summary['runtime_cash_count']}")
+    if runtime_cash_samples:
+        print(f"  sample: {preview_values(runtime_cash_samples, limit=SUMMARY_SAMPLE_LIMIT)}")
+    print(f"- goods donations to remove: {summary['runtime_goods_count']}")
+    if runtime_goods_samples:
+        print(f"  sample: {preview_values(runtime_goods_samples, limit=SUMMARY_SAMPLE_LIMIT)}")
     print(
-        "- Password reset tokens to remove: "
-        f"{0 if keep_reset_tokens else summary.reset_token_count}"
+        "- password reset tokens to remove: "
+        f"{0 if keep_reset_tokens else summary['reset_token_count']}"
     )
-    print("- Review-only findings:")
-    print(f"  Remaining bankless cash donations: {summary.review_bankless_cash_count}")
-    print(f"  Remaining bankless goods donations: {summary.review_bankless_goods_count}")
-    print(f"  Soft-deleted applications: {summary.review_deleted_application_count}")
-    print(f"  Soft-deleted inventory lots: {summary.review_deleted_lot_count}")
+    print("- check by hand:")
+    print(f"  bankless cash donations left: {summary['review_bankless_cash_count']}")
+    print(f"  bankless goods donations left: {summary['review_bankless_goods_count']}")
+    print(f"  soft-deleted applications: {summary['review_deleted_application_count']}")
+    print(f"  soft-deleted inventory lots: {summary['review_deleted_lot_count']}")
     print(
-        "  Inventory items with null food_bank_id: "
-        f"{summary.review_null_scoped_inventory_item_count}"
+        "  inventory items with null food_bank_id: "
+        f"{summary['review_null_scoped_inventory_item_count']}"
     )
-    print(f"  Demo-seed lots present: {summary.review_demo_seed_lot_count}")
+    print(f"  seeded stock lots present: {summary['review_seed_lot_count']}")
     print(
-        "- Safe QA inventory cleanup candidates: "
-        f"{len(summary.qa_inventory_item_ids)} item(s), {summary.qa_inventory_lot_count} lot(s)"
+        "- qa inventory candidates: "
+        f"{len(qa_inventory_items)} item(s), {summary['qa_inventory_lot_count']} lot(s)"
     )
-    if summary.qa_inventory_item_names:
-        print(f"  Items: {_preview_list(summary.qa_inventory_item_names)}")
-    print("- Separate analytics cleanup candidates:")
-    print(f"  Analytics users: {summary.analytics_user_count}")
-    print(f"  Analytics cash donations: {summary.analytics_cash_count}")
-    print(f"  Analytics goods donations: {summary.analytics_goods_count}")
+    if qa_inventory_item_names:
+        print(f"  items: {preview_values(qa_inventory_item_names, limit=SUMMARY_SAMPLE_LIMIT)}")
     if not apply:
-        print("Run again with --apply to execute this cleanup.")
-        print(
-            "If analytics synthetic data is still present, run "
-            "`python scripts/cleanup_analytics_data.py --apply` separately."
-        )
+        print("Use --apply to actually delete these rows.")
 
 
-async def collect_summary(keep_reset_tokens: bool) -> CleanupSummary:
+async def collect_summary(keep_reset_tokens: bool) -> dict[str, object]:
     async with AsyncSessionLocal() as db:
-        runtime_users = await fetch_rows(
-            db,
-            select(User.id, User.email)
-            .where(_email_filter(User.email))
-            .order_by(User.created_at.desc(), User.email.asc()),
+        runtime_users = [
+            (int(user_id), email)
+            for user_id, email in await fetch_rows(
+                db,
+                select(User.id, User.email)
+                .where(_email_filter(User.email))
+                .order_by(User.created_at.desc(), User.email.asc()),
+            )
+        ]
+        runtime_user_ids = [user_id for user_id, _email in runtime_users]
+
+        runtime_cash_rows = list(
+            await fetch_rows(
+                db,
+                select(DonationCash.donor_email, DonationCash.payment_reference)
+                .where(_email_filter(DonationCash.donor_email))
+                .order_by(DonationCash.created_at.desc(), DonationCash.payment_reference.asc()),
+            )
         )
-        runtime_user_ids = [row[0] for row in runtime_users]
-        runtime_user_emails = [row[1] for row in runtime_users]
+        runtime_goods_rows = list(
+            await fetch_rows(
+                db,
+                select(DonationGoods.donor_email, DonationGoods.food_bank_name)
+                .where(_email_filter(DonationGoods.donor_email))
+                .order_by(DonationGoods.created_at.desc(), DonationGoods.donor_email.asc()),
+            )
+        )
 
         runtime_application_count = 0
         if runtime_user_ids:
-            runtime_application_count = await _count(
+            runtime_application_count = await count_rows(
                 db,
                 select(func.count())
                 .select_from(Application)
                 .where(Application.user_id.in_(runtime_user_ids)),
             )
 
-        runtime_cash_rows = await fetch_rows(
-            db,
-            select(DonationCash.donor_email, DonationCash.payment_reference)
-            .where(_email_filter(DonationCash.donor_email))
-            .order_by(DonationCash.created_at.desc(), DonationCash.payment_reference.asc()),
-        )
-        runtime_goods_rows = await fetch_rows(
-            db,
-            select(DonationGoods.donor_email, DonationGoods.food_bank_name)
-            .where(_email_filter(DonationGoods.donor_email))
-            .order_by(DonationGoods.created_at.desc(), DonationGoods.donor_email.asc()),
-        )
-
         reset_token_count = 0
         if not keep_reset_tokens:
-            reset_token_count = await _count(
+            reset_token_count = await count_rows(
                 db,
                 select(func.count())
                 .select_from(PasswordResetToken)
@@ -223,7 +194,9 @@ async def collect_summary(keep_reset_tokens: bool) -> CleanupSummary:
                 ),
             )
 
-        review_bankless_cash_count = await _count(
+        # 这些计数有意只用来人工查看,操作者能看出可疑残留,
+        # 但脚本不会自动去删它们
+        review_bankless_cash_count = await count_rows(
             db,
             select(func.count())
             .select_from(DonationCash)
@@ -232,7 +205,7 @@ async def collect_summary(keep_reset_tokens: bool) -> CleanupSummary:
                 ~_email_filter(DonationCash.donor_email),
             ),
         )
-        review_bankless_goods_count = await _count(
+        review_bankless_goods_count = await count_rows(
             db,
             select(func.count())
             .select_from(DonationGoods)
@@ -241,154 +214,150 @@ async def collect_summary(keep_reset_tokens: bool) -> CleanupSummary:
                 ~_email_filter(DonationGoods.donor_email),
             ),
         )
-        review_deleted_application_count = await _count(
+        review_deleted_application_count = await count_rows(
             db,
             select(func.count())
             .select_from(Application)
             .where(Application.deleted_at.is_not(None)),
         )
-        review_deleted_lot_count = await _count(
+        review_deleted_lot_count = await count_rows(
             db,
             select(func.count())
             .select_from(InventoryLot)
             .where(InventoryLot.deleted_at.is_not(None)),
         )
-        review_null_scoped_inventory_item_count = await _count(
+        review_null_scoped_inventory_item_count = await count_rows(
             db,
             select(func.count())
             .select_from(InventoryItem)
             .where(InventoryItem.food_bank_id.is_(None)),
         )
-        review_demo_seed_lot_count = await _count(
+        review_seed_lot_count = await count_rows(
             db,
             select(func.count())
             .select_from(InventoryLot)
-            .where(InventoryLot.batch_reference.like("demo-seed-%")),
-        )
-
-        qa_inventory_rows = await fetch_rows(
-            db,
-            select(InventoryItem.id, InventoryItem.name)
-            .where(InventoryItem.food_bank_id.is_(None))
-            .order_by(InventoryItem.id.asc()),
-        )
-        qa_inventory_item_ids: list[int] = []
-        qa_inventory_item_names: list[str] = []
-        qa_inventory_lot_count = 0
-        for item_id, item_name in qa_inventory_rows:
-            if not _looks_like_qa_inventory_name(item_name):
-                continue
-
-            active_package_refs = await _count(
-                db,
-                select(func.count())
-                .select_from(PackageItem)
-                .join(FoodPackage, FoodPackage.id == PackageItem.package_id)
-                .where(
-                    PackageItem.inventory_item_id == item_id,
-                    FoodPackage.is_active.is_(True),
-                ),
-            )
-            application_refs = await _count(
-                db,
-                select(func.count())
-                .select_from(ApplicationItem)
-                .where(ApplicationItem.inventory_item_id == item_id),
-            )
-            waste_refs = await _count(
-                db,
-                select(func.count())
-                .select_from(InventoryWasteEvent)
-                .where(InventoryWasteEvent.inventory_item_id == item_id),
-            )
-            restock_refs = await _count(
-                db,
-                select(func.count())
-                .select_from(RestockRequest)
-                .where(RestockRequest.inventory_item_id == item_id),
-            )
-            if any((active_package_refs, application_refs, waste_refs, restock_refs)):
-                continue
-
-            qa_inventory_item_ids.append(int(item_id))
-            qa_inventory_item_names.append(str(item_name))
-            qa_inventory_lot_count += await _count(
-                db,
-                select(func.count())
-                .select_from(InventoryLot)
-                .where(InventoryLot.inventory_item_id == item_id),
-            )
-
-        analytics_user_count = await _count(
-            db,
-            select(func.count())
-            .select_from(User)
-            .where(User.email.like(ANALYTICS_USER_PATTERN)),
-        )
-        analytics_cash_count = await _count(
-            db,
-            select(func.count())
-            .select_from(DonationCash)
-            .where(DonationCash.payment_reference.like(ANALYTICS_CASH_REFERENCE_PATTERN)),
-        )
-        analytics_goods_count = await _count(
-            db,
-            select(func.count())
-            .select_from(DonationGoods)
             .where(
-                DonationGoods.donor_email.like(ANALYTICS_GOODS_EMAIL_PATTERN),
-                DonationGoods.donor_email.not_in(DEMO_SCOPED_GOODS_DONOR_EMAILS),
+                or_(
+                    InventoryLot.batch_reference.like("seed-stock-%"),
+                    InventoryLot.batch_reference.like("demo-seed-%"),
+                )
             ),
         )
 
-        return CleanupSummary(
-            runtime_user_ids=runtime_user_ids,
-            runtime_user_emails=runtime_user_emails,
-            runtime_application_count=runtime_application_count,
-            runtime_cash_count=len(runtime_cash_rows),
-            runtime_cash_samples=[
-                f"{donor_email or '(missing email)'} [{payment_reference or 'no-ref'}]"
-                for donor_email, payment_reference in runtime_cash_rows[:SUMMARY_SAMPLE_LIMIT]
-            ],
-            runtime_goods_count=len(runtime_goods_rows),
-            runtime_goods_samples=[
-                f"{donor_email or '(missing email)'} [{food_bank_name or 'no-bank'}]"
-                for donor_email, food_bank_name in runtime_goods_rows[:SUMMARY_SAMPLE_LIMIT]
-            ],
-            reset_token_count=reset_token_count,
-            review_bankless_cash_count=review_bankless_cash_count,
-            review_bankless_goods_count=review_bankless_goods_count,
-            review_deleted_application_count=review_deleted_application_count,
-            review_deleted_lot_count=review_deleted_lot_count,
-            review_null_scoped_inventory_item_count=review_null_scoped_inventory_item_count,
-            review_demo_seed_lot_count=review_demo_seed_lot_count,
-            qa_inventory_item_ids=qa_inventory_item_ids,
-            qa_inventory_item_names=qa_inventory_item_names,
-            qa_inventory_lot_count=qa_inventory_lot_count,
-            analytics_user_count=analytics_user_count,
-            analytics_cash_count=analytics_cash_count,
-            analytics_goods_count=analytics_goods_count,
+        # QA 库存清理走保守策略:物品名得看起来像伪造的,而且
+        # 这条记录不能有任何值得保留的运行时或历史引用
+        qa_inventory_rows = await fetch_rows(
+            db,
+            select(
+                InventoryItem.id,
+                InventoryItem.name,
+                func.count(
+                    func.distinct(
+                        case((FoodPackage.is_active.is_(True), PackageItem.id))
+                    )
+                ).label("active_package_ref_count"),
+                func.count(func.distinct(ApplicationItem.id)).label(
+                    "application_ref_count"
+                ),
+                func.count(func.distinct(InventoryWasteEvent.id)).label(
+                    "waste_event_count"
+                ),
+                func.count(func.distinct(RestockRequest.id)).label("restock_ref_count"),
+                func.count(func.distinct(InventoryLot.id)).label("lot_count"),
+            )
+            .select_from(InventoryItem)
+            .outerjoin(PackageItem, PackageItem.inventory_item_id == InventoryItem.id)
+            .outerjoin(FoodPackage, FoodPackage.id == PackageItem.package_id)
+            .outerjoin(
+                ApplicationItem,
+                ApplicationItem.inventory_item_id == InventoryItem.id,
+            )
+            .outerjoin(
+                InventoryWasteEvent,
+                InventoryWasteEvent.inventory_item_id == InventoryItem.id,
+            )
+            .outerjoin(
+                RestockRequest,
+                RestockRequest.inventory_item_id == InventoryItem.id,
+            )
+            .outerjoin(InventoryLot, InventoryLot.inventory_item_id == InventoryItem.id)
+            .where(InventoryItem.food_bank_id.is_(None))
+            .group_by(InventoryItem.id, InventoryItem.name)
+            .order_by(InventoryItem.id.asc()),
         )
+        qa_inventory_items: list[tuple[int, str]] = []
+        qa_inventory_lot_count = 0
+        for (
+            item_id,
+            item_name,
+            active_package_ref_count,
+            application_ref_count,
+            waste_event_count,
+            restock_ref_count,
+            lot_count,
+        ) in qa_inventory_rows:
+            if not _looks_like_qa_inventory_name(item_name):
+                continue
+            if any(
+                int(value or 0) > 0
+                for value in (
+                    active_package_ref_count,
+                    application_ref_count,
+                    waste_event_count,
+                    restock_ref_count,
+                )
+            ):
+                continue
+
+            qa_inventory_items.append((int(item_id), str(item_name)))
+            qa_inventory_lot_count += int(lot_count or 0)
+
+        return {
+            "runtime_users": runtime_users,
+            "runtime_application_count": runtime_application_count,
+            "runtime_cash_count": len(runtime_cash_rows),
+            "runtime_cash_rows": runtime_cash_rows,
+            "runtime_goods_count": len(runtime_goods_rows),
+            "runtime_goods_rows": runtime_goods_rows,
+            "reset_token_count": reset_token_count,
+            "review_bankless_cash_count": review_bankless_cash_count,
+            "review_bankless_goods_count": review_bankless_goods_count,
+            "review_deleted_application_count": review_deleted_application_count,
+            "review_deleted_lot_count": review_deleted_lot_count,
+            "review_null_scoped_inventory_item_count": review_null_scoped_inventory_item_count,
+            "review_seed_lot_count": review_seed_lot_count,
+            "qa_inventory_items": qa_inventory_items,
+            "qa_inventory_lot_count": qa_inventory_lot_count,
+        }
 
 
-async def apply_cleanup(summary: CleanupSummary, keep_reset_tokens: bool) -> None:
+async def apply_cleanup(summary: dict[str, object], keep_reset_tokens: bool) -> None:
     async with AsyncSessionLocal() as db:
-        if summary.runtime_application_count > 0:
+        runtime_user_ids = [
+            user_id for user_id, _email in summary["runtime_users"]
+        ]
+        qa_inventory_item_ids = [
+            item_id for item_id, _name in summary["qa_inventory_items"]
+        ]
+
+        # 先删子记录再删父用户,这样清理就能走正常的外键顺序,
+        # 不用后面给每张表单独写特殊处理
+        if summary["runtime_application_count"] > 0:
             await db.execute(
-                delete(Application).where(Application.user_id.in_(summary.runtime_user_ids))
+                delete(Application).where(Application.user_id.in_(runtime_user_ids))
             )
 
-        if summary.runtime_cash_count > 0:
+        if summary["runtime_cash_count"] > 0:
             await db.execute(
                 delete(DonationCash).where(_email_filter(DonationCash.donor_email))
             )
 
-        if summary.runtime_goods_count > 0:
+        if summary["runtime_goods_count"] > 0:
             await db.execute(
                 delete(DonationGoods).where(_email_filter(DonationGoods.donor_email))
             )
 
-        if not keep_reset_tokens and summary.reset_token_count > 0:
+        if not keep_reset_tokens and summary["reset_token_count"] > 0:
             await db.execute(
                 delete(PasswordResetToken).where(
                     or_(
@@ -398,34 +367,19 @@ async def apply_cleanup(summary: CleanupSummary, keep_reset_tokens: bool) -> Non
                 )
             )
 
-        if summary.runtime_user_ids:
-            await db.execute(delete(User).where(User.id.in_(summary.runtime_user_ids)))
+        if runtime_user_ids:
+            await db.execute(delete(User).where(User.id.in_(runtime_user_ids)))
 
-        if summary.qa_inventory_item_ids:
+        if qa_inventory_item_ids:
             await db.execute(
                 delete(InventoryItem).where(
-                    InventoryItem.id.in_(summary.qa_inventory_item_ids)
+                    InventoryItem.id.in_(qa_inventory_item_ids)
                 )
             )
 
-        package_totals = {
-            int(package_id): int(total_quantity or 0)
-            for package_id, total_quantity in (
-                await fetch_rows(
-                    db,
-                    select(
-                        ApplicationItem.package_id,
-                        func.coalesce(func.sum(ApplicationItem.quantity), 0),
-                    )
-                    .where(ApplicationItem.package_id.is_not(None))
-                    .group_by(ApplicationItem.package_id)
-                )
-            )
-            if package_id is not None
-        }
-        packages = await fetch_scalars(db, select(FoodPackage))
-        for package in packages:
-            package.applied_count = package_totals.get(int(package.id), 0)
+        # applied_count 是派生数据,批量删除最后会从剩下的申请明细
+        # 重新算一遍
+        await sync_food_package_applied_counts(db)
 
         await db.commit()
 
@@ -445,7 +399,7 @@ async def main() -> None:
     await apply_cleanup(summary, options.keep_reset_tokens)
     after = await collect_summary(options.keep_reset_tokens)
     print()
-    print("Cleanup complete.")
+    print("Cleanup done.")
     print_summary(
         after,
         apply=True,

@@ -1,3 +1,5 @@
+"""检查配置的项目数据库能不能连上,轻量版。"""
+
 from __future__ import annotations
 
 import argparse
@@ -26,6 +28,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    # psycopg2 走纯 postgres DSN,不能用异步 SQLAlchemy URL
     dsn = to_plain_postgres_dsn(settings.database_url)
 
     try:

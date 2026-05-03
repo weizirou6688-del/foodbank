@@ -1,3 +1,5 @@
+"""CLI 包装,在本地环境里确保完整 demo 数据集存在。"""
+
 from __future__ import annotations
 
 import argparse
@@ -14,6 +16,7 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Seed demo users, food banks, and inventory data.")
     parser.add_argument("--quiet", action="store_true", help="Suppress success output.")
     options = parser.parse_args()
+    # 完整种子既包含共享的商品目录,也包含带范围的 admin / demo 记录
     await ensure_full_demo_data()
     if not options.quiet:
         print("Demo data ensured successfully.")
