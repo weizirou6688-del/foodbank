@@ -1,146 +1,212 @@
-import type { AdminApplicationRecord } from '@/shared/lib/api/applications'
-import type { DonationListRow } from '@/shared/types/donations'
+﻿import type { AdminApplicationRecord } from "@/shared/lib/api/applications";
+import type { DonationListRow } from "@/shared/types/donations";
+
 export const donorTypeLabelMap = {
-  supermarket: 'Supermarket',
-  individual: 'Individual',
-  organization: 'Organization',
-} as const
-const buildIsoDate = (year: number, month: number, day: number): string | null => {
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
-    return null
-  }
-  const candidate = new Date(Date.UTC(year, month - 1, day))
+  supermarket: "Supermarket",
+  individual: "Individual",
+  organization: "Organization",
+} as const;
+
+const currencyFormatter = new Intl.NumberFormat("en-GB", {
+  style: "currency",
+  currency: "GBP",
+});
+
+const buildIsoDate = (
+  year: number,
+  month: number,
+  day: number,
+): string | null => {
   if (
-    candidate.getUTCFullYear() !== year
-    || candidate.getUTCMonth() !== month - 1
-    || candidate.getUTCDate() !== day
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
   ) {
-    return null
+    return null;
   }
-  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+};
+
 const extractIsoDate = (value?: string | null): string => {
-  const trimmed = value?.trim() || ''
+  // Admin views see both backend ISO timestamps and DD/MM/YYYY form input, so
+  // downstream helpers rely on one forgiving normalizer here.
+  const trimmed = value?.trim() || "";
   if (!trimmed) {
-    return ''
+    return "";
   }
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) {
-    return buildIsoDate(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])) || ''
+    return (
+      buildIsoDate(
+        Number(isoMatch[1]),
+        Number(isoMatch[2]),
+        Number(isoMatch[3]),
+      ) || ""
+    );
   }
-  const ukMatch = trimmed.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/)
+
+  const ukMatch = trimmed.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (ukMatch) {
-    return buildIsoDate(Number(ukMatch[3]), Number(ukMatch[2]), Number(ukMatch[1])) || ''
+    return (
+      buildIsoDate(
+        Number(ukMatch[3]),
+        Number(ukMatch[2]),
+        Number(ukMatch[1]),
+      ) || ""
+    );
   }
-  return ''
-}
+
+  return "";
+};
+
 export const formatUkDate = (value?: string | null): string => {
-  const isoDate = extractIsoDate(value)
+  const isoDate = extractIsoDate(value);
   if (!isoDate) {
-    return '-'
+    return "-";
   }
-  const [year, month, day] = isoDate.split('-')
-  return `${day}/${month}/${year}`
-}
+  const [year, month, day] = isoDate.split("-");
+  return `${day}/${month}/${year}`;
+};
+
 export const formatUkDateInput = (value?: string | null): string => {
-  const isoDate = extractIsoDate(value)
+  const isoDate = extractIsoDate(value);
   if (!isoDate) {
-    return ''
+    return "";
   }
-  const [year, month, day] = isoDate.split('-')
-  return `${day}/${month}/${year}`
-}
+  const [year, month, day] = isoDate.split("-");
+  return `${day}/${month}/${year}`;
+};
+
 export const parseUkDateInput = (value: string): string | null => {
-  const trimmed = value.trim()
+  const trimmed = value.trim();
   if (!trimmed) {
-    return null
+    return null;
   }
-  const ukMatch = trimmed.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/)
+
+  const ukMatch = trimmed.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (!ukMatch) {
-    return null
+    return null;
   }
-  return buildIsoDate(Number(ukMatch[3]), Number(ukMatch[2]), Number(ukMatch[1]))
-}
+
+  return buildIsoDate(
+    Number(ukMatch[3]),
+    Number(ukMatch[2]),
+    Number(ukMatch[1]),
+  );
+};
+
 export const normalizeAdminDonationPhone = (value?: string | null): string => {
-  const digits = (value ?? '').replace(/\D/g, '')
-  return digits.length === 11 ? digits : '00000000000'
-}
+  const digits = (value ?? "").replace(/\D/g, "");
+  return digits.length === 11 ? digits : "00000000000";
+};
+
 export const getDaysUntilDate = (value?: string | null): number | null => {
-  const isoDate = extractIsoDate(value)
+  const isoDate = extractIsoDate(value);
   if (!isoDate) {
-    return null
+    return null;
   }
-  const [year, month, day] = isoDate.split('-').map(Number)
-  const targetUtc = Date.UTC(year, month - 1, day)
-  const now = new Date()
-  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
-  return Math.ceil((targetUtc - todayUtc) / (1000 * 60 * 60 * 24))
-}
+
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const targetUtc = Date.UTC(year, month - 1, day);
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.ceil((targetUtc - todayUtc) / (1000 * 60 * 60 * 24));
+};
+
 const formatMoney = (amountPence?: number): string =>
-  `${'\u00A3'}${((amountPence ?? 0) / 100).toFixed(2)}`
+  currencyFormatter.format((amountPence ?? 0) / 100);
+
 export const normalizeRedemptionCode = (value: string): string => {
-  const trimmed = value.trim().toUpperCase()
-  const compact = trimmed.replace(/[^A-Z0-9]/g, '')
-  if (compact.length === 8) {
-    return `${compact.slice(0, 4)}-${compact.slice(4)}`
+  // Staff often paste or scan codes without the hyphen, so canonicalise them
+  // before validation and lookup.
+  const trimmed = value.trim().toUpperCase();
+  const compact = trimmed.replace(/[^A-Z0-9]/g, "");
+  if (compact.length === 8 && !trimmed.includes("-")) {
+    return `${compact.slice(0, 4)}-${compact.slice(4)}`;
   }
-  if (/^[A-Z]{2}\d{8}$/.test(compact)) {
-    return compact
-  }
-  return trimmed
-}
-export const inferDonationDonorType = (row: DonationListRow): keyof typeof donorTypeLabelMap => {
+  return trimmed;
+};
+
+export const isCanonicalRedemptionCode = (value: string): boolean =>
+  /^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalizeRedemptionCode(value));
+
+export const inferDonationDonorType = (
+  row: DonationListRow,
+): keyof typeof donorTypeLabelMap => {
   if (row.donor_type && row.donor_type in donorTypeLabelMap) {
-    return row.donor_type
+    return row.donor_type;
   }
-  const source = `${row.donor_name ?? ''} ${row.notes ?? ''}`.toLowerCase()
-  if (/(tesco|waitrose|aldi|lidl|asda|sainsbury|morrisons|co-op|coop|supermarket|market)/.test(source)) {
-    return 'supermarket'
+
+  const source = `${row.donor_name ?? ""} ${row.notes ?? ""}`.toLowerCase();
+  if (
+    /(tesco|waitrose|aldi|lidl|asda|sainsbury|morrisons|co-op|coop|supermarket|market)/.test(
+      source,
+    )
+  ) {
+    return "supermarket";
   }
-  if (/(community|charity|foundation|trust|church|centre|center|school|organisation|organization|hub)/.test(source)) {
-    return 'organization'
+  if (
+    /(community|charity|foundation|trust|church|centre|center|school|organisation|organization|hub)/.test(
+      source,
+    )
+  ) {
+    return "organization";
   }
-  return 'individual'
-}
+  return "individual";
+};
+
 export const donationStatusLabel = (status?: string): string => {
   switch (status) {
-    case 'received':
-      return 'Received'
-    case 'rejected':
-      return 'Rejected'
-    case 'completed':
-      return 'Completed'
-    case 'failed':
-      return 'Failed'
-    case 'refunded':
-      return 'Refunded'
+    case "received":
+      return "Received";
+    case "rejected":
+      return "Rejected";
+    case "completed":
+      return "Completed";
+    case "failed":
+      return "Failed";
+    case "refunded":
+      return "Refunded";
     default:
-      return 'Pending'
+      return "Pending";
   }
-}
+};
+
 export const buildDonationDisplayId = (row: DonationListRow): string => {
-  const dateToken = extractIsoDate(row.pickup_date || row.created_at).replace(/-/g, '') || '00000000'
-  return `D-${dateToken}-${row.id.slice(-4).toUpperCase()}`
-}
+  const dateToken =
+    extractIsoDate(row.pickup_date || row.created_at).replace(/-/g, "") ||
+    "00000000";
+  return `D-${dateToken}-${row.id.slice(-4).toUpperCase()}`;
+};
+
 export const buildDonationTotalLabel = (row: DonationListRow): string => {
-  if (row.donation_type === 'cash') {
-    return formatMoney(row.amount_pence)
+  if (row.donation_type === "cash") {
+    return formatMoney(row.amount_pence);
   }
-  const total = (row.items ?? []).reduce((sum, item) => sum + item.quantity, 0)
-  return String(total)
-}
-export const getCodeStatusMeta = (record: AdminApplicationRecord): {
-  label: string
-  color: string
-} => {
+  const total = (row.items ?? []).reduce((sum, item) => sum + item.quantity, 0);
+  return String(total);
+};
+
+export const getCodeStatusMeta = (
+  record: AdminApplicationRecord,
+): { label: string; color: string } => {
   if (record.is_voided) {
-    return { label: 'Void', color: 'var(--color-error)' }
+    return { label: "Void", color: "var(--color-error)" };
   }
-  if (record.status === 'collected') {
-    return { label: 'Redeemed', color: 'var(--color-success)' }
+  if (record.status === "collected") {
+    return { label: "Redeemed", color: "var(--color-success)" };
   }
-  if (record.status === 'expired') {
-    return { label: 'Expired', color: 'var(--color-warning)' }
+  if (record.status === "expired") {
+    return { label: "Expired", color: "var(--color-warning)" };
   }
-  return { label: 'Pending', color: 'var(--color-text-medium)' }
-}
+  return { label: "Pending", color: "var(--color-text-medium)" };
+};

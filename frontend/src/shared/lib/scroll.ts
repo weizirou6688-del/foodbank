@@ -1,114 +1,100 @@
-import { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-
-const DEFAULT_SCROLL_DELAY_MS = 50
-const DEFAULT_SCROLL_OPTIONS: ScrollIntoViewOptions = {
-  behavior: 'smooth',
-  block: 'start',
-}
-
-export function scrollToElementById(
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+// 锚点目标常在路由状态稳定后延迟一个 tick 挂载,尤其是页面区块依赖异步视图数据时
+const hashScrollDelay = 50;
+const defaultScrollOptions: ScrollIntoViewOptions = {
+  behavior: "smooth",
+  block: "start",
+};
+export function scrollToId(
   id: string,
-  options: ScrollIntoViewOptions = DEFAULT_SCROLL_OPTIONS,
+  options: ScrollIntoViewOptions = defaultScrollOptions,
 ) {
   if (!id) {
-    return false
+    return false;
   }
-
-  const element = document.getElementById(id)
+  const element = document.getElementById(id);
   if (!element) {
-    return false
+    return false;
   }
-
-  element.scrollIntoView(options)
-  return true
+  element.scrollIntoView(options);
+  return true;
 }
-
-export function scrollToTop(behavior: ScrollBehavior = 'smooth') {
-  window.scrollTo({ top: 0, behavior })
+export function scrollToTop(behavior: ScrollBehavior = "smooth") {
+  window.scrollTo({ top: 0, behavior });
 }
-
-export function useScrollToHash({
+export function useHashScroll({
   enabled = true,
-  delayMs = DEFAULT_SCROLL_DELAY_MS,
-  options = DEFAULT_SCROLL_OPTIONS,
+  delayMs = hashScrollDelay,
+  options = defaultScrollOptions,
 }: {
-  enabled?: boolean
-  delayMs?: number
-  options?: ScrollIntoViewOptions
+  enabled?: boolean;
+  delayMs?: number;
+  options?: ScrollIntoViewOptions;
 } = {}) {
-  const location = useLocation()
-
+  const location = useLocation();
   useEffect(() => {
     if (!enabled || !location.hash) {
-      return
+      return;
     }
-
-    const targetId = location.hash.slice(1)
-    const timeoutHandle = window.setTimeout(() => {
-      scrollToElementById(targetId, options)
-    }, delayMs)
-
-    return () => window.clearTimeout(timeoutHandle)
-  }, [delayMs, enabled, location.hash, options])
+    const sectionId = location.hash.slice(1);
+    const timer = window.setTimeout(() => {
+      scrollToId(sectionId, options);
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, enabled, location.hash, options]);
 }
-
-export function useScrollTopVisibility({
+export function useBackToTopVisibility({
   enabled = true,
   threshold = 400,
-}: {
-  enabled?: boolean
-  threshold?: number
-} = {}) {
-  const [isVisible, setIsVisible] = useState(false)
-
+}: { enabled?: boolean; threshold?: number } = {}) {
+  const [isVisible, setIsVisible] = useState(false);
   useEffect(() => {
     if (!enabled) {
-      setIsVisible(false)
-      return
+      setIsVisible(false);
+      return;
     }
-
     const updateVisibility = () => {
-      setIsVisible(window.scrollY > threshold)
-    }
-
-    updateVisibility()
-    window.addEventListener('scroll', updateVisibility, { passive: true })
-
+      setIsVisible(window.scrollY > threshold);
+    };
+    updateVisibility();
+    window.addEventListener("scroll", updateVisibility, { passive: true });
     return () => {
-      window.removeEventListener('scroll', updateVisibility)
-    }
-  }, [enabled, threshold])
-
-  return isVisible
+      window.removeEventListener("scroll", updateVisibility);
+    };
+  }, [enabled, threshold]);
+  return isVisible;
 }
-
-export function useScrollToTopOnMount(behavior: ScrollBehavior = 'auto') {
+export function useScrollToTopOnMount(behavior: ScrollBehavior = "auto") {
   useEffect(() => {
-    scrollToTop(behavior)
-  }, [behavior])
+    scrollToTop(behavior);
+  }, [behavior]);
 }
-
 export function useScrollToTopOnRouteChange({
   enabled = true,
-  behavior = 'auto',
+  behavior = "auto",
   preserveHash = true,
 }: {
-  enabled?: boolean
-  behavior?: ScrollBehavior
-  preserveHash?: boolean
+  enabled?: boolean;
+  behavior?: ScrollBehavior;
+  preserveHash?: boolean;
 } = {}) {
-  const location = useLocation()
-
+  const location = useLocation();
   useEffect(() => {
     if (!enabled) {
-      return
+      return;
     }
-
+    // 锚点导航交由专用的 hash-scroll hook 处理,避免先滚到顶部再立即回滚
     if (preserveHash && location.hash) {
-      return
+      return;
     }
-
-    scrollToTop(behavior)
-  }, [behavior, enabled, location.hash, location.pathname, location.search, preserveHash])
+    scrollToTop(behavior);
+  }, [
+    behavior,
+    enabled,
+    location.hash,
+    location.pathname,
+    location.search,
+    preserveHash,
+  ]);
 }

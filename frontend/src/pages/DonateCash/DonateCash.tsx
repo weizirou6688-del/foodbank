@@ -4,18 +4,23 @@ import { donationsAPI } from '@/shared/lib/api/donations'
 import { foodBanksAPI } from '@/shared/lib/api/foodBanks'
 import { ImageWithFallback } from '@/shared/ui/ImageWithFallback'
 import { Check } from '@/shared/ui/InlineIcons'
-import { scrollToElementById, useScrollToHash } from '@/shared/lib/scroll'
+import { scrollToId, useHashScroll } from '@/shared/lib/scroll'
 import { getEnglishInputValidationProps } from '@/shared/lib/nativeValidation'
-import { formatCardNumber, formatExpiryDate, isValidCardNumber, isValidEmail, isValidExpiry } from '@/shared/lib/validation'
+import {
+  formatCardNumber,
+  formatExpiryDate,
+  getCashDonationValidationMessage,
+} from '@/shared/lib/validation'
 import PublicPageShell from '@/shared/ui/PublicPageShell'
 import type { FoodBank } from '@/shared/types/foodBanks'
-import { copyByMode, donorQuotes, galleryCards, gbp, helpCards, heroChecks, presetAmounts } from './copy'
+import { copyByMode, galleryCards, gbp, helpCards, heroChecks, presetAmounts } from './copy'
 import { ui } from './ui'
-import type { CardForm, DonorQuote, FormNotice, GallerySlide, GivingMode, InfoCardCopy } from './model'
+import type { CardForm, FormNotice, GallerySlide, GivingMode, InfoCardCopy } from './model'
 
 const createEmptyFormData = (): CardForm => ({ email: '', donorName: '', cardNumber: '', expiryDate: '', securityCode: '' })
+// 旧版 CTA 仍以 `type=onetime` 深链跳转,而 page model 和 API 内部使用规范化的 `one_time` 值。
 const getGivingMode = (search: string): GivingMode => new URLSearchParams(search).get('type')?.toLowerCase() === 'monthly' ? 'monthly' : 'one_time'
-const scrollToSection = (id: string) => scrollToElementById(id)
+const scrollToSection = (id: string) => scrollToId(id)
 const cardholderValidationProps = getEnglishInputValidationProps('Cardholder Name')
 const emailValidationProps = getEnglishInputValidationProps('Email Address')
 const customAmountValidationProps = getEnglishInputValidationProps('Custom Amount')
@@ -28,32 +33,19 @@ const formatNextChargeDate = (value?: string | null) => {
   return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(parsed)
 }
 
-function getDonationValidationMessage(amount: number, formData: CardForm) {
-  if (!Number.isFinite(amount) || amount <= 0) return 'Please select or enter a valid donation amount.'
-  if (!formData.donorName.trim()) return 'Please enter the cardholder name.'
-  if (!isValidEmail(formData.email.trim())) return 'Please enter a valid email address.'
-  if (!isValidCardNumber(formData.cardNumber)) return 'Please enter a valid 16-digit card number.'
-  if (!isValidExpiry(formData.expiryDate)) return 'Please enter a valid expiry date in MM/YY format.'
-  const [monthString, yearString] = formData.expiryDate.split('/')
-  const month = Number.parseInt(monthString, 10)
-  const year = Number.parseInt(yearString, 10)
-  const now = new Date()
-  const currentYear = now.getFullYear() % 100
-  const currentMonth = now.getMonth() + 1
-  if (!Number.isFinite(month) || !Number.isFinite(year) || month < 1 || month > 12 || year < currentYear || (year === currentYear && month < currentMonth)) {
-    return 'Please enter a valid future expiry date in MM/YY format.'
-  }
-  if (!/^\d{3,4}$/.test(formData.securityCode)) return 'Please enter a valid CVV.'
-  return null
-}
-
 function SectionIntro({ title, description, descriptionExtraLine }: { title: string; description: string; descriptionExtraLine?: string }) {
   return <div className={ui.sectionIntro}><h2 className={ui.sectionTitle}>{title}</h2><p className={ui.sectionDescription}>{description}{descriptionExtraLine ? <span className={ui.sectionDescriptionLine}>{descriptionExtraLine}</span> : null}</p></div>
 }
-function CheckListItem({ text }: { text: string }) { return <div className={ui.checkItem}><Check className={ui.checkIcon} strokeWidth={3} /><span className={ui.checkText}>{text}</span></div> }
+function CheckListItem({ text }: { text: string }) {
+  return (
+    <div className={ui.checkItem}>
+      <Check className={ui.checkIcon} strokeWidth={3} />
+      <span className={ui.checkText}>{text}</span>
+    </div>
+  )
+}
 function HelpItemCard({ item }: { item: InfoCardCopy }) { return <div className={ui.helpItem}><div className={ui.helpIconBox}><Check className={ui.helpIcon} strokeWidth={3} /></div><div><h3 className={ui.helpItemTitle}>{item.title}</h3><p className={ui.helpItemText}>{item.description}</p></div></div> }
 function GalleryCard({ item }: { item: GallerySlide }) { return <div className={ui.galleryCard}><ImageWithFallback src={item.image} alt={item.alt} className={ui.galleryImage} draggable={false} /><div className={ui.galleryOverlay}><p className={ui.galleryTitle}>{item.title}</p></div></div> }
-function DonorQuoteCard({ testimonial }: { testimonial: DonorQuote }) { return <div className={ui.testimonialCard}><div className={ui.testimonialHeader}><ImageWithFallback src={testimonial.image} alt={testimonial.alt} className={ui.testimonialAvatar} /><div><h3 className={ui.testimonialName}>{testimonial.name}</h3><p className={ui.testimonialMeta}>{testimonial.meta}</p></div></div><blockquote className={ui.testimonialQuote}>{testimonial.quote}</blockquote></div> }
 function FormField({ id, label, required = false, children }: { id: string; label: string; required?: boolean; children: ReactNode }) { return <div><label htmlFor={id} className={ui.label}>{label}{required ? <span className={ui.required}>*</span> : null}</label>{children}</div> }
 function FeedbackBanner({ feedback }: { feedback: FormNotice }) { return <div className={`${ui.feedback} ${feedback.type === 'success' ? ui.feedbackSuccess : ui.feedbackError}`} role={feedback.type === 'error' ? 'alert' : 'status'} aria-live="polite">{feedback.message}</div> }
 
@@ -72,9 +64,10 @@ export default function DonateCash() {
   const [submitFeedback, setFormNotice] = useState<FormNotice | null>(null)
   const [formData, setFormData] = useState<CardForm>(createEmptyFormData)
 
-  useScrollToHash({ enabled: location.hash === '#donate-form' })
+  useHashScroll({ enabled: location.hash === '#donate-form' })
 
   useEffect(() => {
+    // 首页和支持页的 CTA 可在落地前通过查询字符串预选金额和通知路由。
     const searchParams = new URLSearchParams(location.search)
     const amountParam = searchParams.get('amount')
     const parsedAmount = amountParam ? Number.parseFloat(amountParam) : Number.NaN
@@ -110,6 +103,8 @@ export default function DonateCash() {
         setFoodBankLoadError('')
       } catch {
         if (isCancelled) return
+        // 选择器仅决定哪个团队接收通知邮件,
+        // 因此加载失败时捐款仍会回退到平台默认路由。
         setFoodBankLoadError('We could not load food bank contacts right now. Your donation will still be submitted to the platform team.')
       }
     }
@@ -133,7 +128,7 @@ export default function DonateCash() {
     event.preventDefault()
     setFormNotice(null)
     const finalAmount = selectedAmount ?? Number.parseFloat(customAmount)
-    const validationMessage = getDonationValidationMessage(finalAmount, formData)
+    const validationMessage = getCashDonationValidationMessage(finalAmount, formData)
     if (validationMessage) return void setFormNotice({ type: 'error', message: validationMessage })
 
     setIsSubmitting(true)
@@ -169,9 +164,11 @@ export default function DonateCash() {
       <div className={ui.page}>
         <section className={ui.section}>
           <div className={`${ui.sectionInner} ${ui.heroInner}`}>
-            <h1 className={ui.heroTitle}>Your Gift Feeds Families</h1>
-            <p className={ui.heroText}>Every pound donated goes directly to purchasing food for local families in need. No <span className={ui.heroTextLine}>admin fees - 100% impact.</span></p>
-            <div className={ui.checkList}>{heroChecks.map((benefit) => <CheckListItem key={benefit} text={benefit} />)}</div>
+            <h1 className={ui.heroTitle}>Support a local food bank</h1>
+            <p className={ui.heroText}>Choose a one-off or monthly amount. Pick which food bank receives the donation, or leave it as the platform team for the central queue.</p>
+            <div className={ui.checkList}>
+              {heroChecks.map((benefit) => <CheckListItem key={benefit} text={benefit} />)}
+            </div>
             <div className={ui.heroImageWrap}><ImageWithFallback src="https://images.unsplash.com/photo-1738618141224-815f18b8e469?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb29kJTIwYmFuayUyMHNoZWx2ZXMlMjBvcmdhbml6ZWQlMjBkb25hdGlvbnN8ZW58MXx8fHwxNzc0OTQwMDk4fDA&ixlib=rb-4.1.0&q=80&w=1080" alt="Food bank donation" className={ui.heroImage} /></div>
             <button type="button" onClick={() => scrollToSection('donate-form')} className={ui.primaryButton}>Donate Cash</button>
           </div>
@@ -179,30 +176,9 @@ export default function DonateCash() {
 
         <section className={`${ui.section} ${ui.sectionMuted}`}>
           <div className={ui.sectionInner}>
-            <SectionIntro title="How We Help" description="Every donation makes a real difference. Here's how your contribution directly" descriptionExtraLine="supports families in need." />
+            <SectionIntro title="Where your donation goes" description="Cash donations are recorded by the platform and routed to a food bank of your choice." />
             <div className={ui.helpPanel}><div className={ui.helpGrid}>{helpCards.map((item) => <HelpItemCard key={item.title} item={item} />)}</div></div>
             <div className={ui.galleryGrid}>{galleryCards.map((item) => <GalleryCard key={item.title} item={item} />)}</div>
-          </div>
-        </section>
-
-        <section className={ui.section}>
-          <div className={ui.sectionInner}>
-            <SectionIntro title="Stories Of Change" description="Your donation doesn't just fill fridges - it restores dignity, stability, and hope" descriptionExtraLine="for families across the UK. These are the real stories of people your gift has helped." />
-            <div className={ui.storyCard}>
-              <div className={ui.storyCardBody}>
-                <div className={ui.storyImageWrap}><ImageWithFallback src="https://images.unsplash.com/photo-1667354436356-a6264939ff27?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzaW5nbGUlMjBtb3RoZXIlMjBjaGlsZHJlbiUyMGZhbWlseSUyMHBvcnRyYWl0fGVufDF8fHx8MTc3NDkyODQwN3ww&ixlib=rb-4.1.0&q=80&w=1080" alt="Household receiving support" className={ui.storyImage} /></div>
-                <blockquote className={ui.storyQuote}>I didn't have to choose between feeding my kids and paying the electricity bill anymore.</blockquote>
-                <p className={ui.storyText}>Sarah is a single mum to two young boys, aged 4 and 6. After losing her job when the nursery she worked at closed, she found herself stuck between a shrinking universal credit payment and rising living costs. For months, she skipped meals to make sure her boys had enough to eat, and struggled to afford even basic essentials like milk and bread.</p>
-                <div className={ui.storyBadge}><span className={ui.storyBadgeText}>This story was made possible by a {gbp}20 monthly donation</span></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={`${ui.section} ${ui.sectionMuted}`}>
-          <div className={ui.sectionInner}>
-            <SectionIntro title="Join Our Community Of Givers" description="Thousands of people across the UK are standing with us to end local food poverty." descriptionExtraLine="Here's what some of our monthly donors have to say." />
-            <div className={ui.testimonialList}>{donorQuotes.map((testimonial) => <DonorQuoteCard key={testimonial.name} testimonial={testimonial} />)}</div>
           </div>
         </section>
 

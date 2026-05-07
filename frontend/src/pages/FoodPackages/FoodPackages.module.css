@@ -1,52 +1,46 @@
 .pageWrap {
   flex: 1;
   width: 100%;
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #ffffff;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: #fff;
   padding-bottom: 2rem;
 }
-
 .pageWrap h1,
 .pageWrap h2,
 .pageWrap h3,
 .pageWrap h4 {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
-
 .page {
   width: 100%;
   padding: 3rem 1.5rem;
 }
-
 .hero {
   text-align: center;
   margin: 0 auto 3rem;
   max-width: 80rem;
 }
 
-.heroTitle {
-  font-size: 3rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 1rem;
+.heroIntro {
+  --public-pattern-max-width: 48rem;
+  --public-pattern-title-color: #1a1a1a;
+  --public-pattern-text-color: #6b7280;
 }
-
-.heroSub {
-  font-size: 1.125rem;
-  color: #6b7280;
-  max-width: 48rem;
-  margin: 0 auto 2rem;
-}
-
 .keyPoints {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
+  column-gap: clamp(3rem, 8vw, 6rem);
+  row-gap: 1rem;
   margin-bottom: 2rem;
 }
-
 .keyPoint {
   display: flex;
   align-items: center;
@@ -55,42 +49,27 @@
   color: #1a1a1a;
   font-weight: 500;
 }
-
-.keyPoint::before {
+.keyPoint:before {
   content: "\2713";
   color: #2e7d32;
   font-weight: 700;
   flex-shrink: 0;
 }
-
 .tabButtons {
   display: flex;
   justify-content: center;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
-
 .tabBtn {
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  font-size: 0.875rem;
-  background: #f5a623;
-  color: #1a1a1a;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.15s;
+  --public-button-font-size: 0.875rem;
+  --public-button-padding-y: 0.75rem;
+  --public-button-padding-x: 1.5rem;
 }
-
-.tabBtn:hover {
-  background: #d4870a;
-}
-
 .main {
   max-width: 80rem;
   margin: 0 auto;
 }
-
 .infoCard {
   background: #f2f4f3;
   border-radius: 0.75rem;
@@ -101,19 +80,16 @@
   justify-content: space-between;
   gap: 1rem;
 }
-
 .fbName {
   font-size: 1.125rem;
   font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 0.25rem;
 }
-
 .fbAddr {
   font-size: 0.75rem;
   color: #6b7280;
 }
-
 .remainingBadge {
   background: #f5a623;
   padding: 0.75rem 1.25rem;
@@ -121,13 +97,11 @@
   text-align: center;
   min-width: 100px;
 }
-
 .remainingNum {
   font-size: 1.5rem;
   font-weight: 700;
   color: #1a1a1a;
 }
-
 .remainingLabel {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -135,37 +109,107 @@
   color: #1a1a1a;
   margin-top: 0.125rem;
 }
-
 .infoBanner {
-  background: #f2f4f3;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 0.75rem;
+  --public-banner-bg: #f2f4f3;
+  --public-banner-border-color: #e5e7eb;
+  --public-banner-text-color: #1a1a1a;
+  --public-banner-padding: 0.75rem 1rem;
   margin-bottom: 2rem;
-  font-size: 0.875rem;
-  color: #1a1a1a;
 }
-
-.warningBanner {
-  border-color: #fde68a;
+/* The injected status panel reuses the catalogue's card language so it reads
+   as part of the same journey rather than a separate account-management view. */
+.applicationStatusList {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.applicationStatusCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  box-shadow: 0 8px 24px #00000008;
+}
+.applicationStatusHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+.applicationStatusCodeBlock {
+  min-width: 0;
+}
+.applicationStatusCodeLabel {
+  margin: 0 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.applicationStatusCode {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  word-break: break-word;
+}
+.applicationStatusBadge {
+  flex-shrink: 0;
+  padding: 0.35rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.applicationStatusBadgePending {
   background: #fef3c7;
   color: #92400e;
 }
-
+.applicationStatusBadgeCollected {
+  background: #dcfce7;
+  color: #166534;
+}
+.applicationStatusBadgeExpired {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.applicationStatusBadgeVoided {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.applicationStatusMeta {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+.applicationStatusMetaRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+.applicationStatusMetaRow dt {
+  color: #6b7280;
+}
+.applicationStatusMetaRow dd {
+  margin: 0;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: right;
+}
+.warningBanner {
+  --public-banner-bg: #fef3c7;
+  --public-banner-border-color: #fde68a;
+  --public-banner-text-color: #92400e;
+}
 .accentText {
   color: #f5a623;
 }
-
 .errorBanner {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 0.5rem;
-  padding: 0.75rem;
   margin-bottom: 1.5rem;
-  font-size: 0.875rem;
-  color: #dc2626;
 }
-
 .emptyState {
   max-width: 720px;
   margin: 5rem auto;
@@ -174,40 +218,27 @@
   padding: 2rem;
   text-align: center;
 }
-
 .emptyState h2 {
   font-size: 1.5rem;
   font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 0.5rem;
 }
-
 .emptyState p {
   font-size: 1rem;
   color: #6b7280;
 }
-
 .section {
   margin-bottom: 3rem;
   scroll-margin-top: 1.5rem;
 }
 
-.sectionHeader {
-  margin-bottom: 1.25rem;
+.sectionIntro {
+  --public-pattern-title-color: #1a1a1a;
+  --public-pattern-text-color: #6b7280;
+  --public-pattern-description-size: 0.875rem;
+  --public-pattern-description-line-height: 1.5;
 }
-
-.sectionTitle {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 0.25rem;
-}
-
-.sectionDesc {
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
 .statusBar {
   background: #f2f4f3;
   border: 1px solid #e5e7eb;
@@ -221,19 +252,16 @@
   justify-content: space-between;
   gap: 1rem;
 }
-
 .statusBarLimit {
   background: #fef3c7;
   border-color: #f5a623;
 }
-
 .statusLeft {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
-
 .limitBadge {
   font-size: 0.75rem;
   padding: 0.15rem 0.5rem;
@@ -242,42 +270,35 @@
   color: #1a1a1a;
   font-weight: 600;
 }
-
 .statusNote {
   font-size: 0.75rem;
   color: #6b7280;
 }
-
 .successSection {
   margin-bottom: 2rem;
 }
-
 .successCard {
   background: #f2f4f3;
   border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
   padding: 1.5rem;
 }
-
 .successTitle {
   font-size: 1.125rem;
   font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 0.25rem;
 }
-
 .successDesc {
   font-size: 0.875rem;
   color: #6b7280;
   margin-bottom: 1.25rem;
 }
-
 .successCodeBlock {
   padding-bottom: 1.25rem;
   margin-bottom: 1.25rem;
   border-bottom: 1px solid #e5e7eb;
 }
-
 .successCodeLabel {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -285,25 +306,319 @@
   color: #6b7280;
   margin-bottom: 0.5rem;
 }
-
 .successCode {
   font-size: 1.875rem;
   font-weight: 700;
   color: #f5a623;
   margin-bottom: 0.25rem;
 }
-
 .successCodeHint {
   font-size: 0.75rem;
   color: #6b7280;
 }
-
+.packageGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+.packageCard {
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #fff;
+  transition: all 0.15s ease;
+}
+.packageCardSelected {
+  border-color: #f5a623;
+  border-width: 2px;
+}
+.packageCardDimmed {
+  opacity: 0.5;
+}
+.packageMedia {
+  position: relative;
+  height: 8rem;
+  overflow: hidden;
+}
+.packageImage {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.packageLowBadge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background: #dc2626;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #fff;
+}
+.packageSelectedBadge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: #22c55e;
+}
+.packageCardBody {
+  padding: 1rem;
+}
+.packageName {
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.packageItems {
+  margin-bottom: 0.75rem;
+}
+.packageItemRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.2rem;
+  font-size: 0.75rem;
+}
+.packageItemName {
+  color: #1a1a1a;
+}
+.packageItemQty {
+  color: #6b7280;
+}
+.packageStockRow {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.75rem;
+}
+.packageStockLabel {
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.packageStockValue {
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.packageStockValueLow {
+  color: #dc2626;
+}
+.packageControls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+.quantityButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9999px;
+  color: #1a1a1a;
+  transition: background-color 0.15s ease;
+}
+.packageQuantityButton {
+  width: 2rem;
+  height: 2rem;
+}
+.foodQuantityButton {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+.quantityButtonEnabled {
+  background: #f5a623;
+  cursor: pointer;
+}
+.quantityButtonEnabled:hover {
+  background: #d4870a;
+}
+.quantityButtonDisabled {
+  background: #e5e7eb;
+  cursor: not-allowed;
+}
+.packageQuantityValue {
+  min-width: 40px;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.foodQuantityValue {
+  min-width: 30px;
+  text-align: center;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.emptyCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  background: #fff;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+.categoryFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.categoryFilter {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.categoryFilter:hover {
+  background: #f2f4f3;
+}
+.categoryFilterActive {
+  border-color: #f5a623;
+  background: #f5a623;
+  color: #1a1a1a;
+}
+.categoryFilterActive:hover {
+  background: #f5a623;
+}
+.foodList {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.foodCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: #fff;
+  transition: all 0.15s ease;
+}
+.foodCardSelected {
+  border-color: #f5a623;
+  border-width: 2px;
+}
+.foodCardDimmed {
+  opacity: 0.5;
+}
+.foodRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.foodMain {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+}
+.foodSelectButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.25rem;
+  background: #fff;
+  cursor: pointer;
+}
+.foodSelectButtonChecked {
+  border-color: #10b981;
+  background: #10b981;
+}
+.foodSelectButtonDisabled {
+  cursor: not-allowed;
+}
+.foodNameBlock {
+  flex: 1;
+  min-width: 0;
+}
+.foodName {
+  margin-bottom: 0.15rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.foodMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+.foodUnit {
+  color: #6b7280;
+}
+.foodCategory {
+  padding: 0.1rem 0.375rem;
+  border-radius: 0.25rem;
+  background: #f2f4f3;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #f5a623;
+}
+.foodStockText {
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+.foodStockValue {
+  color: #1a1a1a;
+}
+.foodQtyControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pagination {
+  margin-top: 0.5rem;
+}
+.successHeader {
+  margin-bottom: 1.25rem;
+}
+.successMetrics {
+  display: grid;
+  gap: 0.5rem;
+}
+.successMetricRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+.successMetricLabel {
+  color: #6b7280;
+}
+.successMetricValue {
+  font-weight: 700;
+  color: #1a1a1a;
+}
 .sectionActions {
   display: flex;
   justify-content: center;
   padding: 0.5rem 0;
 }
-
 .actionBar {
   background: #f2f4f3;
   border-radius: 0.75rem;
@@ -313,79 +628,57 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 30px #00000014;
 }
-
 .actionBold {
   font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 0.125rem;
 }
-
 .actionMuted {
   font-size: 0.875rem;
   color: #6b7280;
 }
-
 .submitBtn {
-  padding: 0.75rem 2rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  background: #e5e7eb;
-  color: #1a1a1a;
-  border: none;
-  cursor: not-allowed;
-  transition: all 0.15s;
-  font-size: 0.875rem;
+  --public-button-font-size: 0.875rem;
+  --public-button-padding-y: 0.75rem;
+  --public-button-padding-x: 2rem;
+  min-width: 12rem;
 }
-
-.submitBtnActive {
-  background: #f5a623;
-  cursor: pointer;
-}
-
-.submitBtnActive:hover {
-  background: #d4870a;
-}
-
-.submitBtn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
 .newAppBtn {
-  padding: 0.75rem 2rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  background: #f5a623;
-  color: #1a1a1a;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.15s;
-  font-size: 0.875rem;
+  --public-button-font-size: 0.875rem;
+  --public-button-padding-y: 0.75rem;
+  --public-button-padding-x: 2rem;
 }
-
-.newAppBtn:hover {
-  background: #d4870a;
-}
-
 @media (max-width: 768px) {
   .page {
     padding: 3rem 1rem;
   }
-
-  .heroTitle {
-    font-size: 2rem;
-  }
-
+  .applicationStatusHeader,
+  .applicationStatusMetaRow,
   .infoCard,
   .statusBar,
   .actionBar {
     flex-direction: column;
     align-items: flex-start;
   }
-
+  .applicationStatusMetaRow dd {
+    text-align: left;
+  }
   .submitBtn {
     width: 100%;
+  }
+  .pagination {
+    flex-wrap: wrap;
+  }
+}
+@media (min-width: 768px) {
+  .packageGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .packageGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

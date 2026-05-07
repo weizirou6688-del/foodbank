@@ -1,0 +1,624 @@
+.pageSection {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+.trendIcon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.checkIcon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #059669;
+}
+.bannerCheckWrap {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #ffb800;
+  color: #121212;
+}
+.bannerCheckIcon {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: currentColor;
+}
+.shieldIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #4caf50;
+}
+.sectionHeading {
+  --public-pattern-max-width: 640px;
+  --public-pattern-margin-bottom: 4rem;
+  --public-pattern-title-size: 2.5rem;
+  --public-pattern-title-line-height: 1.1;
+  --public-pattern-title-color: #0d1117;
+  --public-pattern-text-color: #57606a;
+  --public-pattern-description-size: 18px;
+  --public-pattern-description-line-height: 1.7;
+}
+.sectionHeadingTitleOnly {
+  --public-pattern-margin-bottom: 3rem;
+}
+.sectionHeadingTitleOnlyTitle {
+  margin-bottom: 0;
+}
+.stepCard {
+  text-align: center;
+}
+.stepIconWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+.stepIconShell {
+  position: relative;
+}
+.stepIconCircle {
+  display: flex;
+  width: 120px;
+  height: 120px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgb(255 184 0 / 20%);
+  border-radius: 9999px;
+  background: #fff9e6;
+  color: #ffb800;
+}
+.stepIcon {
+  width: 2rem;
+  height: 2rem;
+}
+.stepNumberBadge {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #ffb800;
+  box-shadow: 0 4px 12px #ffb8004d;
+}
+.stepNumber {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0d1117;
+}
+.stepTitle {
+  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: #0d1117;
+}
+.stepDescription {
+  max-width: 280px;
+  margin: 0 auto;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #57606a;
+}
+.heroSection {
+  border-bottom: 1px solid #e5e8ed;
+  background: #fff;
+}
+.heroInner {
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+}
+.heroGrid {
+  display: grid;
+  gap: 3rem;
+}
+.heroCopy {
+  min-width: 0;
+}
+.heroIntro {
+  --public-pattern-max-width: 100%;
+  --public-pattern-description-max-width: 560px;
+  --public-pattern-title-size: 3.5rem;
+  --public-pattern-title-line-height: 1.1;
+  --public-pattern-title-color: #0d1117;
+  --public-pattern-text-color: #57606a;
+  --public-pattern-description-size: 1.25rem;
+  --public-pattern-description-line-height: 1.7;
+}
+.heroTitleAccent {
+  color: #ffb800;
+}
+.actions {
+  display: grid;
+  max-width: 360px;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+.heroActionButton {
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+}
+.heroVisual {
+  min-width: 0;
+}
+.heroImageCard {
+  overflow: hidden;
+  border: 1px solid #e5e8ed;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 30px #0000001f;
+}
+.heroImageWrap {
+  position: relative;
+  height: 420px;
+}
+.heroImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.impactSection {
+  background: #f8f9fa;
+}
+.impactInner {
+  padding-top: 6rem;
+  padding-bottom: 6rem;
+}
+.impactGrid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.impactCard {
+  border-radius: 10px;
+  padding: 1.75rem 1.5rem;
+  background: #fff;
+  box-shadow: 0 2px 8px #0000000a;
+}
+.impactCardLoading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.impactStateCard {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+.impactSkeleton {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eceff2 0%, #f7f8fa 50%, #eceff2 100%);
+  background-size: 200% 100%;
+  animation: impactSkeletonPulse 1.4s ease-in-out infinite;
+}
+.impactSkeletonTrend {
+  width: 92px;
+  height: 24px;
+}
+.impactSkeletonValue {
+  width: 140px;
+  height: 36px;
+}
+.impactSkeletonLabel {
+  width: 85%;
+  height: 18px;
+}
+.impactSkeletonNote {
+  width: 48%;
+  height: 14px;
+}
+.impactTrend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.impactTrendPositive {
+  background: #ecfdf5;
+  color: #059669;
+}
+.impactTrendNegative {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+.impactValue {
+  margin-bottom: 0.25rem;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #121212;
+}
+.impactLabel {
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #121212;
+}
+.impactNote {
+  font-size: 0.85rem;
+  color: #4b4b4b;
+}
+.impactFootnote {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #4b4b4b;
+}
+.impactFootnoteInline {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #7c2d12;
+}
+@keyframes impactSkeletonPulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.workflowSection {
+  background: #fff;
+}
+.workflowInner {
+  padding-top: 10rem;
+  padding-bottom: 10rem;
+}
+.workflowWrap {
+  position: relative;
+}
+.workflowLine {
+  position: absolute;
+  top: 60px;
+  left: 16.66%;
+  right: 16.66%;
+  display: none;
+  height: 2px;
+  background: #e5e8ed;
+}
+.workflowLineGlow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, transparent, #ffb800, transparent);
+  opacity: 0.2;
+}
+.workflowGrid {
+  position: relative;
+  display: grid;
+  gap: 3rem;
+}
+.aboutSection {
+  background: #f6f8fa;
+}
+.aboutInner {
+  padding-top: 8rem;
+  padding-bottom: 8rem;
+}
+.aboutGrid {
+  display: grid;
+  gap: 2rem;
+}
+.aboutCard {
+  display: block;
+}
+.aboutImageCard {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e5e8ed;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 3px #0000001a;
+}
+.aboutImageWrap {
+  position: relative;
+  height: 240px;
+  overflow: hidden;
+}
+.aboutImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+.aboutCard:hover .aboutImage {
+  transform: scale(1.05);
+}
+.aboutCardTitle {
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #0d1117;
+}
+.aboutCardDescription {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #57606a;
+}
+.goodsSection {
+  background: #fff;
+}
+.goodsInner {
+  padding-top: 8rem;
+  padding-bottom: 8rem;
+}
+.goodsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
+}
+.goodsCard {
+  height: 100%;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 1.75rem 1.5rem;
+  background: #fff;
+}
+.goodsCardTitle {
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: #0d1117;
+}
+.goodsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #57606a;
+}
+.goodsListItem {
+  position: relative;
+  padding-left: 1rem;
+  margin-bottom: 0.35rem;
+}
+.goodsListItem:last-child {
+  margin-bottom: 0;
+}
+.goodsListIcon {
+  position: absolute;
+  top: 0.1rem;
+  left: 0;
+}
+.goodsBanner {
+  --public-banner-bg: #fff3cd;
+  --public-banner-border-color: transparent;
+  --public-banner-text-color: #57606a;
+  --public-banner-title-color: #0d1117;
+  --public-banner-padding: 1.25rem 1.5rem;
+}
+.goodsBenefitsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem 2rem;
+}
+.goodsBenefit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 15px;
+  color: #57606a;
+}
+.goodsBannerButton {
+  --public-button-padding-y: 0.55rem;
+  --public-button-padding-x: 1.25rem;
+  --public-button-font-size: 0.85rem;
+}
+.cashSection {
+  background: #f6f8fa;
+}
+.cashInner {
+  padding-top: 8rem;
+  padding-bottom: 8rem;
+}
+.tierGrid {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+.tierCard {
+  position: relative;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 2rem 1.5rem;
+  background: #fff;
+}
+.tierCardFeatured {
+  border: 2px solid #ffb800;
+  box-shadow: 0 8px 30px #ffb80026;
+}
+.tierBadgeWrap {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.tierBadge {
+  display: inline-flex;
+  border-radius: 9999px;
+  padding: 0.375rem 1rem;
+  background: #ffb800;
+  box-shadow: 0 4px 12px #ffb8004d;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #121212;
+}
+.tierAmount {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  color: #121212;
+}
+.tierPeriod {
+  margin-left: 0.25rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #57606a;
+}
+.tierDescription {
+  margin-top: 0.75rem;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #57606a;
+}
+.tierButton {
+  margin-top: 1.5rem;
+  --public-button-padding-y: 0.75rem;
+  --public-button-padding-x: 1rem;
+  --public-button-font-size: 15px;
+}
+.tierFeatures {
+  margin: 1.5rem 0 0;
+  padding: 1.5rem 0 0;
+  border-top: 1px solid #e5e8ed;
+  list-style: none;
+}
+.tierFeature {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #57606a;
+}
+.tierFeature:last-child {
+  margin-bottom: 0;
+}
+.tierFeatureIcon {
+  margin-top: 0.1rem;
+}
+.oneTimeCard {
+  border: 1px solid #e5e8ed;
+  border-radius: 10px;
+  padding: 1.5rem;
+  background: #fff;
+}
+.oneTimeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.oneTimeContent {
+  text-align: center;
+}
+.oneTimeTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: #0d1117;
+}
+.oneTimeDescription {
+  margin-top: 0.25rem;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #57606a;
+}
+.oneTimeButton {
+  --public-button-padding-y: 0.75rem;
+  --public-button-padding-x: 1.25rem;
+  --public-button-font-size: 15px;
+}
+.trustRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  font-size: 15px;
+  font-weight: 500;
+  color: #57606a;
+}
+.trustItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+@media (min-width: 576px) {
+  .goodsGrid,
+  .goodsBenefitsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 768px) {
+  .heroInner {
+    padding-top: 8rem;
+    padding-bottom: 8rem;
+  }
+  .heroGrid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-items: center;
+  }
+  .heroCopy {
+    grid-column: span 7 / span 7;
+  }
+  .heroVisual {
+    grid-column: span 5 / span 5;
+  }
+  .heroIntro {
+    --public-pattern-title-size: 4rem;
+  }
+  .actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .heroActionWide {
+    grid-column: span 2 / span 2;
+  }
+  .workflowLine {
+    display: block;
+  }
+  .workflowGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .aboutGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .tierGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .oneTimeRow {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .oneTimeContent {
+    text-align: left;
+  }
+}
+@media (min-width: 992px) {
+  .goodsGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .sectionHeading {
+    --public-pattern-title-size: 2rem;
+  }
+  .sectionHeadingTitleOnly {
+    --public-pattern-margin-bottom: 2.25rem;
+  }
+  .heroIntro {
+    --public-pattern-title-size: 2.75rem;
+  }
+}

@@ -1,47 +1,42 @@
-import type { User } from '@/shared/types/auth'
-
-export type RestrictedRole = 'admin' | 'supermarket'
-export type AllowedRole = RestrictedRole | RestrictedRole[] | null | undefined
-
-export function getCurrentRestrictedRole(user: User | null | undefined): RestrictedRole | null {
-  if (user?.role === 'admin' || user?.role === 'supermarket') {
-    return user.role
+import type { User } from "@/shared/types/auth";
+export type RestrictedRole = "admin" | "supermarket";
+export type AllowedRole = RestrictedRole | RestrictedRole[] | null | undefined;
+function getCurrentRestrictedRole(
+  user: User | null | undefined,
+): RestrictedRole | null {
+  if (user?.role === "admin" || user?.role === "supermarket") {
+    return user.role;
   }
-
-  return null
+  return null;
 }
-
-export function hasAllowedRole(user: User | null | undefined, allowedRole?: AllowedRole): boolean {
+export function hasAllowedRole(
+  user: User | null | undefined,
+  allowedRole?: AllowedRole,
+): boolean {
   if (!allowedRole) {
-    return true
+    return true;
   }
-
-  const currentRole = getCurrentRestrictedRole(user)
+  const currentRole = getCurrentRestrictedRole(user);
   if (!currentRole) {
-    return false
+    return false;
   }
-
-  const allowedRoles = Array.isArray(allowedRole) ? allowedRole : [allowedRole]
-  return allowedRoles.includes(currentRole)
+  const allowedRoles = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
+  return allowedRoles.includes(currentRole);
 }
-
 export function getPostLoginRedirect(
   user: User | null | undefined,
   redirectTo?: string | null,
   requiredRole?: AllowedRole,
 ): string | null {
   if (redirectTo && hasAllowedRole(user, requiredRole)) {
-    return redirectTo
+    return redirectTo;
   }
-
-  const currentRole = getCurrentRestrictedRole(user)
-  if (currentRole === 'admin') {
-    return '/admin?section=food'
+  const currentRole = getCurrentRestrictedRole(user);
+  if (currentRole === "admin") {
+    return "/admin?section=food";
   }
-
-  if (currentRole === 'supermarket') {
-    return '/supermarket'
+  if (currentRole === "supermarket") {
+    return "/supermarket";
   }
-
-  return null
+  return null;
 }

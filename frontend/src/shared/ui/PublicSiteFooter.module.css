@@ -1,0 +1,160 @@
+.footer {
+  border-top: 1px solid #1f2937;
+  background: #0d1117;
+  color: #fff;
+  font-family: var(--font-sans);
+}
+
+.footer :where(
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    p,
+    span,
+    a,
+    button,
+    li,
+    ul,
+    div
+  ) {
+  font-family: inherit;
+}
+.inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+.topGrid {
+  display: grid;
+  gap: 3rem;
+  margin-bottom: 3rem;
+}
+.brandColumn {
+  min-width: 0;
+}
+.brandTitle {
+  margin-bottom: 0.75rem;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 30px;
+  color: #fff;
+}
+.brandDescription {
+  max-width: 480px;
+  margin-bottom: 1.5rem;
+  font-size: 15px;
+  line-height: 24px;
+  color: #8b949e;
+}
+.contactBlock {
+  margin-bottom: 1.5rem;
+}
+.sectionTitle {
+  margin-bottom: 0.5rem;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.325px;
+  text-transform: uppercase;
+  color: #fff;
+}
+.contactText {
+  font-size: 15px;
+  line-height: 22.5px;
+  color: #fff;
+}
+.socialLinks {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.socialLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 4px;
+  background: #21262d;
+  transition: background-color 0.2s ease;
+}
+.socialLink:hover {
+  background: #ffb800;
+}
+.socialIcon {
+  width: 1rem;
+  height: 1rem;
+  color: #8b949e;
+  transition: color 0.2s ease;
+}
+.socialLink:hover .socialIcon {
+  color: #0d1117;
+}
+.linkColumn {
+  min-width: 0;
+}
+.linkHeading {
+  margin-bottom: 1rem;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.325px;
+  text-transform: uppercase;
+  color: #8b949e;
+}
+.linkList {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.footerLink {
+  font-size: 15px;
+  line-height: 22.5px;
+  color: #fff;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.footerLink:hover {
+  color: #ffb800;
+}
+.bottomBar {
+  border-top: 1px solid #21262d;
+  padding-top: 2rem;
+}
+.bottomRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.copyright {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: #8b949e;
+}
+.statusDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #48c774;
+}
+@media (min-width: 768px) {
+  .topGrid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .brandColumn {
+    grid-column: span 6 / span 6;
+  }
+  .linkColumn {
+    grid-column: span 2 / span 2;
+  }
+  .bottomRow {
+    flex-direction: row;
+  }
+}

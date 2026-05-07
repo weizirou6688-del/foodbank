@@ -1,27 +1,34 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react'
-import { cx } from './classNames'
-
-export type AdminButtonTone = 'primary' | 'secondary' | 'danger'
-type AdminButtonSize = 'md' | 'sm'
-type AdminActionGroupVariant = 'table' | 'card'
-
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  ReactNode,
+} from "react";
+import { cn } from "@/shared/lib/cn";
+import adminStyles from "./admin.module.css";
+export type AdminButtonTone = "primary" | "secondary" | "danger";
+type AdminButtonSize = "md" | "sm";
+type AdminActionGroupVariant = "table" | "card";
 function getAdminButtonClassName(
-  tone: AdminButtonTone = 'primary',
-  size: AdminButtonSize = 'md',
+  tone: AdminButtonTone = "primary",
+  size: AdminButtonSize = "md",
   className?: string,
 ) {
-  return cx('btn', `btn-${tone}`, size === 'sm' && 'btn-sm', className)
+  return cn(
+    adminStyles.btn,
+    adminStyles[`btn-${tone}`],
+    size === "sm" && adminStyles["btn-sm"],
+    className,
+  );
 }
-
 interface AdminButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  tone?: AdminButtonTone
-  size?: AdminButtonSize
-  children: ReactNode
+  tone?: AdminButtonTone;
+  size?: AdminButtonSize;
+  children: ReactNode;
 }
-
 export function AdminButton({
-  tone = 'primary',
-  size = 'md',
+  tone = "primary",
+  size = "md",
   className,
   children,
   ...props
@@ -34,47 +41,46 @@ export function AdminButton({
     >
       {children}
     </button>
-  )
+  );
 }
-
-interface AdminLinkButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
-  tone?: AdminButtonTone
-  size?: AdminButtonSize
-  children: ReactNode
+interface AdminNavButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  tone?: AdminButtonTone;
+  size?: AdminButtonSize;
+  children: ReactNode;
 }
-
-export function AdminLinkButton({
-  tone = 'primary',
-  size = 'md',
+export function AdminNavButton({
+  tone = "primary",
+  size = "md",
   className,
   children,
   ...props
-}: AdminLinkButtonProps) {
+}: AdminNavButtonProps) {
   return (
     <a {...props} className={getAdminButtonClassName(tone, size, className)}>
       {children}
     </a>
-  )
+  );
 }
-
 export function AdminActionGroup({
-  variant = 'table',
+  variant = "table",
   className,
   children,
   ...props
 }: HTMLAttributes<HTMLDivElement> & {
-  variant?: AdminActionGroupVariant
-  children: ReactNode
+  variant?: AdminActionGroupVariant;
+  children: ReactNode;
 }) {
   return (
     <div
       {...props}
-      className={cx(
-        variant === 'card' ? 'admin-card-actions' : 'table-actions',
+      className={cn(
+        variant === "card"
+          ? adminStyles["admin-card-actions"]
+          : adminStyles["table-actions"],
         className,
       )}
     >
       {children}
     </div>
-  )
+  );
 }

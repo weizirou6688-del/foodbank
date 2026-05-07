@@ -1,187 +1,393 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
-import { applicationsAPI, type AdminApplicationRecord } from '@/shared/lib/api/applications'
-import { adminAPI } from '@/shared/lib/api/admin'
-import { foodBanksAPI } from '@/shared/lib/api/foodBanks'
-import { useAuthStore } from '@/app/store/authStore'
-import { useFoodBankStore } from '@/app/store/foodBankStore'
-import type { FoodPackageDetailRecord } from '@/shared/lib/api/packages'
-import type { AdminScopeMeta } from '@/shared/lib/adminScope'
-import { getAdminFoodBankScopeState } from '@/shared/lib/adminScope'
-import type { DonationListRow } from '@/shared/types/donations'
-import { buildScopedPackageRow } from './builders'
-import type { InventoryLotRow } from './adminFoodManagement.types'
-import { captureRequestError, extractApplications, runManagedRequest, sortApplications, sortDonations } from './rules'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuthStore } from "@/app/store/authStore";
+import { useFoodBankStore } from "@/app/store/foodBankStore";
+import type { AdminApplicationRecord } from "@/shared/lib/api/applications";
+import type { FoodPackageDetailRecord } from "@/shared/lib/api/packages";
+import { getAdminFoodBankScopeState } from "@/shared/lib/adminScope";
+import type { DonationListRow } from "@/shared/types/donations";
+import { buildScopedPackageRow } from "./builders";
+import type {
+  AuthorizedLoadConfig,
+  CancelGuard,
+  FoodBankOption,
+  StateSetter,
+  UseAdminFoodManagementDataArgs,
+} from "./adminFoodManagement.data.shared";
+import {
+  loadAdminFoodManagementApplications,
+  loadAdminFoodManagementDonations,
+  loadAdminFoodManagementFoodBanks,
+  loadAdminFoodManagementLots,
+  loadAdminFoodManagementScopedPackages,
+} from "./adminFoodManagement.data.loaders";
+import type { InventoryLotRow, PackageRow } from "./adminFoodManagement.types";
+import { captureRequestError } from "./rules";
+import {
+  sortNamedRows,
+} from "./adminFoodManagement.data.shared";
+import { runManagedRequest } from "./rules";
+type ScopedPackingPackage = { id: number; name: string };
+type DataLoader = () => Promise<unknown>;
+type CancellableDataLoader = (isCancelled?: CancelGuard) => Promise<unknown>;
+const buildFoodBankFilterOptions = (rows: FoodBankOption[]) =>
+  sortNamedRows(rows);
+const buildScopedPackageRows = (
+  details: FoodPackageDetailRecord[],
+): PackageRow[] => details.map((detail) => buildScopedPackageRow(detail));
+const buildScopedPackingPackages = (
+  details: FoodPackageDetailRecord[],
+): ScopedPackingPackage[] =>
+  details.map((detail) => ({ id: detail.id, name: detail.name }));
 
-type StateSetter<T> = Dispatch<SetStateAction<T>>
-type CancelGuard = () => boolean
-type FoodBankOption = { id: number; name: string }
+type InventoryLoader = () => Promise<unknown>;
 
-interface UseAdminFoodManagementDataArgs {
-  adminScope: AdminScopeMeta
-  selectedFoodBankId: number | null
-}
-
-interface AuthorizedLoadConfig<Result> {
-  request: (token: string) => Promise<Result>
-  setLoading?: StateSetter<boolean>
-  setError?: StateSetter<string>
-  fallbackMessage: string
-  onSuccess?: (result: Result) => void
-  onError?: (message: string) => void
-}
-
-const extractFoodBanks = (response: { items?: FoodBankOption[] } | null | undefined) => Array.isArray(response?.items) ? response.items : []
-const sortNamedRows = <Row extends { name: string }>(rows: Row[]) => [...rows].sort((left, right) => left.name.localeCompare(right.name))
-
-export function useAdminFoodManagementData({ adminScope, selectedFoodBankId }: UseAdminFoodManagementDataArgs) {
-  const accessToken = useAuthStore((state) => state.accessToken)
-  const inventory = useFoodBankStore((state) => state.inventory)
-  const loadInventory = useFoodBankStore((state) => state.loadInventory)
-  const deleteItem = useFoodBankStore((state) => state.deleteItem)
-
-  const [isLoadingData, setIsLoadingData] = useState(true)
-  const [loadError, setLoadError] = useState('')
-  const [lotRows, setLotRows] = useState<InventoryLotRow[]>([])
-  const [isLoadingLots, setIsLoadingLots] = useState(false)
-  const [lotError, setLotError] = useState('')
-  const [donations, setDonations] = useState<DonationListRow[]>([])
-  const [isLoadingDonations, setIsLoadingDonations] = useState(false)
-  const [donationError, setDonationError] = useState('')
-  const [applications, setApplications] = useState<AdminApplicationRecord[]>([])
-  const [isLoadingApplications, setIsLoadingApplications] = useState(false)
-  const [applicationsError, setApplicationsError] = useState('')
-  const [availableFoodBanks, setAvailableFoodBanks] = useState<FoodBankOption[]>([])
-  const [availableFoodBanksError, setAvailableFoodBanksError] = useState('')
-  const [scopedPackageDetails, setScopedPackageDetails] = useState<FoodPackageDetailRecord[]>([])
-  const [isLoadingScopedPackages, setIsLoadingScopedPackages] = useState(false)
-  const [scopedPackageError, setScopedPackageError] = useState('')
-  const [packageDetailsById, setPackageDetailsById] = useState<Record<number, FoodPackageDetailRecord>>({})
-  const [isLoadingPackageDetail, setIsLoadingPackageDetail] = useState(false)
-
-  const scopeState = useMemo(() => getAdminFoodBankScopeState(adminScope, selectedFoodBankId), [adminScope, selectedFoodBankId])
-  const foodBankFilterOptions = useMemo(() => sortNamedRows(availableFoodBanks), [availableFoodBanks])
-  const scopedPackageRows = useMemo(() => scopedPackageDetails.map((detail) => buildScopedPackageRow(detail)), [scopedPackageDetails])
-  const scopedPackingPackages = useMemo(() => scopedPackageDetails.map((detail) => ({ id: detail.id, name: detail.name })), [scopedPackageDetails])
-
-  const applyScopedPackageDetails = useCallback((details: FoodPackageDetailRecord[]) => {
-    const sortedDetails = sortNamedRows(details)
-    setScopedPackageDetails(sortedDetails)
-    setPackageDetailsById((current) => {
-      const next = { ...current }
-      for (const detail of sortedDetails) next[detail.id] = detail
-      return next
-    })
-  }, [])
-
-  const runAuthorizedLoad = useCallback(async <Result>({ request, setLoading, setError, fallbackMessage, onSuccess, onError }: AuthorizedLoadConfig<Result>, isCancelled?: CancelGuard) => {
-    if (!accessToken) return
-    await runManagedRequest({ request: () => request(accessToken), setLoading, setError, fallbackMessage, onSuccess, onError, isCancelled, rethrow: true })
-  }, [accessToken])
-
-  const loadLots = useCallback((isCancelled?: CancelGuard) => runAuthorizedLoad({
-    request: (token) => adminAPI.getInventoryLots(token, true),
-    setLoading: setIsLoadingLots,
-    setError: setLotError,
-    fallbackMessage: 'Failed to load inventory lots.',
-    onSuccess: (data) => setLotRows(Array.isArray(data) ? (data as InventoryLotRow[]) : []),
-  }, isCancelled), [runAuthorizedLoad])
-
-  const loadDonations = useCallback((isCancelled?: CancelGuard) => runAuthorizedLoad({
-    request: (token) => adminAPI.getDonations(token),
-    setLoading: setIsLoadingDonations,
-    setError: setDonationError,
-    fallbackMessage: 'Failed to load donation records.',
-    onSuccess: (data) => setDonations(sortDonations(Array.isArray(data) ? (data as DonationListRow[]) : [])),
-  }, isCancelled), [runAuthorizedLoad])
-
-  const loadApplications = useCallback((isCancelled?: CancelGuard) => runAuthorizedLoad({
-    request: (token) => applicationsAPI.getAdminApplications(token),
-    setLoading: setIsLoadingApplications,
-    setError: setApplicationsError,
-    fallbackMessage: 'Failed to load redemption code records.',
-    onSuccess: (data) => setApplications(sortApplications(extractApplications(data))),
-  }, isCancelled), [runAuthorizedLoad])
-
-  const loadAvailableFoodBanks = useCallback(async (isCancelled?: CancelGuard) => {
-    await runManagedRequest({
-      request: () => foodBanksAPI.getFoodBanks(),
-      fallbackMessage: 'Failed to load food banks.',
-      onSuccess: (response) => {
-        setAvailableFoodBanks(extractFoodBanks(response))
-        setAvailableFoodBanksError('')
-      },
-      onError: (message) => {
-        setAvailableFoodBanks([])
-        setAvailableFoodBanksError(message)
-      },
-      isCancelled,
-    })
-  }, [])
-
-  const loadScopedPackages = useCallback(async (foodBankId: number | null, isCancelled?: CancelGuard) => {
-    if (!accessToken || foodBankId == null) {
-      if (!isCancelled?.()) {
-        setScopedPackageDetails([])
-        setScopedPackageError('')
-        setIsLoadingScopedPackages(false)
+function useAdminFoodManagementDataLoaders({
+  accessToken,
+  loadInventory,
+  effectiveFoodBankId,
+  setLotRows,
+  setIsLoadingLots,
+  setLotError,
+  setDonations,
+  setIsLoadingDonations,
+  setDonationError,
+  setApplications,
+  setIsLoadingApplications,
+  setApplicationsError,
+  setAvailableFoodBanks,
+  setAvailableFoodBanksError,
+  setScopedPackageDetails,
+  setScopedPackageError,
+  setIsLoadingScopedPackages,
+  setPackageDetailsById,
+}: {
+  accessToken: string | null;
+  loadInventory: InventoryLoader;
+  effectiveFoodBankId: number | null;
+  setLotRows: StateSetter<InventoryLotRow[]>;
+  setIsLoadingLots: StateSetter<boolean>;
+  setLotError: StateSetter<string>;
+  setDonations: StateSetter<DonationListRow[]>;
+  setIsLoadingDonations: StateSetter<boolean>;
+  setDonationError: StateSetter<string>;
+  setApplications: StateSetter<AdminApplicationRecord[]>;
+  setIsLoadingApplications: StateSetter<boolean>;
+  setApplicationsError: StateSetter<string>;
+  setAvailableFoodBanks: StateSetter<FoodBankOption[]>;
+  setAvailableFoodBanksError: StateSetter<string>;
+  setScopedPackageDetails: StateSetter<FoodPackageDetailRecord[]>;
+  setScopedPackageError: StateSetter<string>;
+  setIsLoadingScopedPackages: StateSetter<boolean>;
+  setPackageDetailsById: StateSetter<Record<number, FoodPackageDetailRecord>>;
+}) {
+  // Centralise token-aware loaders here so the page hook can compose refresh
+  // paths without repeating request wiring for every admin data slice.
+  const runAuthorizedLoad = useCallback(
+    async <Result>(
+      {
+        request,
+        setLoading,
+        setError,
+        fallbackMessage,
+        onSuccess,
+        onError,
+      }: AuthorizedLoadConfig<Result>,
+      isCancelled?: CancelGuard,
+    ) => {
+      if (!accessToken) {
+        return;
       }
-      return
-    }
+      await runManagedRequest({
+        request: () => request(accessToken),
+        setLoading,
+        setError,
+        fallbackMessage,
+        onSuccess,
+        onError,
+        isCancelled,
+        rethrow: true,
+      });
+    },
+    [accessToken],
+  );
 
-    await runAuthorizedLoad({
-      request: (token) => adminAPI.listFoodPackages(token, { foodBankId }),
-      setLoading: setIsLoadingScopedPackages,
-      setError: setScopedPackageError,
-      fallbackMessage: 'Failed to load food packages.',
-      onSuccess: (details) => applyScopedPackageDetails(Array.isArray(details) ? details : []),
-      onError: () => setScopedPackageDetails([]),
-    }, isCancelled)
-  }, [accessToken, applyScopedPackageDetails, runAuthorizedLoad])
+  const loadLots = useCallback(
+    (isCancelled?: CancelGuard) =>
+      loadAdminFoodManagementLots(
+        { runAuthorizedLoad, setLotRows, setIsLoadingLots, setLotError },
+        isCancelled,
+      ),
+    [runAuthorizedLoad, setIsLoadingLots, setLotError, setLotRows],
+  );
 
-  const refreshInventoryAndLots = useCallback(async () => { await Promise.all([loadInventory(), loadLots()]) }, [loadInventory, loadLots])
-  const refreshLots = useCallback(async () => { await loadLots() }, [loadLots])
-  const refreshScopedPackages = useCallback(async () => { await loadScopedPackages(scopeState.effectiveFoodBankId) }, [loadScopedPackages, scopeState.effectiveFoodBankId])
-  const reloadAllData = useCallback(async () => { await Promise.all([loadInventory(), loadLots(), loadDonations(), loadApplications()]) }, [loadApplications, loadDonations, loadInventory, loadLots])
+  const loadDonations = useCallback(
+    (isCancelled?: CancelGuard) =>
+      loadAdminFoodManagementDonations(
+        {
+          runAuthorizedLoad,
+          setDonations,
+          setIsLoadingDonations,
+          setDonationError,
+        },
+        isCancelled,
+      ),
+    [runAuthorizedLoad, setDonationError, setDonations, setIsLoadingDonations],
+  );
 
+  const loadApplications = useCallback(
+    (isCancelled?: CancelGuard) =>
+      loadAdminFoodManagementApplications(
+        {
+          runAuthorizedLoad,
+          setApplications,
+          setIsLoadingApplications,
+          setApplicationsError,
+        },
+        isCancelled,
+      ),
+    [
+      runAuthorizedLoad,
+      setApplications,
+      setApplicationsError,
+      setIsLoadingApplications,
+    ],
+  );
+
+  const loadAvailableFoodBanks = useCallback(
+    (isCancelled?: CancelGuard) =>
+      loadAdminFoodManagementFoodBanks(
+        { setAvailableFoodBanks, setAvailableFoodBanksError },
+        isCancelled,
+      ),
+    [setAvailableFoodBanks, setAvailableFoodBanksError],
+  );
+
+  const loadScopedPackages = useCallback(
+    (foodBankId: number | null, isCancelled?: CancelGuard) =>
+      loadAdminFoodManagementScopedPackages(
+        {
+          accessToken,
+          foodBankId,
+          runAuthorizedLoad,
+          setScopedPackageDetails,
+          setScopedPackageError,
+          setIsLoadingScopedPackages,
+          setPackageDetailsById,
+        },
+        isCancelled,
+      ),
+    [
+      accessToken,
+      runAuthorizedLoad,
+      setIsLoadingScopedPackages,
+      setPackageDetailsById,
+      setScopedPackageDetails,
+      setScopedPackageError,
+    ],
+  );
+
+  const refreshInventoryAndLots = useCallback(async () => {
+    await Promise.all([loadInventory(), loadLots()]);
+  }, [loadInventory, loadLots]);
+
+  const refreshLots = useCallback(async () => {
+    await loadLots();
+  }, [loadLots]);
+
+  const refreshScopedPackages = useCallback(async () => {
+    await loadScopedPackages(effectiveFoodBankId);
+  }, [effectiveFoodBankId, loadScopedPackages]);
+
+  const reloadAllData = useCallback(async () => {
+    await Promise.all([
+      loadInventory(),
+      loadLots(),
+      loadDonations(),
+      loadApplications(),
+    ]);
+  }, [loadApplications, loadDonations, loadInventory, loadLots]);
+
+  return {
+    loadLots,
+    loadDonations,
+    loadApplications,
+    loadAvailableFoodBanks,
+    loadScopedPackages,
+    refreshInventoryAndLots,
+    refreshLots,
+    refreshScopedPackages,
+    reloadAllData,
+  };
+}
+
+async function loadInitialAdminFoodManagementData({
+  setIsLoadingData,
+  setLoadError,
+  loadInventory,
+  loadLots,
+  loadDonations,
+  loadApplications,
+  isCancelled,
+}: {
+  setIsLoadingData: (value: boolean) => void;
+  setLoadError: (value: string) => void;
+  loadInventory: DataLoader;
+  loadLots: CancellableDataLoader;
+  loadDonations: CancellableDataLoader;
+  loadApplications: CancellableDataLoader;
+  isCancelled: CancelGuard;
+}) {
+  // First paint should show as much data as possible even if one request
+  // fails, so we collect errors instead of aborting the whole batch early.
+  setIsLoadingData(true);
+  setLoadError("");
+  const errors = await Promise.all([
+    captureRequestError(() => loadInventory(), "Failed to load inventory."),
+    captureRequestError(
+      () => loadLots(isCancelled),
+      "Failed to load inventory lots.",
+    ),
+    captureRequestError(
+      () => loadDonations(isCancelled),
+      "Failed to load donation records.",
+    ),
+    captureRequestError(
+      () => loadApplications(isCancelled),
+      "Failed to load redemption code records.",
+    ),
+  ]);
+  if (isCancelled()) {
+    return;
+  }
+  setLoadError(errors.find(Boolean) ?? "");
+  setIsLoadingData(false);
+}
+export function useAdminFoodManagementData({
+  adminScope,
+  selectedFoodBankId,
+}: UseAdminFoodManagementDataArgs) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const inventory = useFoodBankStore((state) => state.inventory);
+  const loadInventory = useFoodBankStore((state) => state.loadInventory);
+  const deleteItem = useFoodBankStore((state) => state.deleteItem);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [lotRows, setLotRows] = useState<InventoryLotRow[]>([]);
+  const [isLoadingLots, setIsLoadingLots] = useState(false);
+  const [lotError, setLotError] = useState("");
+  const [donations, setDonations] = useState<DonationListRow[]>([]);
+  const [isLoadingDonations, setIsLoadingDonations] = useState(false);
+  const [donationError, setDonationError] = useState("");
+  const [applications, setApplications] = useState<AdminApplicationRecord[]>(
+    [],
+  );
+  const [isLoadingApplications, setIsLoadingApplications] = useState(false);
+  const [applicationsError, setApplicationsError] = useState("");
+  const [availableFoodBanks, setAvailableFoodBanks] = useState<
+    FoodBankOption[]
+  >([]);
+  const [availableFoodBanksError, setAvailableFoodBanksError] = useState("");
+  const [scopedPackageDetails, setScopedPackageDetails] = useState<
+    FoodPackageDetailRecord[]
+  >([]);
+  const [isLoadingScopedPackages, setIsLoadingScopedPackages] = useState(false);
+  const [scopedPackageError, setScopedPackageError] = useState("");
+  const [packageDetailsById, setPackageDetailsById] = useState<
+    Record<number, FoodPackageDetailRecord>
+  >({});
+  const [isLoadingPackageDetail, setIsLoadingPackageDetail] = useState(false);
+  const scopeState = useMemo(
+    () => getAdminFoodBankScopeState(adminScope, selectedFoodBankId),
+    [adminScope, selectedFoodBankId],
+  );
+  const foodBankFilterOptions = useMemo(
+    () => buildFoodBankFilterOptions(availableFoodBanks),
+    [availableFoodBanks],
+  );
+  const scopedPackageRows = useMemo(
+    () => buildScopedPackageRows(scopedPackageDetails),
+    [scopedPackageDetails],
+  );
+  const scopedPackingPackages = useMemo(
+    () => buildScopedPackingPackages(scopedPackageDetails),
+    [scopedPackageDetails],
+  );
+  const {
+    loadLots,
+    loadDonations,
+    loadApplications,
+    loadAvailableFoodBanks,
+    loadScopedPackages,
+    refreshInventoryAndLots,
+    refreshLots,
+    refreshScopedPackages,
+    reloadAllData,
+  } = useAdminFoodManagementDataLoaders({
+    accessToken,
+    loadInventory,
+    effectiveFoodBankId: scopeState.effectiveFoodBankId,
+    setLotRows,
+    setIsLoadingLots,
+    setLotError,
+    setDonations,
+    setIsLoadingDonations,
+    setDonationError,
+    setApplications,
+    setIsLoadingApplications,
+    setApplicationsError,
+    setAvailableFoodBanks,
+    setAvailableFoodBanksError,
+    setScopedPackageDetails,
+    setScopedPackageError,
+    setIsLoadingScopedPackages,
+    setPackageDetailsById,
+  });
   useEffect(() => {
-    let cancelled = false
-    const isCancelled = () => cancelled
-
-    const loadAll = async () => {
-      setIsLoadingData(true)
-      setLoadError('')
-      const errors = await Promise.all([
-        captureRequestError(() => loadInventory(), 'Failed to load inventory.'),
-        captureRequestError(() => loadLots(isCancelled), 'Failed to load inventory lots.'),
-        captureRequestError(() => loadDonations(isCancelled), 'Failed to load donation records.'),
-        captureRequestError(() => loadApplications(isCancelled), 'Failed to load redemption code records.'),
-      ])
-      if (cancelled) return
-      setLoadError(errors.find(Boolean) ?? '')
-      setIsLoadingData(false)
-    }
-
-    void loadAll()
-    return () => { cancelled = true }
-  }, [accessToken, loadApplications, loadDonations, loadInventory, loadLots])
-
+    let cancelled = false;
+    void loadInitialAdminFoodManagementData({
+      setIsLoadingData,
+      setLoadError,
+      loadInventory,
+      loadLots,
+      loadDonations,
+      loadApplications,
+      isCancelled: () => cancelled,
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    loadApplications,
+    loadDonations,
+    loadInventory,
+    loadLots,
+    setIsLoadingData,
+    setLoadError,
+  ]);
   useEffect(() => {
     if (!scopeState.canChooseFoodBank) {
-      setAvailableFoodBanks([])
-      setAvailableFoodBanksError('')
-      return
+      setAvailableFoodBanks([]);
+      setAvailableFoodBanksError("");
+      return;
     }
-    let cancelled = false
-    void loadAvailableFoodBanks(() => cancelled)
-    return () => { cancelled = true }
-  }, [loadAvailableFoodBanks, scopeState.canChooseFoodBank])
-
+    let cancelled = false;
+    void loadAvailableFoodBanks(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    loadAvailableFoodBanks,
+    scopeState.canChooseFoodBank,
+    setAvailableFoodBanks,
+    setAvailableFoodBanksError,
+  ]);
   useEffect(() => {
-    let cancelled = false
-    void loadScopedPackages(scopeState.effectiveFoodBankId, () => cancelled)
-    return () => { cancelled = true }
-  }, [loadScopedPackages, scopeState.effectiveFoodBankId])
-
+    let cancelled = false;
+    void loadScopedPackages(scopeState.effectiveFoodBankId, () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadScopedPackages, scopeState.effectiveFoodBankId]);
   return {
     accessToken,
     deleteItem,
@@ -215,5 +421,5 @@ export function useAdminFoodManagementData({ adminScope, selectedFoodBankId }: U
     scopedPackingPackages,
     setIsLoadingPackageDetail,
     setPackageDetailsById,
-  }
+  };
 }

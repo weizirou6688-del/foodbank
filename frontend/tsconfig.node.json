@@ -6,7 +6,8 @@
     "lib": ["ES2020"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"]
   },
-  "include": ["vite.config.ts", "types/vite-node-shim.d.ts"]
+  "include": ["vite.config.ts"]
 }

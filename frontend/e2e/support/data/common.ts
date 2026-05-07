@@ -1,0 +1,2 @@
+export const FIXED_NOW_ISO = "2026-04-16T10:00:00.000Z";
+export const DEFAULT_WEEK_START = "2026-04-13";

@@ -27,5 +27,15 @@ module.exports = {
         'react-refresh/only-export-components': 'off',
       },
     },
+    {
+      files: [
+        'src/pages/Admin/adminFoodManagement.sections.inventory.packages.card.tsx',
+        'src/pages/Admin/modalBits.fields.render.tsx',
+        'src/pages/Admin/sectionBits.filters.tsx',
+      ],
+      rules: {
+        'react-refresh/only-export-components': 'off',
+      },
+    },
   ],
 }

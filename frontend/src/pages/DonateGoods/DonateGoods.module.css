@@ -1,0 +1,515 @@
+.page {
+  --bg: var(--color-surface-page);
+  --text: var(--color-text-base);
+  --muted: var(--color-text-subtle);
+  --border: var(--color-border-soft);
+  --surface: var(--color-surface-muted);
+  --accent: var(--color-brand-accent);
+  --success: var(--color-success);
+}
+
+.highlight {
+  color: var(--accent);
+}
+
+.heroCta {
+  --public-button-padding-y: 1rem;
+  --public-button-padding-x: 2rem;
+  --public-button-radius: 0.375rem;
+  --public-button-font-size: 1rem;
+  font-weight: 700;
+}
+
+.primaryActionWide {
+  --public-button-radius: 0.5rem;
+  --public-button-padding-y: 0.75rem;
+  --public-button-padding-x: 1.75rem;
+  --public-button-font-size: 16px;
+  font-weight: 700;
+}
+
+.searchActionButton {
+  font-weight: 700;
+}
+
+.heroInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 76rem;
+  text-align: center;
+}
+
+.heroIntro {
+  --public-pattern-max-width: 58rem;
+  --public-pattern-description-max-width: 68rem;
+  --public-pattern-title-color: var(--text);
+  --public-pattern-text-color: var(--muted);
+}
+
+.heroBenefits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+
+.heroBenefit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.heroBenefitText {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.heroImage {
+  display: block;
+  width: 100%;
+  height: 20rem;
+  margin-bottom: 2.5rem;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 0.5rem;
+}
+
+.featureImage {
+  display: block;
+  width: 100%;
+}
+
+.featureImageOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 1.5rem;
+  background: linear-gradient(
+    to top,
+    rgb(26 26 26 / 90%),
+    rgb(26 26 26 / 50%),
+    transparent
+  );
+}
+
+.primaryActionWide {
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.sectionHeader {
+  --public-pattern-max-width: 52rem;
+  --public-pattern-title-color: var(--text);
+  --public-pattern-text-color: var(--muted);
+  --public-pattern-description-size: 1.125rem;
+  --public-pattern-description-line-height: 1.7;
+  text-align: center;
+}
+
+.featureGrid,
+.acceptedGrid,
+.featureStoryGrid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.featureGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 5rem;
+}
+
+.featureStoryGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.acceptedGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 1.5rem;
+}
+
+.featureCard,
+.acceptedCard {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.featureCard {
+  padding: 2rem;
+  transition: border-color 0.2s ease;
+}
+
+.featureCard:hover {
+  border-color: var(--accent);
+}
+
+.featureCardTitle,
+.acceptedCardTitle,
+.bankName,
+.selectedBankName {
+  margin-bottom: 0.75rem;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.featureCardTitle,
+.acceptedCardTitle {
+  font-size: 1.25rem;
+}
+
+.featureCardText,
+.acceptedListItem,
+.bankAddress,
+.selectedBankAddress,
+.flowTextLeft {
+  color: var(--muted);
+}
+
+.featureImageCard {
+  position: relative;
+  height: 20rem;
+  overflow: hidden;
+  border-radius: 0.5rem;
+}
+
+.featureImage {
+  height: 100%;
+  object-fit: cover;
+}
+
+.featureImageContent {
+  color: #fff;
+}
+
+.featureImageTitle {
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.featureImageText {
+  color: rgb(255 255 255 / 92%);
+  line-height: 1.7;
+}
+
+.acceptedCard {
+  padding: 1.5rem;
+}
+
+.acceptedList {
+  list-style: none;
+}
+
+.acceptedListItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.55;
+}
+
+.acceptedListIcon {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+  color: var(--success);
+}
+
+.noticeCardPrimary,
+.noticeCardNeutral,
+.selectedBankCard,
+.flowCard {
+  background: var(--bg);
+  border-radius: 0.5rem;
+}
+
+.noticeCardPrimary,
+.noticeCardNeutral {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.5rem;
+}
+
+.noticeCardPrimary {
+  margin-bottom: 1rem;
+  border: 2px solid var(--accent);
+}
+
+.noticeCardNeutral {
+  border: 2px solid var(--border);
+}
+
+.noticeIconSuccess {
+  flex-shrink: 0;
+  color: var(--success);
+}
+
+.noticeIconDanger {
+  flex-shrink: 0;
+  color: #ef4444;
+}
+
+.noticeText,
+.noticeTitle,
+.rejectedList {
+  line-height: 1.6;
+}
+
+.rejectedList {
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  color: var(--muted);
+}
+
+.flowShell {
+  width: min(100%, 64rem);
+  margin: 0 auto;
+}
+
+.progressHeader {
+  margin-bottom: 2rem;
+}
+
+.progressTrack {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.progressDot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.progressDotActive {
+  background: var(--accent);
+  color: var(--text);
+}
+
+.progressLine {
+  width: 4rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.progressLineActive {
+  background: var(--accent);
+}
+
+.progressLabels {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.progressLabelActive {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.flowCard,
+.selectedBankCard {
+  padding: 2rem;
+  border: 2px solid var(--border);
+}
+
+.flowCardHeaderLeft,
+.flowCardHeaderCentered {
+  margin-bottom: 1.5rem;
+}
+
+.flowCardHeaderCentered {
+  text-align: center;
+}
+
+.flowTitle {
+  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.flowTextLeft {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.flowStepStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.searchPanelIntro {
+  --public-pattern-margin-bottom: 1.5rem;
+  --public-pattern-title-size: 1.875rem;
+  --public-pattern-title-line-height: 1.2;
+  --public-pattern-description-size: 1rem;
+}
+
+.searchIcon {
+  color: var(--muted);
+}
+
+.ghostActionButton {
+  align-self: flex-start;
+  --public-button-padding-y: 0;
+  --public-button-padding-x: 0;
+  --public-button-font-size: 16px;
+}
+
+.bankList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.bankCard {
+  width: 100%;
+  padding: 1.5rem;
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.bankCard:hover {
+  border-color: var(--accent);
+}
+
+.bankCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bankAddress {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.55;
+}
+
+.bankDistance {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.bankArrow {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.selectedBankLabel {
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.selectedBankHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.selectedBankBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--text);
+}
+
+.selectedBankCard {
+  background: var(--surface);
+  border-width: 1px;
+}
+
+@media (max-width: 960px) {
+  .featureGrid,
+  .acceptedGrid,
+  .featureStoryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .heroIntro {
+    --public-pattern-title-size: 2.5rem;
+    --public-pattern-title-line-height: 1.1;
+  }
+
+  .sectionHeader {
+    --public-pattern-title-size: 2rem;
+    --public-pattern-title-line-height: 2.25rem;
+  }
+
+  .featureGrid,
+  .acceptedGrid,
+  .featureStoryGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .progressLabels {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 560px) {
+  .heroBenefits {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .flowCard,
+  .selectedBankCard,
+  .acceptedCard,
+  .featureCard {
+    padding: 1.25rem;
+  }
+}

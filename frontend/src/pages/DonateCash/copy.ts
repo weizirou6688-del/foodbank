@@ -23,23 +23,23 @@ export const copyByMode: Record<GivingMode, ModeCopy> = {
 }
 
 export const heroChecks = [
-  `${gbp}10 = 1 full food package`,
-  `${gbp}20 = Feeds a family for a week`,
-  '100% goes directly to people in need',
+  'One-off or recurring monthly donations',
+  'Optional: pick which food bank receives your gift',
+  'Email receipt and reference number after each charge',
 ]
 
 export const helpCards: InfoCardCopy[] = [
   {
-    title: 'Emergency Food Parcels',
-    description: 'Nutritionally balanced packages containing fresh produce, tinned goods, and essentials.',
+    title: 'Restocks local inventory',
+    description: 'Donations help local food banks restock the pre-made packages and individual items shown on the application page.',
   },
   {
-    title: 'No Questions Asked',
-    description: 'We believe everyone deserves dignity. No forms, no judgement - just support.',
+    title: 'Routes to a local team',
+    description: 'Pick a specific food bank from the list, or leave it as the default so the notification goes to the platform team.',
   },
   {
-    title: '100% Transparency',
-    description: 'Every penny goes directly to purchasing food. Zero administration costs.',
+    title: 'Counts towards public totals',
+    description: 'Each confirmed donation is reflected in the public impact totals on the home page and in the admin dashboard.',
   },
 ]
 
@@ -64,22 +64,4 @@ export const galleryCards: GallerySlide[] = [
   },
 ]
 
-export const donorQuotes: DonorQuote[] = [
-  {
-    image:
-      'https://images.unsplash.com/photo-1623594675959-02360202d4d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjB3b21hbiUyMHBvcnRyYWl0JTIwc21pbGluZ3xlbnwxfHx8fDE3NzQ5MzAzOTh8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    alt: 'Emma L.',
-    name: 'Emma L.',
-    meta: 'Monthly donor for 18 months',
-    quote: `I've been donating ${gbp}20 a month for over a year now, and it's the best thing I do each month. I love that I get a simple update every month, showing exactly how my donation has helped local families.`,
-  },
-  {
-    image:
-      'https://images.unsplash.com/photo-1769636930047-4478f12cf430?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBtYW4lMjBwb3J0cmFpdCUyMGNvbmZpZGVudHxlbnwxfHx8fDE3NzQ5MzAzOTh8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    alt: 'Mark T.',
-    name: 'Mark T.',
-    meta: 'Monthly donor for 8 months',
-    quote:
-      'I grew up in a family that used a food bank when I was a kid, so I know exactly what a difference this makes. The transparency here is amazing - I never have to wonder where my money is going.',
-  },
-]
+export const donorQuotes: DonorQuote[] = []

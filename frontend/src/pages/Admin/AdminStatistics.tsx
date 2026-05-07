@@ -1,15 +1,9 @@
-import { useEffect } from 'react'
-import { useScrollToTopOnMount } from '@/shared/lib/scroll'
-import AdminFeedbackBanner from '@/features/admin/components/AdminFeedbackBanner'
-import AdminPageShell from './AdminPageShell'
-import { getPageMeta } from './pageMeta'
-import {
-  makeDonationView,
-  makeExpiryView,
-  makeInventoryView,
-  makePackageView,
-  makeRedemptionView,
-} from './statsView'
+import { useEffect } from "react";
+import AdminFeedbackBanner from "@/features/admin/components/AdminFeedbackBanner";
+import { useScrollToTopOnMount } from "@/shared/lib/scroll";
+import AdminLayout from "./AdminLayout";
+import adminStyles from "./admin.module.css";
+import { useAdminStatisticsPageModel } from "./adminStatistics.pageModel";
 import {
   DonationSection,
   DistributionSection,
@@ -17,87 +11,38 @@ import {
   StatsKpiSection,
   VerificationSection,
   WasteSection,
-} from './statsSections'
-import { useAdminDashboardData } from './useAdminDashboardData'
+} from "./statsSections.analytics";
 
 export default function AdminStatistics() {
-  const pageMeta = getPageMeta('statistics')
-  const {
-    range,
-    setRange,
-    analytics,
-    isLoading,
-    loadError,
-    setLoadError,
-    refreshDashboard,
-    rangeSummary,
-  } = useAdminDashboardData()
+  const model = useAdminStatisticsPageModel();
 
-  useScrollToTopOnMount()
+  useScrollToTopOnMount();
 
   useEffect(() => {
-    document.title = 'Data Dashboard - ABC Foodbank'
-  }, [])
-
-  const { primaryPanels: donationPrimaryPanels, secondaryPanels: donationSecondaryPanels, averageDonationCard } =
-    makeDonationView(analytics)
-  const { panels: inventoryPanels } = makeInventoryView(analytics)
-  const {
-    primaryPanels: packagePrimaryPanels,
-    packageTypePanel,
-    averageSupportCard,
-    itemsPerPackageCard,
-  } = makePackageView(analytics)
-  const { panels: expiryPanels, expiringLots } = makeExpiryView(analytics)
-  const { panels: redemptionPanels, recentVerificationRecords } = makeRedemptionView(analytics)
+    document.title = "Data Dashboard - ABC Foodbank";
+  }, []);
 
   return (
-    <AdminPageShell
-      section="statistics"
-      {...pageMeta}
-    >
-      {loadError ? (
-        <section className="section">
-          <div className="container">
-            <AdminFeedbackBanner tone="error" message={loadError} onClose={() => setLoadError('')} />
-          </div>
-        </section>
-      ) : null}
-      <StatsKpiSection
-        range={range}
-        setRange={setRange}
-        refreshDashboard={refreshDashboard}
-        rangeSummary={rangeSummary}
-        analytics={analytics}
-      />
-      <DonationSection
-        primaryPanels={donationPrimaryPanels}
-        secondaryPanels={donationSecondaryPanels}
-        averageDonationCard={averageDonationCard}
-        isLoading={isLoading}
-      />
-      <InventorySection
-        panels={inventoryPanels}
-        isLoading={isLoading}
-      />
-      <DistributionSection
-        primaryPanels={packagePrimaryPanels}
-        packageTypePanel={packageTypePanel}
-        averageSupportCard={averageSupportCard}
-        itemsPerPackageCard={itemsPerPackageCard}
-        isLoading={isLoading}
-      />
-      <WasteSection
-        panels={expiryPanels}
-        expiringLots={expiringLots}
-        isLoading={isLoading}
-      />
-      <VerificationSection
-        panels={redemptionPanels}
-        verificationRows={recentVerificationRecords}
-        isLoading={isLoading}
-      />
-    </AdminPageShell>
-  )
+    <AdminLayout {...model.pageMeta}>
+      <>
+        {model.loadError ? (
+          <section className={adminStyles.section}>
+            <div className={adminStyles.container}>
+              <AdminFeedbackBanner
+                tone="error"
+                message={model.loadError}
+                onClose={model.clearLoadError}
+              />
+            </div>
+          </section>
+        ) : null}
+        <StatsKpiSection {...model.kpiSectionProps} />
+        <DonationSection {...model.donationSectionProps} />
+        <InventorySection {...model.inventorySectionProps} />
+        <DistributionSection {...model.distributionSectionProps} />
+        <WasteSection {...model.wasteSectionProps} />
+        <VerificationSection {...model.verificationSectionProps} />
+      </>
+    </AdminLayout>
+  );
 }
-

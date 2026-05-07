@@ -114,9 +114,6 @@
   max-width: 68rem;
   margin-bottom: 3rem;
 }
-.heroTextLine {
-  display: inline;
-}
 .sectionDescriptionLine {
   display: inline;
 }
@@ -125,12 +122,14 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
+  column-gap: 2.5rem;
+  row-gap: 0.75rem;
   margin-bottom: 2.5rem;
 }
 .checkItem {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
 }
 .checkIcon {
@@ -512,9 +511,6 @@
   }
   .heroText {
     line-height: 1.55;
-  }
-  .heroTextLine {
-    display: block;
   }
   .sectionDescriptionLine {
     display: block;

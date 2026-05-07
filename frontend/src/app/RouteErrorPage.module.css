@@ -1,0 +1,51 @@
+.root {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  background: #fff;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-style: normal;
+}
+.content {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+.line {
+  margin: 0 0 0.75rem;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.5;
+  text-transform: none;
+}
+.link {
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  font-style: normal;
+  font-weight: 400;
+  text-decoration: underline;
+}
+.details {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+@media (min-width: 768px) {
+  .root {
+    padding: 2.5rem 1.5rem;
+  }
+}

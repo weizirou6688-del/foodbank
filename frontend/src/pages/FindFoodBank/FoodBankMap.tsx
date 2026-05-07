@@ -1,50 +1,42 @@
-import { useEffect, useMemo } from 'react'
-import L from 'leaflet'
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
-import type { FoodBank } from '@/shared/types/foodBanks'
+import { useEffect, useRef } from "react";
+import L from "leaflet";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import type { FoodBank } from "@/shared/types/foodBanks";
+import {
+  canViewFoodBankPackages,
+  getFoodBankKey,
+} from "./findFoodBank.shared";
+import styles from "./FindFoodBank.module.css";
+const UK_CENTER: [number, number] = [54.5, -3.5];
+const UK_ZOOM = 6;
+
 interface FoodBankMapProps {
-  foodBanks: FoodBank[]
-  searchedLocation: { lat: number; lng: number } | null
-  selectedFoodBankKey: string | null
-  onSelectFoodBank: (foodBank: FoodBank) => void
+  foodBanks: FoodBank[];
+  searchedLocation: { lat: number; lng: number } | null;
+  selectedFoodBankKey: string | null;
+  onSelectFoodBank: (foodBank: FoodBank) => void;
 }
-const UK_CENTER: [number, number] = [54.5, -3.5]
-const UK_ZOOM = 6
-// Leaflet's default marker assets need to be rebound explicitly in a Vite
-// build, otherwise markers render as broken images.
-delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl
+// Leaflet 仍然依赖默认原型上的图标 URL,因此在此统一为 Vite 资产管道重新指定一次。
+delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
-})
-const defaultIcon = new L.Icon.Default()
-const getFoodBankKey = (foodBank: FoodBank) => `${foodBank.id}-${foodBank.name}-${foodBank.lat}-${foodBank.lng}`
-function FitMapBounds({
-  foodBanks,
-  searchedLocation,
-}: Pick<FoodBankMapProps, 'foodBanks' | 'searchedLocation'>) {
-  const map = useMap()
-  useEffect(() => {
-    // The viewport is fitted against both the user's searched postcode and the
-    // returned food bank markers so the search context stays visible.
-    const points: [number, number][] = foodBanks.map((foodBank) => [foodBank.lat, foodBank.lng])
-    if (searchedLocation) {
-      points.push([searchedLocation.lat, searchedLocation.lng])
-    }
-    if (points.length === 0) {
-      map.setView(UK_CENTER, UK_ZOOM)
-      return
-    }
-    map.fitBounds(points, {
-      padding: [48, 48],
-      maxZoom: points.length === 1 ? 14 : 13,
-    })
-  }, [foodBanks, map, searchedLocation])
-  return null
+});
+const defaultIcon = new L.Icon.Default();
+function buildPopupContent(title: string, lines: string[]) {
+  const wrapper = document.createElement("div");
+  const heading = document.createElement("strong");
+  heading.textContent = title;
+  wrapper.append(heading);
+  lines.forEach((line) => {
+    const row = document.createElement("div");
+    row.textContent = line;
+    wrapper.append(row);
+  });
+  return wrapper;
 }
 export default function FoodBankMap({
   foodBanks,
@@ -52,64 +44,126 @@ export default function FoodBankMap({
   selectedFoodBankKey,
   onSelectFoodBank,
 }: FoodBankMapProps) {
-  // The selected result is memoized so the map can consistently elevate the
-  // matching marker without recalculating on every render.
-  const selectedFoodBank = useMemo(() => {
-    if (foodBanks.length === 0) {
-      return null
+  const mapElementRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerLayerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    if (!mapElementRef.current || mapRef.current) {
+      return;
     }
-    return foodBanks.find((foodBank) => getFoodBankKey(foodBank) === selectedFoodBankKey) ?? foodBanks[0]
-  }, [foodBanks, selectedFoodBankKey])
+    const map = L.map(mapElementRef.current, {
+      center: UK_CENTER,
+      zoom: UK_ZOOM,
+      scrollWheelZoom: true,
+    });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+    markerLayerRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+    window.requestAnimationFrame(() => {
+      map.invalidateSize();
+    });
+    return () => {
+      markerLayerRef.current?.clearLayers();
+      markerLayerRef.current = null;
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const mapElement = mapElementRef.current;
+
+    if (!map || !mapElement || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(() => {
+        map.invalidateSize();
+      });
+    });
+
+    resizeObserver.observe(mapElement);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const markerLayer = markerLayerRef.current;
+
+    if (!map || !markerLayer) {
+      return;
+    }
+    // 每次结果集变化时从头重建标记;列表较小,这样能让选中状态保持简单清晰。
+    markerLayer.clearLayers();
+    const points: L.LatLngExpression[] = [];
+    if (searchedLocation) {
+      points.push([searchedLocation.lat, searchedLocation.lng]);
+      L.marker([searchedLocation.lat, searchedLocation.lng], {
+        icon: defaultIcon,
+        zIndexOffset: 900,
+      })
+        .bindPopup(
+          buildPopupContent("Your searched location", [
+            "This postcode is used as the centre point for nearby results.",
+          ]),
+        )
+        .addTo(markerLayer);
+    }
+    foodBanks.forEach((foodBank) => {
+      points.push([foodBank.lat, foodBank.lng]);
+      L.marker([foodBank.lat, foodBank.lng], {
+        icon: defaultIcon,
+        zIndexOffset:
+          getFoodBankKey(foodBank) === selectedFoodBankKey ? 800 : 400,
+      })
+        .bindPopup(
+          buildPopupContent(foodBank.name, [
+            foodBank.address,
+            canViewFoodBankPackages(foodBank)
+              ? "Local package inventory available"
+              : "No linked local admin account for package viewing yet",
+          ]),
+        )
+        .on("click", () => {
+          onSelectFoodBank(foodBank);
+        })
+        .addTo(markerLayer);
+    });
+    if (points.length === 0) {
+      map.setView(UK_CENTER, UK_ZOOM);
+    } else {
+      map.fitBounds(L.latLngBounds(points), {
+        padding: [48, 48],
+        maxZoom: points.length === 1 ? 14 : 13,
+      });
+    }
+    window.requestAnimationFrame(() => {
+      map.invalidateSize();
+    });
+  }, [foodBanks, searchedLocation, selectedFoodBankKey, onSelectFoodBank]);
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden shadow-md relative">
-      <MapContainer center={UK_CENTER} zoom={UK_ZOOM} scrollWheelZoom className="w-full h-full">
-        <FitMapBounds foodBanks={foodBanks} searchedLocation={searchedLocation} />
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {searchedLocation && (
-          <Marker position={[searchedLocation.lat, searchedLocation.lng]} icon={defaultIcon} zIndexOffset={900}>
-            <Popup>
-              <strong>Your searched location</strong>
-              <div>This postcode is used as the centre point for nearby results.</div>
-            </Popup>
-          </Marker>
-        )}
-        {foodBanks.map((foodBank) => {
-          // Selected markers get a higher z-index so clustered markers do not
-          // visually bury the currently selected result.
-          const isSelected =
-            getFoodBankKey(foodBank) === (selectedFoodBank ? getFoodBankKey(selectedFoodBank) : null)
-          return (
-            <Marker
-              key={`${foodBank.id}-${foodBank.name}-${foodBank.lat}-${foodBank.lng}`}
-              position={[foodBank.lat, foodBank.lng]}
-              icon={defaultIcon}
-              zIndexOffset={isSelected ? 800 : 400}
-              eventHandlers={{
-                click: () => onSelectFoodBank(foodBank),
-              }}
-            >
-              <Popup>
-                <strong>{foodBank.name}</strong>
-                <div>{foodBank.address}</div>
-                <div>
-                  {foodBank.systemMatched ? 'Online application available' : 'Contact this location directly'}
-                </div>
-              </Popup>
-            </Marker>
-          )
-        })}
-      </MapContainer>
-      <div className="absolute bottom-4 right-4 z-[500]">
-        <div className="bg-white px-3 py-2 rounded-lg shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
-          <div className="flex items-center gap-2">
-            <img src={markerIcon} style={{ width: 20, height: 30 }} alt="marker" />
-            <span className="text-[14px] text-gray-700">Food bank location</span>
+    <div className={styles.mapShell}>
+      <div ref={mapElementRef} className={styles.mapCanvas} />
+      <div className={styles.legendWrap}>
+        <div className={styles.legend}>
+          <div className={styles.legendRow}>
+            <img
+              src={markerIcon}
+              className={styles.legendMarkerIcon}
+              alt="marker"
+            />
+            <span className={styles.legendLabel}>Food bank location</span>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

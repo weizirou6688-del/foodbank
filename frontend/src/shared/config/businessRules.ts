@@ -1,1 +1,0 @@
-export const WEEKLY_COLLECTION_LIMIT = 3
