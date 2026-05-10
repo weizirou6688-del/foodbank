@@ -28,6 +28,7 @@ echo [3/5] Checking backend...
 call :ensure_backend
 if errorlevel 1 exit /b 1
 > "%BACKEND_PORT_FILE%" echo !BACKEND_PORT!
+if defined BACKEND_WAS_REUSED call :open_swagger
 
 echo [4/5] Ensuring demo data...
 call :maybe_seed_demo_data
@@ -46,6 +47,7 @@ echo.
 echo Frontend URL: http://localhost:!FRONTEND_PORT!
 echo Backend URL : http://localhost:!BACKEND_PORT!
 echo Health check: http://localhost:!BACKEND_PORT!/health
+echo Swagger UI : http://localhost:!BACKEND_PORT!/docs
 exit /b 0
 
 :load_dev_env
@@ -63,6 +65,7 @@ if not defined FRONTEND_PORT set "FRONTEND_PORT=5173"
 if not defined FRONTEND_FALLBACK_PORT_END set "FRONTEND_FALLBACK_PORT_END=5178"
 if not defined FRONTEND_PREVIEW_PORT set "FRONTEND_PREVIEW_PORT=4173"
 if not defined SEED_DEMO_DATA set "SEED_DEMO_DATA=true"
+if not defined OPEN_SWAGGER_ON_START set "OPEN_SWAGGER_ON_START=true"
 exit /b 0
 
 :check_prerequisites
@@ -123,6 +126,7 @@ exit /b %DB_CHECK_EXIT%
 :ensure_backend
 set "DEFAULT_BACKEND_PORT=!BACKEND_PORT!"
 set "BACKEND_PORT="
+set "BACKEND_WAS_REUSED="
 
 if exist "%BACKEND_PORT_FILE%" (
     set /p "SAVED_BACKEND_PORT="<"%BACKEND_PORT_FILE%"
@@ -132,6 +136,7 @@ if exist "%BACKEND_PORT_FILE%" (
             call :is_http_ok "http://127.0.0.1:!SAVED_BACKEND_PORT!/health"
             if not errorlevel 1 (
                 set "BACKEND_PORT=!SAVED_BACKEND_PORT!"
+                set "BACKEND_WAS_REUSED=1"
                 echo   - Backend is already running on !BACKEND_PORT!
                 exit /b 0
             )
@@ -152,6 +157,7 @@ if not errorlevel 1 (
     call :is_http_ok "http://127.0.0.1:%DEFAULT_BACKEND_PORT%/health"
     if not errorlevel 1 (
         set "BACKEND_PORT=%DEFAULT_BACKEND_PORT%"
+        set "BACKEND_WAS_REUSED=1"
         echo   - Backend is already running on !BACKEND_PORT!
         exit /b 0
     )
@@ -188,6 +194,17 @@ if not "!SEED_EXIT!"=="0" (
 )
 
 echo   - Demo data ensured
+exit /b 0
+
+:open_swagger
+set "SWAGGER_URL=http://127.0.0.1:!BACKEND_PORT!/docs"
+powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$value = $env:OPEN_SWAGGER_ON_START; if ($null -ne $value -and $value.Trim().ToLowerInvariant() -in @('false', '0', 'no', 'off')) { exit 2 }; Start-Process '!SWAGGER_URL!' | Out-Null"
+if errorlevel 2 exit /b 0
+if errorlevel 1 (
+    echo   - Unable to open Swagger UI automatically
+    exit /b 0
+)
+echo   - Opening Swagger UI: !SWAGGER_URL!
 exit /b 0
 
 :ensure_frontend

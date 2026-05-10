@@ -1,111 +1,130 @@
-#!/bin/bash
-# Alembic 迁移批量执行和验证脚本
-# 用法: bash scripts/run_migrations.sh [all|step NUMBER]
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-BACKEND_DIR="/workspaces/foodbank/backend"
-cd "$BACKEND_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+BACKEND_DIR="${ROOT_DIR}/backend"
 
-echo "🗄️  Alembic 迁移执行工具"
-echo "===================================="
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON_BIN="python3"
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+else
+  echo "Error: python or python3 is required." >&2
+  exit 1
+fi
 
-# 函数：执行单个迁移
-execute_migration() {
-    local step=$1
-    echo ""
-    echo "📥 执行迁移 $step..."
-    
-    if alembic upgrade +1; then
-        echo "✅ 迁移 $step 成功"
-        return 0
-    else
-        echo "❌ 迁移 $step 失败"
-        return 1
-    fi
-}
+usage() {
+  cat <<'EOF'
+Optional Bash/WSL Alembic helper for this repository.
 
-# 函数：验证迁移
-verify_migration() {
-    echo ""
-    echo "🔍 验证数据库状态..."
-    
-    alembic current
-    
-    # 计数表
-    python3 << 'EOF'
-from sqlalchemy import create_engine, inspect, text
-from app.core.config import settings
+On Windows, the main local workflow is still documented in README.md and uses
+direct Alembic commands plus scripts\quick_start.bat. This helper exists for
+Bash-capable environments where you want a small wrapper around common Alembic
+operations.
 
-sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
-engine = create_engine(sync_url)
+Usage:
+  bash scripts/run_migrations.sh current
+  bash scripts/run_migrations.sh history
+  bash scripts/run_migrations.sh upgrade [target]
+  bash scripts/run_migrations.sh downgrade <target>
+  bash scripts/run_migrations.sh verify
 
-inspector = inspect(engine)
-tables = inspector.get_table_names()
-print(f"\n📊 数据库中有 {len(tables)} 张表")
-
-# 列出关键表
-key_tables = ['applications', 'inventory_lots', 'food_bank_hours', 'food_packages']
-for table in key_tables:
-    if table in tables:
-        cols = len(inspector.get_columns(table))
-        print(f"   ✓ {table}: {cols} 列")
+Examples:
+  bash scripts/run_migrations.sh current
+  bash scripts/run_migrations.sh upgrade
+  bash scripts/run_migrations.sh upgrade head
+  bash scripts/run_migrations.sh downgrade -1
+  bash scripts/run_migrations.sh verify
 EOF
 }
 
-# 主逻辑
-case "${1:-all}" in
-    all)
-        echo "🚀 执行所有剩余迁移 (0008-0012)..."
-        
-        for migration in 0008 0009 0010; do
-            execute_migration $migration || exit 1
-        done
-        
-        # 可选迁移
-        echo ""
-        echo "⚠️  迁移 0011 (RLS) 和 0012 (扩展) 是可选的。"
-        echo "要执行它们，请运行: bash scripts/run_migrations.sh optional"
-        ;;
-    
-    optional)
-        echo "🚀 执行可选迁移 (0011-0012)..."
-        
-        for migration in 0011 0012; do
-            execute_migration $migration || echo "⚠️  迁移 $migration 可能需要超级用户权限"
-        done
-        ;;
-    
-    step)
-        if [ -z "$2" ]; then
-            echo "❌ 请指定迁移步骤: bash scripts/run_migrations.sh step NUMBER"
-            exit 1
-        fi
-        execute_migration "$2"
-        ;;
-    
-    verify)
-        verify_migration
-        ;;
-    
-    *)
-        echo "用法: bash scripts/run_migrations.sh [all|optional|step NUMBER|verify]"
-        echo ""
-        echo "示例:"
-        echo "  bash scripts/run_migrations.sh all       # 执行所有必要迁移"
-        echo "  bash scripts/run_migrations.sh optional  # 执行可选迁移"
-        echo "  bash scripts/run_migrations.sh step 0008 # 执行单个迁移"
-        echo "  bash scripts/run_migrations.sh verify    # 验证数据库状态"
-        exit 1
-        ;;
+require_backend_dir() {
+  if [[ ! -d "${BACKEND_DIR}" ]]; then
+    echo "Error: backend directory not found at ${BACKEND_DIR}" >&2
+    exit 1
+  fi
+}
+
+run_verify() {
+  (
+    cd "${BACKEND_DIR}"
+    echo "Inspecting current Alembic revision..."
+    alembic current
+
+    echo
+    echo "Inspecting database table summary..."
+    "${PYTHON_BIN}" <<'PY'
+from sqlalchemy import create_engine, inspect
+
+from app.core.config import settings
+from app.core.database_urls import to_sync_sqlalchemy_url
+
+engine = create_engine(to_sync_sqlalchemy_url(settings.database_url))
+inspector = inspect(engine)
+tables = sorted(inspector.get_table_names())
+
+print(f"Database tables: {len(tables)}")
+for table_name in (
+    "alembic_version",
+    "applications",
+    "inventory_items",
+    "inventory_lots",
+    "food_packages",
+    "restock_requests",
+    "donations_cash",
+    "donations_goods",
+):
+    if table_name in tables:
+        print(f"  - {table_name}: {len(inspector.get_columns(table_name))} columns")
+PY
+  )
+}
+
+require_backend_dir
+
+case "${1:-}" in
+  current)
+    (
+      cd "${BACKEND_DIR}"
+      alembic current
+    )
+    ;;
+  history)
+    (
+      cd "${BACKEND_DIR}"
+      alembic history
+    )
+    ;;
+  upgrade)
+    (
+      cd "${BACKEND_DIR}"
+      alembic upgrade "${2:-head}"
+    )
+    ;;
+  downgrade)
+    if [[ $# -lt 2 ]]; then
+      echo "Error: downgrade requires a target, for example -1 or a revision id." >&2
+      echo >&2
+      usage
+      exit 1
+    fi
+    (
+      cd "${BACKEND_DIR}"
+      alembic downgrade "$2"
+    )
+    ;;
+  verify)
+    run_verify
+    ;;
+  ""|-h|--help|help)
+    usage
+    ;;
+  *)
+    echo "Error: unsupported command '$1'." >&2
+    echo >&2
+    usage
+    exit 1
+    ;;
 esac
-
-echo ""
-verify_migration
-
-echo ""
-echo "✅ 完成！"
-echo ""
-echo "📋 后续步骤:"
-echo "1. 运行后端服务: python -m uvicorn app.main:app --reload"
-echo "2. 查看迁移历史: alembic history"

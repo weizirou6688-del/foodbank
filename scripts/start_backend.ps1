@@ -10,6 +10,29 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Test-TruthySetting {
+    param(
+        [string]$Value,
+        [bool]$Default = $true
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $Default
+    }
+
+    switch ($Value.Trim().ToLowerInvariant()) {
+        '1' { return $true }
+        'true' { return $true }
+        'yes' { return $true }
+        'on' { return $true }
+        '0' { return $false }
+        'false' { return $false }
+        'no' { return $false }
+        'off' { return $false }
+        default { return $Default }
+    }
+}
+
 $logDir = Join-Path $RootDir '.logs'
 if (-not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Path $logDir | Out-Null
@@ -17,6 +40,8 @@ if (-not (Test-Path $logDir)) {
 
 $logPath = Join-Path $logDir ("backend_{0}.log" -f $Port)
 $backendDir = Join-Path $RootDir 'backend'
+$docsUrl = "http://127.0.0.1:$Port/docs"
+$shouldOpenSwagger = Test-TruthySetting -Value $env:OPEN_SWAGGER_ON_START -Default $true
 
 if (-not $PythonExe) {
     $venvPython = Join-Path $RootDir '.venv\Scripts\python.exe'
@@ -42,6 +67,13 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
     try {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $healthUrl -TimeoutSec 5
         if ($response.StatusCode -eq 200 -and $response.Content -match '"status"\s*:\s*"ok"') {
+            if ($shouldOpenSwagger) {
+                try {
+                    Start-Process $docsUrl | Out-Null
+                } catch {
+                    Write-Warning "Swagger UI could not be opened automatically: $($_.Exception.Message)"
+                }
+            }
             exit 0
         }
     } catch {
