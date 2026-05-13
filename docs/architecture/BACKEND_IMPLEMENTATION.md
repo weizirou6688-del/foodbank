@@ -1,288 +1,168 @@
-## ABC Community Food Bank API - Backend Implementation Complete ✅
+# Backend Implementation
 
-### Project Overview
-FastAPI-based REST backend for the ABC Community Food Bank system with:
-- PostgreSQL async database with SQLAlchemy 2.0 ORM
-- JWT authentication (15-min access + 7-day refresh tokens)
-- Complete API route definitions for all 8 domains
-- Swagger/OpenAPI documentation at `/docs`
+Last updated: 2026-04-14
 
----
+This document summarizes the backend that is currently implemented in this
+repository. The source of truth is the code under `backend/app`, the Alembic
+history under `backend/alembic`, and the live OpenAPI schema served by the app.
 
-## Completed Components
+## Overview
 
-### 1. Core Infrastructure ✅
-- **app/core/config.py** - Pydantic v2 Settings with required SECRET_KEY
-- **app/core/database.py** - Async SQLAlchemy engine + session factory
-- **app/core/security.py** - bcrypt password hashing + JWT token utilities
-- **app/main.py** - FastAPI app with CORS, exception handlers, lifespan hooks
+- Web framework: FastAPI with Uvicorn
+- Runtime ORM access: SQLAlchemy 2 async engine and `AsyncSession`
+- Database: PostgreSQL
+- Migrations: Alembic
+- Runtime DB driver: `asyncpg`
+- Migration / admin DB driver: `psycopg2-binary`
+- Auth: JWT bearer access tokens only
+- Password reset: email + verification code flow backed by
+  `password_reset_tokens`
+- Mail: SMTP via `aiosmtplib`
 
-### 2. Database Setup ✅
-- **alembic/env.py** - Async migration environment
-- **alembic.ini** - Migration configuration
-- **migrations/** - Initial schema (20260324_0001_initial_schema.py)
-- **12 Data Models**:
-  - User, FoodBank, FoodBankHour
-  - FoodPackage, PackageItem, InventoryItem
-  - Application, ApplicationItem
-  - DonationCash, DonationGoods, DonationGoodsItem
-  - RestockRequest
+## Dependency Layers
 
-### 3. Route Definitions - All 8 API Domains ✅
+- `backend/requirements.txt`
+  - runtime web stack
+  - runtime database access
+  - Alembic and database admin tooling
+- `backend/requirements-dev.txt`
+  - test-only additions such as `pytest` and `httpx`
 
-#### 🔐 Auth Routes (app/routers/auth.py)
-- `POST /api/v1/auth/register` - Public user registration
-- `POST /api/v1/auth/login` - Email/password login
-- `POST /api/v1/auth/logout` - Logout (auth required)
-- `POST /api/v1/auth/refresh` - Refresh access token
-- `GET /api/v1/auth/me` - Get current user profile
+## Runtime Architecture
 
-#### 🏪 Food Bank Routes (app/routers/food_banks.py)
-- `GET /api/v1/food-banks/` - List all food banks (with proximity filtering)
-- `GET /api/v1/food-banks/{id}` - Get bank details with operating hours
-- `POST /api/v1/food-banks/` - Create bank (admin only)
-- `PATCH /api/v1/food-banks/{id}` - Update bank details (admin)
-- `DELETE /api/v1/food-banks/{id}` - Soft delete bank (admin)
+### App entrypoint
 
-#### 📦 Food Package Routes (app/routers/packages.py)
-- `GET /api/v1/packages/food-banks/{id}/packages` - List packages for a bank
-- `GET /api/v1/packages/{id}` - Get package details with composition
-- `POST /api/v1/packages/` - Create package (admin)
-- `PATCH /api/v1/packages/{id}` - Update package (admin)
-- `DELETE /api/v1/packages/{id}` - Soft delete package (admin)
+- File: `backend/app/main.py`
+- Registers all routers under `/api/v1`
+- Configures CORS
+- Exposes `/` and `/health`
+- Starts in degraded mode if the database is unavailable
+- Runs startup tasks for:
+  - redemption code normalization
+  - dashboard history backfill
+  - application expiry pass and background loop
 
-#### 📋 Application Routes (app/routers/applications.py)
-- `POST /api/v1/applications/` - Submit assistance application (auth required)
-- `GET /api/v1/applications/my` - Get user's own applications
-- `PATCH /api/v1/applications/{id}` - Update application status (admin)
+### Configuration model
 
-#### 💰 Donation Routes (app/routers/donations.py)
-- `POST /api/v1/donations/cash` - Submit cash donation (public)
-- `POST /api/v1/donations/goods` - Submit goods donation (public)
-- `GET /api/v1/donations/` - List donations with type filter (admin)
+- File: `backend/app/core/config.py`
+- Loads local defaults from repo-root `dev.env`
+- Loads backend runtime settings from `backend/.env`
+- Treat `backend/.env` as the runtime source for secrets and DB credentials
+- Treat `dev.env` as local development defaults for ports and startup scripts
 
-#### 📊 Inventory Routes (app/routers/inventory.py)
-- `GET /api/v1/inventory/` - List inventory items (admin)
-- `POST /api/v1/inventory/` - Add new inventory item (admin)
-- `PATCH /api/v1/inventory/{id}` - Update item details (admin)
-- `POST /api/v1/inventory/{id}/stock-in` - Increase stock (admin)
-- `POST /api/v1/inventory/{id}/stock-out` - Decrease stock (admin)
-- `DELETE /api/v1/inventory/{id}` - Delete inventory item (admin)
+### Database access model
 
-#### 🔄 Restock Request Routes (app/routers/restock.py)
-- `GET /api/v1/restock-requests/` - List restock requests (admin)
-- `POST /api/v1/restock-requests/` - Create restock request (admin)
-- `DELETE /api/v1/restock-requests/{id}` - Decline request (admin)
-- `POST /api/v1/restock-requests/{id}/fulfil` - Mark as fulfilled (admin)
+- File: `backend/app/core/database.py`
+- Uses `create_async_engine(settings.database_url)`
+- Runtime connections expect `postgresql+asyncpg://...`
+- Alembic converts that DSN to `postgresql+psycopg2://...` in
+  `backend/alembic/env.py`
+- Application startup does not call `Base.metadata.create_all()`
+- Schema changes are expected to flow through Alembic migrations
 
-#### 📈 Statistics Routes (app/routers/stats.py)
-- `GET /api/v1/stats/donations` - Donation trends (admin)
-- `GET /api/v1/stats/packages` - Most requested packages (admin)
-- `GET /api/v1/stats/stock-gap` - Stock shortage analysis (admin)
+## Auth Model
 
-### 4. Pydantic Schemas ✅
-All request/response validation schemas created:
-- User (UserCreate, UserOut, UserUpdate)
-- FoodBank (FoodBankCreate, FoodBankOut, FoodBankUpdate, FoodBankDetailOut)
-- FoodPackage (FoodPackageCreate, FoodPackageOut, FoodPackageUpdate, FoodPackageDetailOut)
-- Application (ApplicationCreate, ApplicationOut, ApplicationUpdate, ApplicationItemCreatePayload)
-- Donations (DonationCashCreate, DonationCashOut, DonationGoodsCreate, DonationGoodsOut, DonationGoodsItemCreatePayload)
-- InventoryItem (InventoryItemCreate, InventoryItemOut, InventoryItemUpdate, StockAdjustment)
-- RestockRequest (RestockRequestCreate, RestockRequestOut, RestockRequestUpdate, RestockRequestFulfil)
+### Current token behavior
 
-### 5. Configuration Files ✅
-- **requirements.txt** - All dependencies properly versioned
-- **.env.example** - Template with secure key generation instructions
-- **.env** - Local development configuration (dev only)
-- **tsconfig.json, postcss.config.js, tailwind.config.js** - Frontend setup (existing)
+- Login endpoint: `POST /api/v1/auth/login`
+- Response model: `access_token`, `token_type`, `user`
+- Token type enforced by `app/core/security.py` is `access`
+- There is no refresh-token issuance or `/api/v1/auth/refresh` endpoint in the
+  current backend
 
----
+### Auth endpoints
 
-## Security Features
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/forgot-password`
+- `POST /api/v1/auth/reset-password`
+- `GET /api/v1/auth/me`
 
-✅ **JWT Authentication**
-- 15-minute access tokens (HS256)
-- 7-day refresh tokens for token rotation
-- Automatic token validation on protected routes
+### Authorization model
 
-✅ **Password Security**
-- bcrypt hashing (salted, resistant to rainbow tables)
-- Configurable work factor
+- Roles: `public`, `supermarket`, `admin`
+- Local admin scope is represented by `role=admin` plus `food_bank_id`
+- Platform admin is an admin token without a scoped `food_bank_id`
+- Route guards live in `backend/app/core/security.py`
 
-✅ **API Security**
-- CORS middleware configured for allowed origins
-- HTTPBearer authentication scheme
-- Role-based access control (admin vs public roles)
-- Required SECRET_KEY (no hardcoded defaults)
+## API Domains
 
----
+### Health
 
-## How to Run
+- Prefix: none
+- Paths: `/`, `/health`
 
-### 1. **Install Dependencies**
-```bash
-pip install -r requirements.txt
-```
+### Food banks
 
-### 2. **Set Up Environment**
-```bash
-# Create .env file (already created in dev, but for production:)
-cp .env.example .env
-# Edit .env with your values (most important: SECRET_KEY)
-```
+- Prefix: `/api/v1/food-banks`
+- Includes internal food-bank records, geocoding, and external feed proxying
 
-### 3. **Initialize Database** (when PostgreSQL is ready)
-```bash
-alembic upgrade head
-```
+### Applications
 
-### 4. **Run Development Server**
-```bash
-uvicorn app.main:app --reload
-```
+- Prefix: `/api/v1/applications`
+- Covers public submission, user history, admin record views, redemption lookup,
+  redeem, and void flows
 
-Server starts at `http://localhost:8000`
+### Donations
 
-### 5. **View API Documentation**
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **OpenAPI Schema**: http://localhost:8000/openapi.json
+- Prefix: `/api/v1/donations`
+- Covers cash donations, goods donations, supermarket intake, and admin queries
 
----
+### Inventory
 
-## API Usage Examples
+- Prefix: `/api/v1/inventory`
+- Covers item CRUD, stock in/out, low-stock alerts, and lot management
 
-### Register User
-```bash
-curl -X POST http://localhost:8000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "secure_password", "full_name": "John Doe"}'
-```
+### Food packages
 
-### Login
-```bash
-curl -X POST http://localhost:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "secure_password"}'
-```
+- Mounted under `/api/v1`
+- Main paths:
+  - `/api/v1/packages`
+  - `/api/v1/packages/{package_id}`
+  - `/api/v1/packages/{package_id}/pack`
+  - `/api/v1/food-banks/{food_bank_id}/packages`
 
-### List Food Banks (No Auth Required)
-```bash
-curl http://localhost:8000/api/v1/food-banks/
-```
+### Stats
 
-### Submit Assistance Application (Auth Required)
-```bash
-curl -X POST http://localhost:8000/api/v1/applications/ \
-  -H "Authorization: Bearer <access_token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "items": [{"family_member_count": 4, "applicant_email": "user@example.com"}],
-    "weekly_period": "2024-W15"
-  }'
-```
+- Prefix: `/api/v1/stats`
+- Includes public impact metrics, dashboard analytics, and supporting admin
+  stats endpoints
 
----
+## Data Model Notes
 
-## Statistics
+### Core persistence rules
 
-- **Total Routers** 🔗: 8 API domain modules
-- **Total Endpoints** 📍: 40+ routes fully defined
-- **Database Tables** 🗄️: 12 entities with proper relationships
-- **Lines of Route Code** 📝: ~500 lines with TODO comments for implementation
-- **Pydantic Schemas** ✅: 30+ validation classes
+- PostgreSQL + Alembic are the schema source of truth
+- ORM models are expected to match the migrated schema
+- Audit and soft-delete columns exist on multiple operational tables
+- Inventory availability is lot-based, not item-stock-column-based
 
----
+### Important operational tables
 
-## Implementation Status
+- `inventory_lots` is the stock source used for FEFO behavior
+- `application_distribution_snapshots` preserves fulfillment history
+- `password_reset_tokens` is active, not legacy residue
+- `donations_cash` supports one-time and monthly donation metadata
 
-| Component | Status |
-|-----------|--------|
-| Core infrastructure | ✅ Complete |
-| Database models | ✅ Complete |
-| Database schemas (Pydantic) | ✅ Complete |
-| Route definitions | ✅ Complete |
-| Route mounting | ✅ Complete |
-| Business logic | ⏳ TODO (marked in route handlers) |
-| Authentication tests | ⏳ TODO |
-| Integration tests | ⏳ TODO |
-| Docker setup | ⏳ Optional |
+## Current Development Notes
 
----
+- `scripts/quick_start.bat` can start backend and frontend locally
+- Demo data is only seeded when explicitly requested by scripts or direct
+  script execution
+- Historical exported API docs under `docs/API_Docs_*.html` may lag behind the
+  current backend implementation
+- For current contract inspection, prefer:
+  - `http://localhost:8000/docs`
+  - `http://localhost:8000/openapi.json`
+  - the router and schema code under `backend/app`
 
-## Next Steps (Not in Scope)
+## Recommended Source Order
 
-The following are left as TODO comments in route handlers for implementation:
+When checking backend behavior, use this order:
 
-1. **Business Logic Implementation**
-   - Database query logic
-   - Password hashing on registration
-   - JWT token generation/validation
-   - Role-based authorization checks
-   - Weekly application limit enforcement
-   - Stock level calculations
-
-2. **Validation & Error Handling**
-   - Input sanitization
-   - Custom error messages
-   - Request logging
-   - Rate limiting
-
-3. **Testing**
-   - Unit tests for security utilities
-   - Integration tests for endpoints
-   - Database transaction tests
-   - Authentication flow tests
-
-4. **Deployment**
-   - Docker containerization
-   - CI/CD pipeline setup
-   - Production database migration
-   - Load testing
-
----
-
-## Verification
-
-✅ **All routers import successfully**
-```bash
-python -c "from app.routers import auth, food_banks, packages, applications, donations, inventory, restock, stats; print('✅ All routers imported')"
-```
-
-✅ **FastAPI app initializes with 40 routes**
-```bash
-python -c "from app.main import app; print(f'✅ {len([r for r in app.routes if hasattr(r, \"path\")])} routes loaded')"
-```
-
-✅ **Dependencies installed**
-- FastAPI 0.104.1
-- SQLAlchemy 2.0.23 with asyncpg
-- Pydantic 2.5.0 + pydantic-settings 2.1.0
-- JWT + bcrypt security libraries
-- All optional dependencies (email-validator)
-
----
-
-## File Structure Summary
-
-```
-/workspaces/foodbank/
-├── app/
-│   ├── core/
-│   │   ├── config.py          ✅ Settings management
-│   │   ├── database.py        ✅ Async SQLAlchemy setup
-│   │   └── security.py        ✅ JWT + bcrypt utilities
-│   ├── models/                ✅ 12 SQLAlchemy ORM entities
-│   ├── schemas/               ✅ 30+ Pydantic validators
-│   ├── routers/               ✅ 8 router modules, 40+ endpoints
-│   └── main.py                ✅ FastAPI app entry point
-├── alembic/                   ✅ Database migrations
-├── requirements.txt           ✅ Dependencies
-├── .env.example               ✅ Configuration template
-├── .env                       ✅ Dev environment (do not commit)
-└── README.md                  📋 This file
-```
-
----
-
-**Project Status: Backend scaffold complete. Ready for business logic implementation!** 🚀
+1. Router and service code under `backend/app`
+2. Pydantic schemas under `backend/app/schemas`
+3. Alembic migrations under `backend/alembic/versions`
+4. Live `/docs` or `/openapi.json`
+5. Historical reports only as dated context

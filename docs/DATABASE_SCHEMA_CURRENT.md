@@ -1,405 +1,156 @@
-# Current Database Schema
+# Current Database Schema Reference
 
-Snapshot date: 2026-04-08
-Source of truth: live local PostgreSQL database `foodbank`
-Alembic revision in database: `20260407_0021`
-Configured connection: `postgresql+asyncpg://foodbank:***@localhost:5432/foodbank`
+Last updated: 2026-04-14
 
-This document is a practical schema snapshot of the database that is actually
-running locally. It is based on live PostgreSQL introspection, then cross-checked
-against the SQLAlchemy models and Alembic migration files.
+This file is the current repository-aligned database reference. It is based on
+the SQLAlchemy models under `backend/app/models`, the Alembic history under
+`backend/alembic/versions`, and the current backend implementation.
+
+It is intentionally no longer treated as a live row-count snapshot of one local
+database instance. Older schema snapshots caused confusion after the ORM / DB
+drift cleanup because they still described removed tables, missing models, and
+startup behavior that no longer matched the code.
+
+## Source Of Truth
+
+Use this order when checking current database behavior:
+
+1. Alembic migrations under `backend/alembic/versions`
+2. SQLAlchemy models under `backend/app/models`
+3. Runtime backend code under `backend/app`
+4. Live `/docs` or `/openapi.json`
+
+Do not treat historical exported HTML docs or old project reports as schema
+authority.
 
 ## Stack
 
 - Database engine: PostgreSQL
-- ORM/runtime access: SQLAlchemy async engine
+- Runtime ORM: SQLAlchemy 2 async ORM
+- Runtime driver: `asyncpg`
 - Migration tool: Alembic
-- Runtime config source: `backend/.env`
+- Migration / admin driver: `psycopg2-binary`
 
-## Important Rule
+## Current Schema Rules
 
-Treat the live PostgreSQL schema and Alembic history as the current source of
-truth. The ORM models under `backend/app/models` do not fully match the live
-schema right now.
+- Production and local schema changes should flow through Alembic migrations.
+- FastAPI startup does not call `Base.metadata.create_all()`.
+- The ORM models in `backend/app/models` are expected to align with the
+  migration-defined schema.
+- `password_reset_tokens` is an active table, not legacy residue.
 
-## Snapshot Summary
+## Active Tables By Domain
 
-| Domain | Table | Primary key | Rows | Notes |
-| --- | --- | --- | ---: | --- |
-| Meta | `alembic_version` | `version_num` | 1 | Current migration version |
-| Auth | `users` | `id` UUID | 36 | All application users |
-| Auth | `password_reset_tokens` | `id` UUID | 1 | Live table, not represented in current ORM models |
-| Network | `food_banks` | `id` int | 3 | Food bank locations |
-| Network | `food_bank_hours` | `id` int | 0 | Opening hours with temporal validity columns |
-| Inventory | `inventory_items` | `id` int | 22 | Item master data |
-| Inventory | `inventory_lots` | `id` int | 24 | Batch-level stock tracking |
-| Inventory | `inventory_waste_events` | `id` int | 8 | Waste and deletion audit events |
-| Inventory | `restock_requests` | `id` int | 0 | Low-stock workflow |
-| Packages | `food_packages` | `id` int | 7 | Package definitions |
-| Packages | `package_items` | `id` int | 25 | Package recipe lines |
-| Applications | `applications` | `id` UUID | 29 | Public requests/redemptions |
-| Applications | `application_items` | `id` int | 17 | Requested package or direct inventory item lines |
-| Applications | `application_distribution_snapshots` | `id` int | 61 | Distribution audit snapshots |
-| Donations | `donations_cash` | `id` UUID | 14 | Monetary donations |
-| Donations | `donations_goods` | `id` UUID | 21 | Goods donation headers |
-| Donations | `donation_goods_items` | `id` int | 22 | Goods donation line items |
+### Auth
 
-## Domain Relationships
+- `users`
+- `password_reset_tokens`
 
-```mermaid
-erDiagram
-    FOOD_BANKS ||--o{ USERS : "admin scope"
-    FOOD_BANKS ||--o{ FOOD_BANK_HOURS : has
-    FOOD_BANKS ||--o{ FOOD_PACKAGES : owns
-    FOOD_BANKS ||--o{ APPLICATIONS : serves
-    FOOD_BANKS ||--o{ DONATIONS_CASH : receives
-    FOOD_BANKS ||--o{ DONATIONS_GOODS : receives
+Notes:
 
-    USERS ||--o{ APPLICATIONS : submits
-    USERS ||--o{ DONATIONS_GOODS : donates
-    USERS ||--o{ RESTOCK_REQUESTS : assigned
-    USERS ||--o{ PASSWORD_RESET_TOKENS : has
+- Authentication is access-token-only at the API layer.
+- There is no refresh-token table or `/api/v1/auth/refresh` endpoint in the
+  current backend.
+- `users.food_bank_id` remains the admin scope marker for local admins.
 
-    FOOD_PACKAGES ||--o{ PACKAGE_ITEMS : contains
-    INVENTORY_ITEMS ||--o{ PACKAGE_ITEMS : included_in
+### Food Bank Directory
 
-    INVENTORY_ITEMS ||--o{ INVENTORY_LOTS : stocked_as
-    INVENTORY_ITEMS ||--o{ RESTOCK_REQUESTS : triggers
-    INVENTORY_ITEMS ||--o{ INVENTORY_WASTE_EVENTS : referenced_by
+- `food_banks`
 
-    APPLICATIONS ||--o{ APPLICATION_ITEMS : has
-    FOOD_PACKAGES ||--o{ APPLICATION_ITEMS : requested_as_package
-    INVENTORY_ITEMS ||--o{ APPLICATION_ITEMS : requested_as_direct_item
+Notes:
 
-    APPLICATIONS ||--o{ APPLICATION_DISTRIBUTION_SNAPSHOTS : audited_by
-    FOOD_PACKAGES ||--o{ APPLICATION_DISTRIBUTION_SNAPSHOTS : package_snapshot
-    INVENTORY_ITEMS ||--o{ APPLICATION_DISTRIBUTION_SNAPSHOTS : item_snapshot
+- `food_banks` stores location and notification metadata.
+- Opening hours are no longer modeled as a live runtime table in the current
+  backend.
 
-    DONATIONS_GOODS ||--o{ DONATION_GOODS_ITEMS : contains
-```
+### Inventory
 
-## Table Details
+- `inventory_items`
+- `inventory_lots`
+- `inventory_waste_events`
+- `restock_requests`
 
-### `users`
+Notes:
 
-Purpose: user accounts for public users, supermarkets, and admins.
+- Item-level inventory availability is lot-based.
+- `inventory_items.stock` has already been removed from the schema history.
+- `inventory_items.food_bank_id = NULL` is treated as historical legacy residue,
+  not the target business model.
+- `restock_requests` still exists in the schema as a low-stock workflow table,
+  but the standalone runtime API entry `/api/v1/restock` has been removed.
 
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `uuid` | no | PK, default `gen_random_uuid()` |
-| `name` | `varchar` | no | Display name |
-| `email` | `varchar` | no | Unique |
-| `password_hash` | `varchar` | no | Hashed password |
-| `role` | `varchar` | no | Check: `public`, `supermarket`, `admin` |
-| `created_at` | `timestamp` | no | Default `now()` |
-| `updated_at` | `timestamp` | no | Default `now()` |
-| `food_bank_id` | `int` | yes | FK to `food_banks.id` |
+### Packages
 
-### `password_reset_tokens`
+- `food_packages`
+- `package_items`
 
-Purpose: password reset token storage in the live database.
+Notes:
 
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `uuid` | no | PK, default `gen_random_uuid()` |
-| `user_id` | `uuid` | no | FK to `users.id` |
-| `token_hash` | `varchar` | no | Unique |
-| `expires_at` | `timestamp` | no | Expiration time |
-| `used_at` | `timestamp` | yes | Mark consumed tokens |
-| `created_at` | `timestamp` | no | Default `now()` |
+- `food_packages.stock` is still an active package-level field.
+- Package composition is modeled through `package_items`.
+- Package records are scoped by `food_bank_id` and soft-delete / active flags.
 
-### `food_banks`
+### Applications
 
-Purpose: food bank location directory.
+- `applications`
+- `application_items`
+- `application_distribution_snapshots`
 
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `name` | `varchar` | no | Location name |
-| `address` | `text` | no | Full address |
-| `lat` | `numeric(9,6)` | no | Latitude |
-| `lng` | `numeric(9,6)` | no | Longitude |
-| `created_at` | `timestamp` | no | Default `now()` |
-| `notification_email` | `varchar` | yes | Operational contact |
+Notes:
+
+- `applications.redemption_code` remains unique.
+- Distribution snapshots are kept as audit history even if recipes later change.
+- Redemption lookup still includes legacy code-format compatibility in runtime
+  logic.
+
+### Donations
+
+- `donations_cash`
+- `donations_goods`
+- `donation_goods_items`
+
+Notes:
+
+- `donations_cash` supports one-time and monthly donation metadata.
+- `donations_goods` stores donor/contact info plus food-bank snapshot fields.
+- `food_bank_id = NULL` donation rows are treated as historical legacy data, not
+  the intended steady-state model.
+
+## Removed Or Historical-Only Schema Paths
 
 ### `food_bank_hours`
 
-Purpose: opening hours for each food bank.
+- This table existed in earlier migrations.
+- It was removed from the current runtime model and later dropped by
+  `backend/alembic/versions/20260411_0023_drop_food_bank_hours_table.py`.
+- Any references to `FoodBankHourOut`, `/food_bank_hours`, or temporal opening
+  hours in old docs should be treated as historical only.
 
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `food_bank_id` | `int` | no | FK to `food_banks.id` |
-| `day_of_week` | `varchar` | no | Unique with `food_bank_id` |
-| `open_time` | `time` | no | Opening time |
-| `close_time` | `time` | no | Closing time |
-| `created_at` | `timestamptz` | yes | Added later by migration |
-| `updated_at` | `timestamptz` | yes | Added later by migration |
-| `deleted_at` | `timestamptz` | yes | Soft delete |
-| `valid_from` | `date` | no | Default `CURRENT_DATE` |
-| `valid_to` | `date` | yes | Temporal validity end |
+### `inventory_items.stock`
 
-Notable constraints:
+- This column was part of the old pre-lot inventory model.
+- Stock was migrated into `inventory_lots` in
+  `backend/alembic/versions/20260326_0007_migrate_inventory_stock.py`.
+- The deprecated column was removed by
+  `backend/alembic/versions/20260326_0013_remove_inventory_items_stock.py`.
 
-- Unique: `(food_bank_id, day_of_week)`
-- Check: `ck_fh_valid_date_range`
+## Current Data Modeling Notes
 
-### `inventory_items`
+- Soft-delete columns exist on several operational tables, including inventory,
+  packages, restock requests, applications, and donations.
+- Local admin scoping is implemented with `role=admin` plus `food_bank_id`.
+- Demo/bootstrap code still contains compatibility cleanup for older unscoped
+  seed data; that logic is not proof that null-scoped data is part of the
+  target design.
 
-Purpose: inventory item master records.
+## Historical Docs Warning
 
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `name` | `varchar` | no | Item name |
-| `category` | `varchar` | no | Checked category list |
-| `unit` | `varchar` | no | Unit label |
-| `threshold` | `int` | no | Default `10` |
-| `updated_at` | `timestamp` | no | Default `now()` |
-| `created_at` | `timestamptz` | yes | Added later by migration |
-| `deleted_at` | `timestamptz` | yes | Soft delete |
+The following files are historical exports or reports and may contain obsolete
+contract details such as refresh tokens, `/api/v1/restock`, or
+`FoodBankHourOut`:
 
-### `inventory_lots`
+- `docs/archive/API_Docs_CN_Slim.html`
+- `docs/archive/API_Docs_Export.html`
+- older dated reports under `docs/` and `docs/reports/`
 
-Purpose: batch-level inventory tracking. This is the operational stock source.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `inventory_item_id` | `int` | no | FK to `inventory_items.id` |
-| `quantity` | `int` | no | Positive quantity |
-| `expiry_date` | `date` | no | Indexed |
-| `received_date` | `date` | no | Default `CURRENT_DATE` |
-| `batch_reference` | `varchar` | yes | Batch or donation reference |
-| `created_at` | `timestamptz` | no | Default `now()` |
-| `updated_at` | `timestamptz` | no | Default `now()` |
-| `deleted_at` | `timestamptz` | yes | Soft delete |
-
-Notable constraints:
-
-- Check: `quantity > 0`
-- Check: `received_date <= expiry_date`
-
-### `inventory_waste_events`
-
-Purpose: audit trail for waste, expiry, manual deletion, or damaged stock.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `inventory_lot_id` | `int` | yes | FK to `inventory_lots.id` |
-| `inventory_item_id` | `int` | yes | FK to `inventory_items.id` |
-| `item_name` | `varchar` | no | Snapshot field |
-| `item_category` | `varchar` | no | Snapshot field |
-| `item_unit` | `varchar` | yes | Snapshot field |
-| `quantity` | `int` | no | Positive quantity |
-| `reason` | `varchar` | no | Check: `manual_waste`, `damaged`, `expired`, `deleted` |
-| `batch_reference` | `varchar` | yes | Snapshot field |
-| `expiry_date` | `date` | yes | Snapshot field |
-| `occurred_at` | `timestamptz` | no | Default `now()` |
-
-### `restock_requests`
-
-Purpose: low-stock workflow records for inventory replenishment.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `inventory_item_id` | `int` | no | FK to `inventory_items.id` |
-| `current_stock` | `int` | no | Snapshot value |
-| `threshold` | `int` | no | Snapshot value |
-| `urgency` | `varchar` | no | Check: `high`, `medium`, `low` |
-| `assigned_to_user_id` | `uuid` | yes | FK to `users.id` |
-| `status` | `varchar` | no | Check: `open`, `fulfilled`, `cancelled` |
-| `created_at` | `timestamp` | no | Default `now()` |
-| `updated_at` | `timestamptz` | yes | Added later by migration |
-| `deleted_at` | `timestamptz` | yes | Soft delete |
-
-### `food_packages`
-
-Purpose: distributable package definitions.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `name` | `varchar` | no | Package name |
-| `category` | `varchar` | no | Checked category list |
-| `description` | `text` | yes | Optional description |
-| `stock` | `int` | no | Compatibility field retained in table |
-| `threshold` | `int` | no | Default `5` |
-| `applied_count` | `int` | no | Default `0` |
-| `image_url` | `text` | yes | Optional image |
-| `food_bank_id` | `int` | yes | FK to `food_banks.id` |
-| `is_active` | `boolean` | no | Default `true` |
-| `created_at` | `timestamp` | no | Default `now()` |
-| `updated_at` | `timestamptz` | yes | Added later by migration |
-| `deleted_at` | `timestamptz` | yes | Soft delete |
-
-### `package_items`
-
-Purpose: package composition lines.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `package_id` | `int` | no | FK to `food_packages.id` |
-| `inventory_item_id` | `int` | no | FK to `inventory_items.id` |
-| `quantity` | `int` | no | Default `1` |
-
-### `applications`
-
-Purpose: public assistance requests, redemption, and soft-delete lifecycle.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `uuid` | no | PK, default `gen_random_uuid()` |
-| `user_id` | `uuid` | no | FK to `users.id` |
-| `food_bank_id` | `int` | no | FK to `food_banks.id` |
-| `redemption_code` | `varchar` | no | Unique |
-| `status` | `varchar` | no | Check: `pending`, `collected`, `expired` |
-| `total_quantity` | `int` | no | Requested total |
-| `created_at` | `timestamp` | no | Default `now()` |
-| `updated_at` | `timestamptz` | yes | Default `now()` |
-| `deleted_at` | `timestamptz` | yes | Soft delete |
-| `week_start` | `date` | no | Weekly limit anchor |
-| `redeemed_at` | `timestamptz` | yes | Collection timestamp |
-
-### `application_items`
-
-Purpose: line items within an application.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `application_id` | `uuid` | no | FK to `applications.id` |
-| `package_id` | `int` | yes | FK to `food_packages.id` |
-| `quantity` | `int` | no | Requested quantity |
-| `inventory_item_id` | `int` | yes | FK to `inventory_items.id` |
-
-Notable constraints:
-
-- Check: exactly one of `package_id` or `inventory_item_id` must be present
-
-### `application_distribution_snapshots`
-
-Purpose: frozen audit records of how an application was distributed.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `application_id` | `uuid` | no | FK to `applications.id` |
-| `snapshot_type` | `varchar` | no | Check: `package`, `package_component`, `direct_item` |
-| `package_id` | `int` | yes | FK to `food_packages.id` |
-| `package_name` | `varchar` | yes | Snapshot field |
-| `package_category` | `varchar` | yes | Snapshot field |
-| `inventory_item_id` | `int` | yes | FK to `inventory_items.id` |
-| `inventory_item_name` | `varchar` | yes | Snapshot field |
-| `inventory_item_category` | `varchar` | yes | Snapshot field |
-| `inventory_item_unit` | `varchar` | yes | Snapshot field |
-| `requested_quantity` | `int` | no | Positive |
-| `quantity_per_package` | `int` | yes | Recipe quantity |
-| `distributed_quantity` | `int` | no | Non-negative |
-| `recipe_unit_total` | `int` | yes | Expanded recipe total |
-| `created_at` | `timestamptz` | no | Default `now()` |
-
-### `donations_cash`
-
-Purpose: monetary donations and their payment state.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `uuid` | no | PK, default `gen_random_uuid()` |
-| `donor_email` | `varchar` | no | Indexed |
-| `amount_pence` | `int` | no | Stored in pence |
-| `payment_reference` | `varchar` | yes | Payment processor reference |
-| `status` | `varchar` | no | Check: `completed`, `failed`, `refunded` |
-| `created_at` | `timestamp` | no | Default `now()` |
-| `updated_at` | `timestamptz` | yes | Added later by migration |
-| `deleted_at` | `timestamptz` | yes | Soft delete |
-| `donor_name` | `varchar` | yes | Added later by migration |
-| `donor_type` | `varchar` | yes | Added later by migration |
-| `food_bank_id` | `int` | yes | FK to `food_banks.id` |
-
-### `donations_goods`
-
-Purpose: goods donation headers and donor/contact metadata.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `uuid` | no | PK, default `gen_random_uuid()` |
-| `donor_user_id` | `uuid` | yes | FK to `users.id` |
-| `donor_name` | `varchar` | no | Donor name |
-| `donor_email` | `varchar` | no | Indexed |
-| `donor_phone` | `varchar` | no | Check: 11 digits |
-| `notes` | `text` | yes | Optional notes |
-| `status` | `varchar` | no | Check: `pending`, `received`, `rejected` |
-| `created_at` | `timestamp` | no | Default `now()` |
-| `updated_at` | `timestamptz` | yes | Added later by migration |
-| `deleted_at` | `timestamptz` | yes | Soft delete |
-| `food_bank_id` | `int` | yes | FK to `food_banks.id` |
-| `postcode` | `varchar` | yes | Donor postcode |
-| `pickup_date` | `varchar` | yes | Check: `DD/MM/YYYY` format |
-| `item_condition` | `varchar` | yes | Condition label |
-| `estimated_quantity` | `varchar` | yes | Free-form quantity |
-| `food_bank_name` | `varchar` | yes | Snapshot field |
-| `food_bank_address` | `text` | yes | Snapshot field |
-| `donor_type` | `varchar` | yes | Added later by migration |
-
-### `donation_goods_items`
-
-Purpose: free-form line items within a goods donation.
-
-| Column | Type | Null | Notes |
-| --- | --- | --- | --- |
-| `id` | `int` | no | PK |
-| `donation_id` | `uuid` | no | FK to `donations_goods.id` |
-| `item_name` | `varchar` | no | Free-form item name |
-| `quantity` | `int` | no | Quantity |
-| `expiry_date` | `date` | yes | Optional expiry |
-
-## Key Indexes And Constraints
-
-- `users.email` is unique.
-- `applications.redemption_code` is unique.
-- `food_bank_hours(food_bank_id, day_of_week)` is unique.
-- `password_reset_tokens.token_hash` is unique.
-- Soft-delete partial indexes exist on `applications`, `food_packages`,
-  `inventory_items`, `food_bank_hours`, `restock_requests`, `donations_cash`,
-  and `donations_goods`.
-- `applications` has weekly access indexes on `(user_id, week_start)`.
-- `inventory_lots` has an active-lot index on
-  `(inventory_item_id, expiry_date, received_date)` with `deleted_at IS NULL`.
-
-## Operational Notes
-
-- Package stock still exists as `food_packages.stock`, but real item-level stock is
-  lot-based in `inventory_lots`.
-- `application_distribution_snapshots` acts as an audit table, preserving what was
-  actually distributed even if package recipes later change.
-- `food_bank_hours` is designed for temporal history through `valid_from` and
-  `valid_to`, but the current ORM model does not include those columns.
-
-## Schema Drift To Fix
-
-The live database, ORM models, and migration history are not perfectly aligned.
-
-1. `password_reset_tokens` exists in the live database, but there is no current
-   SQLAlchemy model or Alembic migration for it in this repository search.
-2. Several live columns are missing from the current ORM models, including:
-   `food_bank_hours.valid_from`, `food_bank_hours.valid_to`,
-   `food_packages.updated_at`, `food_packages.deleted_at`,
-   `inventory_items.created_at`, `inventory_items.deleted_at`,
-   `restock_requests.updated_at`, `restock_requests.deleted_at`,
-   `donations_cash.updated_at`, `donations_cash.deleted_at`,
-   `donations_goods.updated_at`, and `donations_goods.deleted_at`.
-3. The application still calls `Base.metadata.create_all()` on startup, which means
-   a fresh database created from models alone can drift from the schema produced by
-   migrations and from the schema already running locally.
-
-## Recommended Next Cleanup
-
-1. Decide whether `password_reset_tokens` is active design or legacy residue.
-2. Bring `backend/app/models` in line with the live schema, or remove the drift by
-   adding a corrective Alembic migration.
-3. Stop relying on `create_all()` for schema shape in non-test environments once
-   migrations are the single authoritative path.
+For current behavior, prefer the backend code and live OpenAPI output.
