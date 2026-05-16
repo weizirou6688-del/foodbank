@@ -34,10 +34,11 @@ yarn-error.log*
 backend/*.log
 frontend/*.log
 frontend/.artifacts/
+frontend/test-results/
+frontend/playwright-report/
 uvicorn*.log
 
 # Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.qwen/
