@@ -9,7 +9,8 @@ services:
     plan: free
     region: frankfurt            # closest free region to UK
     buildCommand: pip install -r requirements.txt
-    startCommand: bash start.sh
+    # Inline (avoids any CRLF issue with a checked-in .sh). rootDir is backend.
+    startCommand: alembic upgrade head && (python scripts/seed_demo_data.py --quiet || true) && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /docs
     envVars:
       - key: PYTHON_VERSION
