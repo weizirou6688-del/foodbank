@@ -1,0 +1,24 @@
+# Render Blueprint — deploys the FastAPI backend as a free web service.
+# DB is external (Neon free Postgres). Set DATABASE_URL + CORS_ORIGINS by hand
+# in the Render dashboard after the service is created (sync:false below).
+services:
+  - type: web
+    name: foodbank-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    region: frankfurt            # closest free region to UK
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    healthCheckPath: /docs
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: DB_SSL
+        value: require
+      - key: SECRET_KEY
+        generateValue: true       # Render generates a secure value
+      - key: DATABASE_URL
+        sync: false               # paste Neon async URL: postgresql+asyncpg://USER:PASS@HOST/DB
+      - key: CORS_ORIGINS
+        sync: false               # paste the Vercel URL once known, e.g. https://foodbank-ava.vercel.app

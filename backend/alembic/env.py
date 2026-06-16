@@ -59,6 +59,12 @@ def configure_online_context(connection) -> None:
 
 # Set the SQLAlchemy URL from settings (converted to sync)
 sync_database_url = to_sync_sqlalchemy_url(settings.database_url)
+# Cloud Postgres needs TLS for the sync (psycopg2) driver too. Gated on DB_SSL
+# so local dev is unaffected. psycopg2 reads sslmode from the URL query.
+import os  # noqa: E402
+if os.getenv("DB_SSL", "").strip().lower() in {"require", "true", "1", "on", "yes"} \
+        and "sslmode=" not in sync_database_url:
+    sync_database_url += ("&" if "?" in sync_database_url else "?") + "sslmode=require"
 config.set_main_option("sqlalchemy.url", sync_database_url)
 
 # Model's MetaData object for 'autogenerate' support

@@ -1,5 +1,6 @@
 """共享的异步 engine 和 session 生命周期,供请求和后台任务使用。"""
 
+import os
 from typing import AsyncGenerator
 
 from sqlalchemy import text
@@ -9,11 +10,18 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
 
+# Cloud Postgres (Neon / Supabase / Render external) requires TLS. asyncpg takes
+# SSL via connect_args, not the URL. Gated on DB_SSL so local dev is unaffected.
+_connect_args: dict = {}
+if os.getenv("DB_SSL", "").strip().lower() in {"require", "true", "1", "on", "yes"}:
+    _connect_args["ssl"] = True
+
 engine: AsyncEngine = create_async_engine(
     settings.database_url,
     echo=settings.debug,
     future=True,
     pool_pre_ping=True,
+    connect_args=_connect_args,
 )
 
 AsyncSessionLocal = sessionmaker(
