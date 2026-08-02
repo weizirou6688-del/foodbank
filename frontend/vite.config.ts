@@ -61,8 +61,10 @@ export default defineConfig(({ mode }) => {
     "VITE_API_PROXY_TARGET",
     `http://${devHost}:${backendPort}`,
   );
+  const base = getConfigValue("VITE_BASE_PATH", "/");
 
   return {
+    base,
     plugins: [react()],
     build: {
       modulePreload: false,
