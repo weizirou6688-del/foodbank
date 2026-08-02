@@ -203,6 +203,8 @@ Default addresses:
 ```bash
 cd frontend
 npm install
+cp .env.example .env.local
+# Edit .env.local if backend is not on localhost:8000
 npm run dev
 ```
 
@@ -242,6 +244,66 @@ thank-you / notification emails are skipped gracefully.
 `dev.env` holds local-orchestration defaults only (ports, hosts, `SEED_DEMO_DATA`, the
 Vite proxy target) — no secrets. The backend reads `dev.env` first and then `backend/.env`,
 so `backend/.env` overrides any shared default.
+
+### `frontend/.env.local`
+
+Create from `frontend/.env.example` when running locally.
+
+- `VITE_API_URL` — public base URL of the backend API (for production builds)
+
+## Deployment (production)
+
+You can deploy frontend, backend, and PostgreSQL separately on common platforms
+(for example: Vercel + Render/Railway/Fly + Neon/Supabase/Render Postgres) without code changes.
+
+### 1) Deploy PostgreSQL
+
+- Create a managed PostgreSQL database.
+- Keep the connection string for backend `DATABASE_URL`.
+- Ensure `pgcrypto` is available (migration `20260326_0012_enable_extensions` enables it).
+
+### 2) Deploy backend (`backend/`)
+
+Set environment variables:
+
+- `DATABASE_URL`
+- `SECRET_KEY` (strong random value)
+- `CORS_ORIGINS` (comma-separated or JSON list of frontend origins)
+- Optional: `SMTP_*`, `PLATFORM_OPERATIONS_EMAIL`, `OPERATIONS_NOTIFICATION_EMAIL`
+
+Start command:
+
+```bash
+alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+```
+
+Container option:
+
+- `backend/Dockerfile` is ready for Docker-based deployments (Render/Railway/Fly/etc).
+
+### 3) Deploy frontend (`frontend/`)
+
+Set build environment variable:
+
+- `VITE_API_URL=https://<your-backend-domain>`
+
+Build/start commands:
+
+```bash
+npm ci
+npm run build
+npm run preview -- --host 0.0.0.0 --port ${PORT:-4173}
+```
+
+Container option:
+
+- `frontend/Dockerfile` serves the built app with Nginx and includes SPA route fallback.
+
+### 4) Wire domains
+
+- Add your frontend URL(s) to backend `CORS_ORIGINS`.
+- Confirm backend health at `https://<backend-domain>/health`.
+- Open the frontend URL and verify login/API flows.
 
 ## Demo Data
 

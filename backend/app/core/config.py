@@ -2,15 +2,17 @@
 
 import os
 from pathlib import Path
-from typing import List
+import json
+from typing import Any, List
 
 from dotenv import load_dotenv
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = BACKEND_ROOT.parent
 DEV_ENV_PATH = PROJECT_ROOT / "dev.env"
-BACKEND_ENV_PATH = PROJECT_ROOT / "backend" / ".env"
+BACKEND_ENV_PATH = BACKEND_ROOT / ".env"
 
 # 仓库级别的文件提供共用默认值,后端目录里的文件可以覆盖
 load_dotenv(DEV_ENV_PATH, override=False)
@@ -96,10 +98,28 @@ class Settings(BaseSettings):
         description="Polling interval in seconds for the application expiry background task",
     )
 
-    cors_origins: List[str] = Field(
+    cors_origins: List[str] | str = Field(
         default_factory=_build_default_cors_origins,
         description="Allowed CORS origins (comma-separated or JSON list)",
     )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return []
+            if raw.startswith("["):
+                try:
+                    parsed = json.loads(raw)
+                except json.JSONDecodeError as exc:
+                    raise ValueError("CORS_ORIGINS JSON value is invalid") from exc
+                if isinstance(parsed, list):
+                    return parsed
+                raise ValueError("CORS_ORIGINS JSON value must be a list")
+            return [origin.strip() for origin in raw.split(",") if origin.strip()]
+        return value
 
     app_name: str = Field(
         default="ABC Community Food Bank API",
