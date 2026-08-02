@@ -260,70 +260,73 @@ function WorkspaceRoot() {
     </Suspense>
   );
 }
-export const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <RouterRoot />,
-    errorElement: <RouteErrorPage />,
-    children: [
-      // 保留旧版管理员路由,但将其引导回共享工作区入口,确保基于角色的导航保持一致
-      { index: true, element: <Navigate to="/home" replace /> },
-      {
-        path: "workspace",
-        element: withSuspense(
-          <ProtectedRoute
-            allowedRole={["admin", "supermarket"]}
-            showFooterWhenBlocked
-          >
-            <WorkspaceRoot />
-          </ProtectedRoute>,
-        ),
-      },
-      {
-        path: "admin-statistics",
-        element: withSuspense(
-          <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
-            <Navigate to="/workspace?section=statistics" replace />
-          </ProtectedRoute>,
-        ),
-      },
-      { path: "home", element: withSuspense(<Home />) },
-      { path: "find-foodbank", element: withSuspense(<FindFoodBank />) },
-      {
-        path: "food-packages",
-        element: withSuspense(
-          <ProtectedRoute>
-            <FoodPackages />
-          </ProtectedRoute>,
-        ),
-      },
-      { path: "donate/cash", element: withSuspense(<DonateCash />) },
-      { path: "donate/goods", element: withSuspense(<DonateGoods />) },
-      {
-        path: "admin-food-management",
-        element: withSuspense(
-          <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
-            <Navigate to="/workspace?section=food" replace />
-          </ProtectedRoute>,
-        ),
-      },
-      {
-        path: "supermarket",
-        element: withSuspense(
-          <ProtectedRoute allowedRole="supermarket" showFooterWhenBlocked>
-            <Navigate to="/workspace?section=restock" replace />
-          </ProtectedRoute>,
-        ),
-      },
-      {
-        path: "admin",
-        element: withSuspense(
-          <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
-            <Navigate to="/workspace?section=food" replace />
-          </ProtectedRoute>,
-        ),
-      },
-      { path: "*", element: <Navigate to="/home" replace /> },
-    ],
-  },
-]);
+export const router = createBrowserRouter(
+  [
+    {
+      path: "/",
+      element: <RouterRoot />,
+      errorElement: <RouteErrorPage />,
+      children: [
+        // 保留旧版管理员路由,但将其引导回共享工作区入口,确保基于角色的导航保持一致
+        { index: true, element: <Navigate to="/home" replace /> },
+        {
+          path: "workspace",
+          element: withSuspense(
+            <ProtectedRoute
+              allowedRole={["admin", "supermarket"]}
+              showFooterWhenBlocked
+            >
+              <WorkspaceRoot />
+            </ProtectedRoute>,
+          ),
+        },
+        {
+          path: "admin-statistics",
+          element: withSuspense(
+            <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
+              <Navigate to="/workspace?section=statistics" replace />
+            </ProtectedRoute>,
+          ),
+        },
+        { path: "home", element: withSuspense(<Home />) },
+        { path: "find-foodbank", element: withSuspense(<FindFoodBank />) },
+        {
+          path: "food-packages",
+          element: withSuspense(
+            <ProtectedRoute>
+              <FoodPackages />
+            </ProtectedRoute>,
+          ),
+        },
+        { path: "donate/cash", element: withSuspense(<DonateCash />) },
+        { path: "donate/goods", element: withSuspense(<DonateGoods />) },
+        {
+          path: "admin-food-management",
+          element: withSuspense(
+            <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
+              <Navigate to="/workspace?section=food" replace />
+            </ProtectedRoute>,
+          ),
+        },
+        {
+          path: "supermarket",
+          element: withSuspense(
+            <ProtectedRoute allowedRole="supermarket" showFooterWhenBlocked>
+              <Navigate to="/workspace?section=restock" replace />
+            </ProtectedRoute>,
+          ),
+        },
+        {
+          path: "admin",
+          element: withSuspense(
+            <ProtectedRoute allowedRole="admin" showFooterWhenBlocked>
+              <Navigate to="/workspace?section=food" replace />
+            </ProtectedRoute>,
+          ),
+        },
+        { path: "*", element: <Navigate to="/home" replace /> },
+      ],
+    },
+  ],
+  { basename: import.meta.env.BASE_URL },
+);
